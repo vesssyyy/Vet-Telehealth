@@ -84,7 +84,7 @@ import { doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/fi
         try {
             const { user } = await createUserWithEmailAndPassword(auth, email, pass);
             await sendEmailVerification(user, {
-                url: `${window.location.origin}/mockup.html?verified=true`,
+                url: `${window.location.origin}/auth.html?verified=true`,
                 handleCodeInApp: false
             });
             await setDoc(doc(db, 'users', user.uid), {
