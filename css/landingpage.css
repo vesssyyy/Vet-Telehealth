@@ -1,0 +1,243 @@
+body {
+  background: radial-gradient(125% 125% at 50% 10%, #E3E3E3 20%, #1B3C53 100%);
+}
+
+h1 {
+    font-family: Lalezar;
+    text-align: center;
+    color: #E3E3E3;
+    font-size: 50px;
+    text-transform: uppercase;
+    text-shadow: #456882 2px 3px 30px;
+    padding-top: 15px;
+    margin-top: -10px;
+    margin-left: -10px;
+    margin-right: -10px;
+}
+
+hr.solid {
+  border: 2px solid #E3E3E3;
+  margin-top: -30px;
+}
+
+#navbar {
+  background-color: #1B3C53;
+  position: sticky;
+  top: 0;
+  margin-top: -10px;
+  margin-left: -10px;
+  margin-right: -10px;
+}
+
+#navbara {
+  display: flex;
+  justify-content: center;
+  gap: 260px;
+  align-items: center;
+  padding: 10px 15px;
+} 
+
+.button-style {
+  text-decoration: none;
+}
+
+#dashboard:hover, #messages:hover, #home:hover, #appointment:hover, #menu:hover  {
+  color: #E3E3E3;
+  font-size: 35px;
+  animation: jello-vertical 0.7s;
+}
+
+@keyframes jello-vertical {
+  0% {
+    transform: scale3d(1, 1, 1);
+  }
+  30% {
+    transform: scale3d(0.75, 1.25, 1);
+  }
+  40% {
+    transform: scale3d(1.25, 0.75, 1);
+  }
+  50% {
+    transform: scale3d(0.85, 1.15, 1);
+  }
+  65% {
+    transform: scale3d(1.05, 0.95, 1);
+  }
+  75% {
+    transform: scale3d(0.95, 1.05, 1);
+  }
+  100% {
+    transform: scale3d(1, 1, 1);
+  }
+}
+
+#dashboard {
+  background-color: transparent;
+  border: none;
+  color: #E3E3E3;
+  font-size: 25px;
+  cursor: pointer;
+    transition:
+    font-size 0.1s ease,
+    color 0.1s ease,
+    transform 0.1s ease;
+}
+
+#messages {
+  background-color: transparent;
+  border: none;
+  color: #E3E3E3;
+  font-size: 25px;
+  cursor: pointer;
+    transition:
+    font-size 0.1s ease,
+    color 0.1s ease,
+    transform 0.1s ease;
+}
+
+#home {
+  background-color: transparent;
+  border: none;
+  color: #E3E3E3;
+  font-size: 25px;
+  cursor: pointer;
+    transition:
+    font-size 0.1s ease,
+    color 0.1s ease,
+    transform 0.1s ease;
+}
+
+#appointment {
+  background-color: transparent;
+  border: none;
+  color: #E3E3E3;
+  font-size: 25px;
+  cursor: pointer;
+    transition:
+    font-size 0.1s ease,
+    color 0.1s ease,
+    transform 0.1s ease;
+}
+
+#menu {
+  background-color: transparent;
+  border: none;
+  color: #E3E3E3;
+  font-size: 25px;
+  cursor: pointer;
+    transition:
+    font-size 0.1s ease,
+    color 0.1s ease,
+    transform 0.1s ease;
+}
+
+.main {
+  padding: auto;
+}
+
+h2 {
+    color: #1B3C53;
+    font-family: Jaro;
+    font-size: 40px;
+    padding: 5px;
+    margin-left: 10%;
+    margin-top: 2%;
+}
+
+table {
+    justify-content: center;
+    display: flex;
+    border-spacing: 90px;
+}
+
+.card {
+  position: relative;
+  width: 600px;
+  height: 350px;
+  background-color: #E3E3E3;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  perspective: 1000px;
+  box-shadow: 0 0 0 5px #234C6A;
+  transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.card:hover {
+  transform: scale(1.05);
+  box-shadow: 0 8px 16px #234C6A;
+}
+
+.card__img {
+  width: 635px;
+  border-radius: 10px;
+  transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.card__content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  padding: 20px;
+  box-sizing: border-box;
+  background-color: #E3E3E3;
+  transform: rotateX(-90deg);
+  transform-origin: bottom;
+  transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.card:hover .card__content {
+  transform: rotateX(0deg);
+}
+
+.card__title {
+  margin: 0;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 24px;
+  color: #1B3C53;
+  font-weight: 900;
+}
+
+
+.card__description {
+  margin: 10px 0 0;
+  font-size: 14px;
+  color: #1B3C53;
+  line-height: 1.4;
+}
+
+.buttons {
+  height: 90px;
+  width: 270px;
+  align-items: center;
+  place-content: center;
+  font-family: gasoek one;
+  font-size: 23px;
+  background-color: #1B3C53;
+  box-shadow:
+    inset 0 1px 0 0 #234C6A,
+    inset 0 1px 0 0 #234C6A;
+  color: #E3E3E3;
+  text-transform: uppercase;
+  padding: 0.75rem 1rem;
+  display: flex;
+  gap: 0.5rem;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  border-radius: 100px;
+  border: none;
+  transition: all 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.buttons:hover {
+  box-shadow:
+    inset 0 1px 0 0 #E3E3E3,
+    inset 0 0 0 1px #E3E3E3;
+  color: #1B3C53;
+  transform: translate(0, -0.25rem);
+  background-color: #E3E3E3;
+}
