@@ -12,7 +12,7 @@ import {
     sendPasswordResetEmail,
     onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
-import { doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
+import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
 
 (function () {
     'use strict';
@@ -63,6 +63,24 @@ import { doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/fi
             .forEach(id => $(id).value = '');
     }
 
+    /**
+     * Syncs emailVerified status from Firebase Auth to Firestore
+     * @param {string} uid - User ID
+     */
+    async function syncEmailVerificationToFirestore(uid) {
+        const userDocRef = doc(db, 'users', uid);
+        const userDoc = await getDoc(userDocRef);
+        
+        if (userDoc.exists() && !userDoc.data().emailVerified) {
+            await updateDoc(userDocRef, {
+                emailVerified: true,
+                verifiedAt: serverTimestamp()
+            });
+            return true;
+        }
+        return false;
+    }
+
     // Validate and create account
     async function createAccount() {
         const fname = $('signup_fname').value.trim();
@@ -84,7 +102,7 @@ import { doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/fi
         try {
             const { user } = await createUserWithEmailAndPassword(auth, email, pass);
             await sendEmailVerification(user, {
-                url: `${window.location.origin}/auth.html?verified=true`,
+                url: `${window.location.origin}${window.location.pathname}?verified=true`,
                 handleCodeInApp: false
             });
             await setDoc(doc(db, 'users', user.uid), {
@@ -180,8 +198,14 @@ import { doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/fi
                 return;
             }
 
-            const userDoc = await getDoc(doc(db, 'users', user.uid));
+            const userDocRef = doc(db, 'users', user.uid);
+            const userDoc = await getDoc(userDocRef);
             if (!userDoc.exists()) return alert('User profile not found. Contact support.');
+
+            // Sync emailVerified status from Firebase Auth to Firestore (fallback for login)
+            if (user.emailVerified && !userDoc.data().emailVerified) {
+                await syncEmailVerificationToFirestore(user.uid);
+            }
 
             const { role, displayName } = userDoc.data();
             if (role === 'vet') {
@@ -250,6 +274,26 @@ import { doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/fi
         $('btn-back-to-login')?.addEventListener('click', showLoginForm);
         $('btn-send-reset')?.addEventListener('click', handlePasswordReset);
     }
+
+    // Handle email verification redirect - update Firestore immediately when user clicks verification link
+    onAuthStateChanged(auth, async (user) => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const isVerificationRedirect = urlParams.get('verified') === 'true';
+        
+        if (isVerificationRedirect && user) {
+            // Reload user to get latest emailVerified status from Firebase
+            await user.reload();
+            const refreshedUser = auth.currentUser;
+            
+            if (refreshedUser.emailVerified) {
+                const synced = await syncEmailVerificationToFirestore(refreshedUser.uid);
+                if (synced) {
+                    alert('Email verified successfully! You can now log in.');
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }
+            }
+        }
+    });
 
     // Initialize
     if (document.readyState === 'loading') {
