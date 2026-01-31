@@ -1,35 +1,27 @@
-/* ===== Televet Health — Auth (Login / Sign up) ===== */
-/* Minimalist, responsive design — color palette preserved */
+/* Televet Health Auth — Minimal & Clean */
 
 :root {
     --primary: #1B3C53;
     --primary-light: #2d5a78;
     --accent: #456882;
-    --accent-soft: #5A8BA8;
     --surface: #E3E3E3;
     --surface-light: #F5F5F5;
     --text: #1B3C53;
     --text-muted: #5a7a8f;
-    --white: #ffffff;
+    --white: #fff;
     --shadow: rgba(27, 60, 83, 0.12);
     --radius: 12px;
     --radius-sm: 8px;
 }
 
-*, *::before, *::after {
-    box-sizing: border-box;
-}
+*, *::before, *::after { box-sizing: border-box; }
 
-html {
-    font-size: 16px;
-    -webkit-font-smoothing: antialiased;
-}
+html { font-size: 16px; -webkit-font-smoothing: antialiased; }
 
 body {
     margin: 0;
-    padding: 0;
     min-height: 100vh;
-    font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+    font-family: 'DM Sans', system-ui, sans-serif;
     color: var(--text);
     background: var(--surface);
 }
@@ -46,7 +38,7 @@ body {
 .background-pattern {
     position: fixed;
     inset: 0;
-    background: linear-gradient(135deg, var(--surface) 0%, var(--surface-light) 50%, var(--surface) 100%);
+    background: linear-gradient(135deg, var(--surface), var(--surface-light) 50%, var(--surface));
     z-index: 0;
 }
 
@@ -54,12 +46,13 @@ body {
     content: '';
     position: absolute;
     inset: 0;
-    background: radial-gradient(circle at 20% 80%, rgba(69, 104, 130, 0.06) 0%, transparent 50%),
-                radial-gradient(circle at 80% 20%, rgba(27, 60, 83, 0.04) 0%, transparent 40%);
+    background: radial-gradient(circle at 20% 80%, rgba(69, 104, 130, 0.06), transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(27, 60, 83, 0.04), transparent 40%);
     pointer-events: none;
 }
 
-/* ----- Auth card ----- */
+
+/* Auth Container */
 .auth-container {
     position: relative;
     z-index: 1;
@@ -81,7 +74,7 @@ body {
     font-size: clamp(1.75rem, 5vw, 2rem);
     font-weight: 400;
     color: var(--primary);
-    margin: 0 0 0.25rem 0;
+    margin: 0 0 0.25rem;
     letter-spacing: 0.02em;
 }
 
@@ -92,7 +85,7 @@ body {
     font-weight: 500;
 }
 
-/* ----- Tabs ----- */
+/* Tabs */
 .tabs {
     display: flex;
     gap: 0.25rem;
@@ -116,9 +109,7 @@ body {
     transition: color 0.2s, background 0.2s;
 }
 
-.tab:hover {
-    color: var(--text);
-}
+.tab:hover { color: var(--text); }
 
 .tab.active {
     background: var(--white);
@@ -126,26 +117,17 @@ body {
     box-shadow: 0 1px 3px var(--shadow);
 }
 
-/* ----- Panels ----- */
-.panel {
-    display: none;
-}
-
-.panel.active {
-    display: block;
-    animation: fadeIn 0.25s ease;
-}
+/* Panels */
+.panel { display: none; }
+.panel.active { display: block; animation: fadeIn 0.25s ease; }
+.hidden { display: none !important; }
 
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(4px); }
     to { opacity: 1; transform: translateY(0); }
 }
 
-.hidden {
-    display: none !important;
-}
-
-/* ----- Forms ----- */
+/* Forms */
 .auth-form {
     display: flex;
     flex-direction: column;
@@ -164,9 +146,7 @@ body {
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.field input::placeholder {
-    color: var(--text-muted);
-}
+.field input::placeholder { color: var(--text-muted); }
 
 .field input:focus {
     outline: none;
@@ -180,7 +160,8 @@ body {
     gap: 0.75rem;
 }
 
-/* ----- Buttons ----- */
+
+/* Buttons */
 .btn-primary {
     width: 100%;
     padding: 0.875rem 1.25rem;
@@ -196,37 +177,9 @@ body {
     margin-top: 0.25rem;
 }
 
-.btn-primary:hover:not(:disabled) {
-    background: var(--primary-light);
-}
-
-.btn-primary:active:not(:disabled) {
-    transform: scale(0.99);
-}
-
-.btn-primary:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.btn-secondary {
-    width: 100%;
-    padding: 0.875rem 1.25rem;
-    border: 2px solid var(--primary);
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--primary);
-    font-family: inherit;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s, color 0.2s;
-}
-
-.btn-secondary:hover {
-    background: var(--primary);
-    color: var(--white);
-}
+.btn-primary:hover:not(:disabled) { background: var(--primary-light); }
+.btn-primary:active:not(:disabled) { transform: scale(0.99); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-google {
     display: flex;
@@ -251,9 +204,7 @@ body {
     background: var(--surface-light);
 }
 
-.icon-google {
-    flex-shrink: 0;
-}
+.icon-google { flex-shrink: 0; }
 
 .btn-link {
     background: none;
@@ -267,11 +218,9 @@ body {
     transition: color 0.2s;
 }
 
-.btn-link:hover {
-    color: var(--primary);
-}
+.btn-link:hover { color: var(--primary); }
 
-/* ----- Divider ----- */
+/* Divider */
 .divider {
     display: flex;
     align-items: center;
@@ -293,103 +242,42 @@ body {
     font-weight: 500;
 }
 
-/* ----- OTP inputs ----- */
+/* Step & Hints */
 .step {
     display: flex;
     flex-direction: column;
     gap: 1rem;
 }
 
-.otp-hint {
-    font-size: 0.875rem;
-    color: var(--text-muted);
-    margin: 0 0 0.25rem 0;
+.activate-hint, .forgot-hint {
     text-align: center;
+    margin: 0 0 0.5rem;
 }
 
-.otp-hint strong {
-    color: var(--text);
-    font-weight: 600;
-}
-
-/* ----- Activate email step ----- */
 .activate-hint {
     font-size: 1.125rem;
     font-weight: 600;
     color: var(--text);
-    margin: 0 0 0.5rem 0;
-    text-align: center;
 }
 
 .activate-sub {
     font-size: 0.875rem;
     color: var(--text-muted);
-    margin: 0 0 1rem 0;
     text-align: center;
+    margin: 0 0 1rem;
 }
 
-/* ----- Forgot password section ----- */
 .forgot-hint {
     font-size: 0.875rem;
     color: var(--text-muted);
-    margin: 0 0 1rem 0;
-    text-align: center;
     line-height: 1.5;
+    margin-bottom: 1rem;
 }
 
-.otp-inputs {
-    display: flex;
-    gap: 0.5rem;
-    justify-content: center;
-    margin: 0.5rem 0;
-}
-
-.otp-digit {
-    width: 2.75rem;
-    height: 2.75rem;
-    border: 1.5px solid #e0e6eb;
-    border-radius: var(--radius-sm);
-    text-align: center;
-    font-family: inherit;
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--text);
-    background: var(--white);
-    transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.otp-digit:focus {
-    outline: none;
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(69, 104, 130, 0.15);
-}
-
-.otp-digit.filled {
-    border-color: var(--accent);
-}
-
-/* ----- Responsive ----- */
+/* Responsive */
 @media (max-width: 480px) {
-    .auth-container {
-        padding: 1.5rem 1.25rem 2rem;
-    }
-
-    .tabs {
-        margin-bottom: 1.25rem;
-    }
-
-    .tab {
-        font-size: 0.875rem;
-        padding: 0.5rem 0.75rem;
-    }
-
-    .field-row {
-        grid-template-columns: 1fr;
-    }
-
-    .otp-digit {
-        width: 2.5rem;
-        height: 2.5rem;
-        font-size: 1.125rem;
-    }
+    .auth-container { padding: 1.5rem 1.25rem 2rem; }
+    .tabs { margin-bottom: 1.25rem; }
+    .tab { font-size: 0.875rem; padding: 0.5rem 0.75rem; }
+    .field-row { grid-template-columns: 1fr; }
 }

@@ -7,12 +7,11 @@
     <link rel="stylesheet" href="css/mockup.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Lalezar&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Lalezar&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="page-wrap">
         <div class="background-pattern"></div>
-
         <main class="auth-container">
             <header class="auth-header">
                 <h1 class="logo">Televet Health</h1>
@@ -20,13 +19,12 @@
             </header>
 
             <div class="tabs">
-                <button type="button" class="tab active" data-tab="login" id="tab-login">Log in</button>
-                <button type="button" class="tab" data-tab="signup" id="tab-signup">Sign up</button>
+                <button type="button" class="tab active" id="tab-login">Log in</button>
+                <button type="button" class="tab" id="tab-signup">Sign up</button>
             </div>
 
-            <!-- LOGIN -->
+            <!-- Login Panel -->
             <section class="panel active" id="panel-login">
-                <!-- Login Form -->
                 <form class="auth-form" id="form-login">
                     <button type="button" class="btn-google" id="btn-google-login">
                         <svg class="icon-google" viewBox="0 0 24 24" width="20" height="20">
@@ -37,11 +35,7 @@
                         </svg>
                         Continue with Google
                     </button>
-
-                    <div class="divider">
-                        <span>OR</span>
-                    </div>
-
+                    <div class="divider"><span>OR</span></div>
                     <div class="field">
                         <input type="email" id="login_email" placeholder="Email" required autocomplete="email">
                     </div>
@@ -52,9 +46,8 @@
                     <button type="button" class="btn-link" id="btn-forgot-password">Forgot password?</button>
                 </form>
 
-                <!-- Forgot Password Section -->
                 <div class="auth-form hidden" id="forgot-password-section">
-                    <p class="forgot-hint">Enter your email address and we'll send you a password reset link.</p>
+                    <p class="forgot-hint">Enter your email and we'll send you a password reset link.</p>
                     <div class="field">
                         <input type="email" id="forgot_email" placeholder="Email" autocomplete="email">
                     </div>
@@ -63,7 +56,7 @@
                 </div>
             </section>
 
-            <!-- SIGN UP -->
+            <!-- Signup Panel -->
             <section class="panel" id="panel-signup">
                 <form class="auth-form" id="form-signup">
                     <div class="step" id="signup-step-form">
@@ -76,11 +69,7 @@
                             </svg>
                             Continue with Google
                         </button>
-
-                        <div class="divider">
-                            <span>OR</span>
-                        </div>
-
+                        <div class="divider"><span>OR</span></div>
                         <div class="field-row">
                             <div class="field">
                                 <input type="text" id="signup_fname" placeholder="First name" autocomplete="given-name">
@@ -102,7 +91,7 @@
                     </div>
 
                     <div class="step hidden" id="signup-step-activate">
-                        <p class="activate-hint">Activate your email.</p>
+                        <p class="activate-hint">Activate your email</p>
                         <p class="activate-sub">Check your inbox for a verification link to complete sign up.</p>
                         <button type="button" class="btn-link" id="btn-back-email">← Use a different email</button>
                     </div>
@@ -110,7 +99,6 @@
             </section>
         </main>
     </div>
-
     <script type="module" src="js/mockup.js"></script>
 </body>
 </html>
