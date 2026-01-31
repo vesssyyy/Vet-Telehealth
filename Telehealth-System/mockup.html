@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Televet Health</title>
+    <link rel="stylesheet" href="css/mockup.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Lalezar&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="page-wrap">
+        <div class="background-pattern"></div>
+
+        <main class="auth-container">
+            <header class="auth-header">
+                <h1 class="logo">Televet Health</h1>
+                <p class="tagline">Veterinary care, from anywhere</p>
+            </header>
+
+            <div class="tabs">
+                <button type="button" class="tab active" data-tab="login" id="tab-login">Log in</button>
+                <button type="button" class="tab" data-tab="signup" id="tab-signup">Sign up</button>
+            </div>
+
+            <!-- LOGIN -->
+            <section class="panel active" id="panel-login">
+                <!-- Login Form -->
+                <form class="auth-form" id="form-login">
+                    <button type="button" class="btn-google" id="btn-google-login">
+                        <svg class="icon-google" viewBox="0 0 24 24" width="20" height="20">
+                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                        </svg>
+                        Continue with Google
+                    </button>
+
+                    <div class="divider">
+                        <span>OR</span>
+                    </div>
+
+                    <div class="field">
+                        <input type="email" id="login_email" placeholder="Email" required autocomplete="email">
+                    </div>
+                    <div class="field">
+                        <input type="password" id="login_pass" placeholder="Password" required autocomplete="current-password">
+                    </div>
+                    <button type="submit" class="btn-primary">Login</button>
+                    <button type="button" class="btn-link" id="btn-forgot-password">Forgot password?</button>
+                </form>
+
+                <!-- Forgot Password Section -->
+                <div class="auth-form hidden" id="forgot-password-section">
+                    <p class="forgot-hint">Enter your email address and we'll send you a password reset link.</p>
+                    <div class="field">
+                        <input type="email" id="forgot_email" placeholder="Email" autocomplete="email">
+                    </div>
+                    <button type="button" class="btn-primary" id="btn-send-reset">Send Reset Link</button>
+                    <button type="button" class="btn-link" id="btn-back-to-login">← Back to Login</button>
+                </div>
+            </section>
+
+            <!-- SIGN UP -->
+            <section class="panel" id="panel-signup">
+                <form class="auth-form" id="form-signup">
+                    <div class="step" id="signup-step-form">
+                        <button type="button" class="btn-google" id="btn-google-signup">
+                            <svg class="icon-google" viewBox="0 0 24 24" width="20" height="20">
+                                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                            </svg>
+                            Continue with Google
+                        </button>
+
+                        <div class="divider">
+                            <span>OR</span>
+                        </div>
+
+                        <div class="field-row">
+                            <div class="field">
+                                <input type="text" id="signup_fname" placeholder="First name" autocomplete="given-name">
+                            </div>
+                            <div class="field">
+                                <input type="text" id="signup_lname" placeholder="Last name" autocomplete="family-name">
+                            </div>
+                        </div>
+                        <div class="field">
+                            <input type="password" id="signup_pass" placeholder="Password" autocomplete="new-password">
+                        </div>
+                        <div class="field">
+                            <input type="password" id="signup_confirm" placeholder="Confirm Password" autocomplete="new-password">
+                        </div>
+                        <div class="field">
+                            <input type="email" id="signup_email" placeholder="Email" autocomplete="email">
+                        </div>
+                        <button type="button" class="btn-primary" id="btn-create-account">Create Account</button>
+                    </div>
+
+                    <div class="step hidden" id="signup-step-activate">
+                        <p class="activate-hint">Activate your email.</p>
+                        <p class="activate-sub">Check your inbox for a verification link to complete sign up.</p>
+                        <button type="button" class="btn-link" id="btn-back-email">← Use a different email</button>
+                    </div>
+                </form>
+            </section>
+        </main>
+    </div>
+
+    <script type="module" src="js/mockup.js"></script>
+</body>
+</html>

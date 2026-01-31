@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<head>
+    <meta charset = "UTF-8">
+    <meta name = "viewport" content = "width=device-width, initial-scale=1.0">
+    <title> Veterinary Telehealth </title>
+    <link rel = "stylesheet" href = "css/appointment.css">
+    <link rel = "stylesheet" href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link href = "https://fonts.googleapis.com/icon?family=Material+Icons" rel = "stylesheet">
+    <link href = 'https://fonts.googleapis.com/css?family=Lalezar' rel = 'stylesheet'>
+</head>
+
+<body>
+    <div class = "background"> </div>
+
+    <div id = "navbar">
+        <h1> Televet Health </h1>
+        <hr class = "solid">
+        <div id = "navbara"> 
+            <a href = "dashboard.html" class = "button-style"> 
+                <button id = "dashboard"> <i class = "fa fa-bar-chart"> </i> </button> </a>
+            <a href = "messages.html" class = "button-style"> 
+                <button id = "messages"> <i class = "fa fa-envelope"> </i> </button> </a>
+            <a href = "landingpage.html" class = "button-style"> 
+                <button id ="home"> <i class = "fa fa-paw"> </i> </button> </a>
+            <a href = "appointment.html" class = "button-style"> 
+                <button id = appointment> <i class = "fa fa-calendar"> </i> </button> </a> 
+            <a href = "menu.html" class = "button-style">
+                <button id = "menu"> <i class = "fa fa-bars"> </i> </button> </a>
+        </div>
+    </div>
+
+    <br>
+
+    <div id = "appoint">
+    <form class = "appointment-form">
+
+        <div class = "form-left">
+        <div class = "form-group">
+            <label for = "patient_name"> Patient </label>
+            <input type = "text" id = "patient_name">
+        </div>
+
+        <div class = "form-group">
+            <label for = "pet_name"> Pet Name </label>
+            <input type = "text" id = "pet_name">
+        </div>
+
+        <div class = "form-group">
+            <label for = "specie_type"> Specie </label>
+            <input type = "text" id = "specie_type">
+        </div>
+
+        <div class = "form-group">
+            <label for = "concern"> Concern </label>
+            <textarea id = "concern"> </textarea>
+        </div>
+        </div>
+
+        <div class = "form-right">
+        <div class = "form-group">
+            <label for = "schedule"> Schedule </label>
+            <input type = "date" id = "schedule">
+        </div>
+
+        <button id = "payment">
+            Payment <i class="fa fa-credit-card"> </i>
+        </button>
+        </div>
+
+    </form>
+    </div>
+
+        <!-- to edit ^^ need again js here; yung user should be kung ano input nila -->
+    
+</body>
+</html>
