@@ -1,8 +1,0 @@
-__pycache__/
-*.pyc
-.vscode/
-*.exe
-*.dll
-*.so
-.global-cache/
-.package-cache/
