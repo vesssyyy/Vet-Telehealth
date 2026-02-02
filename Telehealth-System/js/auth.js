@@ -43,11 +43,6 @@ import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "https://www.gst
         else resetSignupForm();
     }
 
-    function redirectToDashboard() {
-        sessionStorage.removeItem('telehealthLoggedOut');
-        window.location.replace('dashboard.html');
-    }
-
     // Login/Forgot Password toggle
     function showForgotPasswordForm() {
         DOM.formLogin.classList.add('hidden');
@@ -158,13 +153,13 @@ import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "https://www.gst
                     emailVerified: user.emailVerified,
                     photoURL: user.photoURL || null
                 });
-                redirectToDashboard();
+                window.location.href = 'dashboard.html';
             } else {
                 const { role, displayName } = userDoc.data();
                 if (role === 'vet') {
                     alert(`Welcome back, Dr. ${displayName}! (Vet dashboard coming soon)`);
                 } else {
-                    redirectToDashboard();
+                    window.location.href = 'dashboard.html';
                 }
             }
         } catch (error) {
@@ -216,7 +211,7 @@ import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "https://www.gst
             if (role === 'vet') {
                 alert(`Welcome back, Dr. ${displayName}! (Vet dashboard coming soon)`);
             } else {
-                redirectToDashboard();
+                window.location.href = 'dashboard.html';
             }
         } catch (error) {
             console.error('Login error:', error);
@@ -278,14 +273,6 @@ import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "https://www.gst
         $('btn-forgot-password')?.addEventListener('click', showForgotPasswordForm);
         $('btn-back-to-login')?.addEventListener('click', showLoginForm);
         $('btn-send-reset')?.addEventListener('click', handlePasswordReset);
-
-        // Handle URL hash navigation from index page
-        const hash = window.location.hash.substring(1); // Remove the '#' character
-        if (hash === 'signup') {
-            showTab('signup');
-        } else {
-            showTab('login'); // Default to login
-        }
     }
 
     // Handle email verification redirect - update Firestore immediately when user clicks verification link
@@ -303,13 +290,8 @@ import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "https://www.gst
                 if (synced) {
                     alert('Email verified successfully! You can now log in.');
                     window.history.replaceState({}, document.title, window.location.pathname);
-                    redirectToDashboard();
                 }
             }
-        }
-
-        if (user && !isVerificationRedirect) {
-            redirectToDashboard();
         }
     });
 
