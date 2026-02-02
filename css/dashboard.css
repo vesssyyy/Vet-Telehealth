@@ -1,0 +1,137 @@
+.background {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(125% 125% at 50% 10%, #E3E3E3 20%, #1B3C53 100%);
+  z-index: -10;
+}
+
+h1 {
+    font-family: Lalezar;
+    text-align: center;
+    color: #E3E3E3;
+    font-size: 50px;
+    text-transform: uppercase;
+    text-shadow: #456882 2px 3px 30px;
+    padding-top: 15px;
+    margin-top: -10px;
+    margin-left: -10px;
+    margin-right: -10px;
+}
+
+hr.solid {
+  border: 2px solid #E3E3E3;
+  margin-top: -30px;
+}
+
+#navbar {
+  background-color: #1B3C53;
+  position: sticky;
+  top: 0;
+  margin-top: -10px;
+  margin-left: -10px;
+  margin-right: -10px;
+}
+
+#navbara {
+  display: flex;
+  justify-content: center;
+  gap: 260px;
+  align-items: center;
+  padding: 10px 15px;
+} 
+
+.button-style {
+  text-decoration: none;
+}
+
+#dashboard:hover, #messages:hover, #home:hover, #appointment:hover, #menu:hover  {
+  color: #E3E3E3;
+  font-size: 35px;
+  animation: jello-vertical 0.7s;
+}
+
+@keyframes jello-vertical {
+  0% {
+    transform: scale3d(1, 1, 1);
+  }
+  30% {
+    transform: scale3d(0.75, 1.25, 1);
+  }
+  40% {
+    transform: scale3d(1.25, 0.75, 1);
+  }
+  50% {
+    transform: scale3d(0.85, 1.15, 1);
+  }
+  65% {
+    transform: scale3d(1.05, 0.95, 1);
+  }
+  75% {
+    transform: scale3d(0.95, 1.05, 1);
+  }
+  100% {
+    transform: scale3d(1, 1, 1);
+  }
+}
+
+#dashboard {
+  background-color: transparent;
+  border: none;
+  color: #E3E3E3;
+  font-size: 25px;
+  cursor: pointer;
+    transition:
+    font-size 0.1s ease,
+    color 0.1s ease,
+    transform 0.1s ease;
+}
+
+#messages {
+  background-color: transparent;
+  border: none;
+  color: #E3E3E3;
+  font-size: 25px;
+  cursor: pointer;
+    transition:
+    font-size 0.1s ease,
+    color 0.1s ease,
+    transform 0.1s ease;
+}
+
+#home {
+  background-color: transparent;
+  border: none;
+  color: #E3E3E3;
+  font-size: 25px;
+  cursor: pointer;
+    transition:
+    font-size 0.1s ease,
+    color 0.1s ease,
+    transform 0.1s ease;
+}
+
+#appointment {
+  background-color: transparent;
+  border: none;
+  color: #E3E3E3;
+  font-size: 25px;
+  cursor: pointer;
+    transition:
+    font-size 0.1s ease,
+    color 0.1s ease,
+    transform 0.1s ease;
+}
+
+#menu {
+  background-color: transparent;
+  border: none;
+  color: #E3E3E3;
+  font-size: 25px;
+  cursor: pointer;
+    transition:
+    font-size 0.1s ease,
+    color 0.1s ease,
+    transform 0.1s ease;
+}
