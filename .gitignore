@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+
+# IDE
+.vscode/
+.idea/
+
+# Compiled binaries
+*.exe
+*.dll
+*.so
+
+# Cache
+.global-cache/
+.package-cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment variables (if you add any later)
+.env
+.env.local
+
+# Node modules (if you add npm later)
+node_modules/
