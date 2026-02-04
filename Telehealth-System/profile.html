@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat - Televet Health</title>
+    <title>My Profile - Televet Health</title>
     
     <!-- Stylesheets -->
     <link rel="stylesheet" href="css/sidebar-layout.css">
-    <link rel="stylesheet" href="css/talktous.css">
+    <link rel="stylesheet" href="css/profile.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     <link href="https://fonts.googleapis.com/css?family=Lalezar" rel="stylesheet">
     
@@ -66,8 +66,15 @@
             <a href="skinDisease.html" class="nav-item">
                 <i class="fa fa-stethoscope"></i> Skin Health
             </a>
+        </nav>
+
+        <!-- Footer Navigation (About, Feedback) -->
+        <nav class="footer-nav">
             <a href="aboutUs.html" class="nav-item">
                 <i class="fa fa-info-circle"></i> About Us
+            </a>
+            <a href="feedback.html" class="nav-item">
+                <i class="fa fa-comment"></i> Feedback
             </a>
         </nav>
 
@@ -82,12 +89,36 @@
     <!-- Main Content -->
     <main class="main-content">
         <div class="page-header">
-            <h1 class="page-title">Chat with Veterinarian</h1>
-            <p class="page-subtitle">Direct messaging with your pet's healthcare provider</p>
+            <h1 class="page-title">My Profile</h1>
+            <p class="page-subtitle">Manage your account information and preferences</p>
         </div>
 
         <div class="content-wrapper">
-            <!-- Chat interface will go here -->
+            <section class="profile-card" aria-label="Profile details">
+                <div class="profile-avatar">
+                    <img id="profile-photo" class="profile-photo is-hidden" alt="Profile photo">
+                    <div id="profile-photo-placeholder" class="profile-photo-placeholder" aria-hidden="true"></div>
+                </div>
+                <div class="profile-details">
+                    <h2 id="profile-name">Pet Owner</h2>
+                    <p id="profile-email">owner@example.com</p>
+
+                    <div class="profile-meta">
+                        <div class="meta-item">
+                            <span class="meta-label">Account Type</span>
+                            <span id="profile-role" class="meta-value">Pet Owner</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Email Status</span>
+                            <span id="profile-verified" class="meta-value">Unverified</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Member Since</span>
+                            <span id="profile-created" class="meta-value">—</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </div>
     </main>
 

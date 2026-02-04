@@ -4,319 +4,284 @@
 
 import { auth, db } from './firebase-config.js';
 import {
-    createUserWithEmailAndPassword,
-    signInWithEmailAndPassword,
-    signInWithPopup,
-    GoogleAuthProvider,
-    sendEmailVerification,
-    sendPasswordResetEmail,
-    onAuthStateChanged
+    createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup,
+    GoogleAuthProvider, sendEmailVerification, sendPasswordResetEmail, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
 
 (function () {
     'use strict';
 
-    // DOM Elements
     const $ = id => document.getElementById(id);
-    const DOM = {
-        tabLogin: $('tab-login'),
-        tabSignup: $('tab-signup'),
-        panelLogin: $('panel-login'),
-        panelSignup: $('panel-signup'),
-        formLogin: $('form-login'),
-        formSignup: $('form-signup'),
-        signupStepForm: $('signup-step-form'),
-        signupStepActivate: $('signup-step-activate'),
-        forgotPasswordSection: $('forgot-password-section')
+    const AUTH_ERRORS = {
+        'auth/email-already-in-use': 'Email already registered. Please log in.',
+        'auth/invalid-email': 'Invalid email address.',
+        'auth/weak-password': 'Password too weak. Use at least 6 characters.',
+        'auth/invalid-credential': 'Invalid email or password.',
+        'auth/user-not-found': 'Invalid email or password.',
+        'auth/wrong-password': 'Invalid email or password.',
+        'auth/too-many-requests': 'Too many failed attempts. Try again later.',
+        'auth/popup-closed-by-user': 'Sign-in was cancelled.',
+        'auth/popup-blocked': 'Pop-up blocked. Please allow pop-ups.',
+        'auth/unauthorized-domain': 'Domain not authorized in Firebase Console.'
     };
 
+    const DOM = {
+        tabLogin: $('tab-login'), tabSignup: $('tab-signup'),
+        panelLogin: $('panel-login'), panelSignup: $('panel-signup'),
+        formLogin: $('form-login'), signupStepForm: $('signup-step-form'),
+        signupStepActivate: $('signup-step-activate'), forgotPasswordSection: $('forgot-password-section')
+    };
+
+    // Utility: Button state management
+    const withButtonState = async (btn, loadingText, callback) => {
+        const original = btn.innerHTML;
+        btn.disabled = true;
+        btn.textContent = loadingText;
+        try { return await callback(); }
+        finally { btn.disabled = false; btn.innerHTML = original; }
+    };
+
+    // Utility: Create user document
+    const createUserDoc = async (uid, { email, firstName, lastName, displayName, emailVerified, photoURL = null }) => {
+        await setDoc(doc(db, 'users', uid), {
+            email, firstName, lastName, displayName: displayName || `${firstName} ${lastName}`,
+            role: 'petOwner', createdAt: serverTimestamp(), emailVerified, photoURL
+        });
+    };
+
+    const PENDING_PROFILE_KEY = 'telehealthSignupProfile';
+    let isGoogleSignInInProgress = false; // Flag to prevent auth state observer from redirecting during Google sign-in
+
+    const storePendingProfile = (profile) => {
+        sessionStorage.setItem(PENDING_PROFILE_KEY, JSON.stringify(profile));
+    };
+
+    const readPendingProfile = () => {
+        const raw = sessionStorage.getItem(PENDING_PROFILE_KEY);
+        if (!raw) return null;
+        try {
+            return JSON.parse(raw);
+        } catch (error) {
+            console.warn('Pending profile parse error:', error);
+            return null;
+        }
+    };
+
+    const clearPendingProfile = () => {
+        sessionStorage.removeItem(PENDING_PROFILE_KEY);
+    };
+
+    // Utility: Sync email verification
+    const syncEmailVerification = async (uid) => {
+        const userDoc = await getDoc(doc(db, 'users', uid));
+        if (userDoc.exists() && !userDoc.data().emailVerified) {
+            await updateDoc(doc(db, 'users', uid), { emailVerified: true, verifiedAt: serverTimestamp() });
+            return true;
+        }
+        return false;
+    };
+
+    // Utility: Redirect to dashboard
+    const redirectToDashboard = () => {
+        sessionStorage.removeItem('telehealthLoggedOut');
+        window.location.replace('dashboard.html');
+    };
+
+    // Utility: Handle user after authentication
+    const handleAuthenticatedUser = async (user) => {
+        let userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (!userDoc.exists()) {
+            const pendingProfile = readPendingProfile();
+            const profile = pendingProfile && pendingProfile.email === user.email
+                ? pendingProfile
+                : {
+                    email: user.email,
+                    firstName: '',
+                    lastName: '',
+                    displayName: user.displayName || (user.email ? user.email.split('@')[0] : 'Pet Owner')
+                };
+
+            try {
+                await createUserDoc(user.uid, {
+                    email: profile.email,
+                    firstName: profile.firstName || '',
+                    lastName: profile.lastName || '',
+                    displayName: profile.displayName,
+                    emailVerified: user.emailVerified,
+                    photoURL: user.photoURL || null
+                });
+                clearPendingProfile();
+                userDoc = await getDoc(doc(db, 'users', user.uid));
+            } catch (error) {
+                console.error('User profile creation error:', error);
+                return alert('Profile creation failed. Please try again or contact support.');
+            }
+        }
+        
+        if (user.emailVerified && !userDoc.data().emailVerified) {
+            await syncEmailVerification(user.uid);
+        }
+
+        const { role, displayName } = userDoc.data();
+        role === 'vet' ? alert(`Welcome back, Dr. ${displayName}! (Vet dashboard coming soon)`) : redirectToDashboard();
+    };
 
     // Tab switching
-    function showTab(tab) {
+    const showTab = (tab) => {
         const isLogin = tab === 'login';
         DOM.tabLogin.classList.toggle('active', isLogin);
         DOM.tabSignup.classList.toggle('active', !isLogin);
         DOM.panelLogin.classList.toggle('active', isLogin);
         DOM.panelSignup.classList.toggle('active', !isLogin);
-        if (isLogin) showLoginForm();
-        else resetSignupForm();
-    }
+        isLogin ? (DOM.formLogin.classList.remove('hidden'), DOM.forgotPasswordSection.classList.add('hidden')) 
+                : (DOM.signupStepForm.classList.remove('hidden'), DOM.signupStepActivate?.classList.add('hidden'), 
+                   ['signup_fname', 'signup_lname', 'signup_pass', 'signup_confirm', 'signup_email'].forEach(id => $(id).value = ''));
+    };
 
-    function redirectToDashboard() {
-        sessionStorage.removeItem('telehealthLoggedOut');
-        window.location.replace('dashboard.html');
-    }
-
-    // Login/Forgot Password toggle
-    function showForgotPasswordForm() {
-        DOM.formLogin.classList.add('hidden');
-        DOM.forgotPasswordSection.classList.remove('hidden');
-        $('forgot_email').value = '';
-    }
-
-    function showLoginForm() {
-        DOM.formLogin.classList.remove('hidden');
-        DOM.forgotPasswordSection.classList.add('hidden');
-    }
-
-    // Signup form reset
-    function resetSignupForm() {
-        DOM.signupStepForm.classList.remove('hidden');
-        DOM.signupStepActivate?.classList.add('hidden');
-        ['signup_fname', 'signup_lname', 'signup_pass', 'signup_confirm', 'signup_email']
-            .forEach(id => $(id).value = '');
-    }
-
-    /**
-     * Syncs emailVerified status from Firebase Auth to Firestore
-     * @param {string} uid - User ID
-     */
-    async function syncEmailVerificationToFirestore(uid) {
-        const userDocRef = doc(db, 'users', uid);
-        const userDoc = await getDoc(userDocRef);
-        
-        if (userDoc.exists() && !userDoc.data().emailVerified) {
-            await updateDoc(userDocRef, {
-                emailVerified: true,
-                verifiedAt: serverTimestamp()
-            });
-            return true;
-        }
-        return false;
-    }
-
-    // Validate and create account
-    async function createAccount() {
-        const fname = $('signup_fname').value.trim();
-        const lname = $('signup_lname').value.trim();
-        const pass = $('signup_pass').value;
-        const confirm = $('signup_confirm').value;
-        const email = $('signup_email').value.trim();
+    // Create Account
+    const createAccount = async () => {
+        const [fname, lname, pass, confirm, email] = ['signup_fname', 'signup_lname', 'signup_pass', 'signup_confirm', 'signup_email']
+            .map(id => $(id).value.trim());
 
         if (!fname || !lname) return alert('Please enter your full name.');
-        if (!pass) return alert('Please enter a password.');
-        if (pass.length < 6) return alert('Password must be at least 6 characters.');
+        if (!pass || pass.length < 6) return alert('Password must be at least 6 characters.');
         if (pass !== confirm) return alert('Passwords do not match.');
         if (!email) return alert('Please enter your email.');
 
-        const btn = $('btn-create-account');
-        btn.disabled = true;
-        btn.textContent = 'Creating Account...';
-
-        try {
-            const { user } = await createUserWithEmailAndPassword(auth, email, pass);
-            await sendEmailVerification(user, {
-                url: `${window.location.origin}${window.location.pathname}?verified=true`,
-                handleCodeInApp: false
-            });
-            await setDoc(doc(db, 'users', user.uid), {
-                email, firstName: fname, lastName: lname,
-                displayName: `${fname} ${lname}`,
-                role: 'petOwner',
-                createdAt: serverTimestamp(),
-                emailVerified: false
-            });
-
-            DOM.signupStepForm.classList.add('hidden');
-            DOM.signupStepActivate.classList.remove('hidden');
-        } catch (error) {
-            console.error('Sign-up error:', error);
-            const messages = {
-                'auth/email-already-in-use': 'Email already registered. Please log in.',
-                'auth/invalid-email': 'Invalid email address.',
-                'auth/weak-password': 'Password too weak. Use at least 6 characters.'
-            };
-            alert(messages[error.code] || 'Sign-up failed. Please try again.');
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'Create Account';
-        }
-    }
-
+        await withButtonState($('btn-create-account'), 'Creating Account...', async () => {
+            sessionStorage.setItem('telehealthSignupPending', 'true');
+            storePendingProfile({ email, firstName: fname, lastName: lname, displayName: `${fname} ${lname}`.trim() });
+            try {
+                const { user } = await createUserWithEmailAndPassword(auth, email, pass);
+                await sendEmailVerification(user, { url: `${window.location.origin}${window.location.pathname}?verified=true` });
+                await createUserDoc(user.uid, { email, firstName: fname, lastName: lname, emailVerified: false });
+                DOM.signupStepForm.classList.add('hidden');
+                DOM.signupStepActivate.classList.remove('hidden');
+                clearPendingProfile();
+                await auth.signOut();
+            } catch (error) {
+                console.error('Sign-up error:', error);
+                alert(AUTH_ERRORS[error.code] || 'Sign-up failed. Please try again.');
+                if (auth.currentUser) {
+                    await auth.signOut();
+                }
+            } finally {
+                sessionStorage.removeItem('telehealthSignupPending');
+            }
+        });
+    };
 
     // Google Sign-In
-    async function handleGoogleSignIn(btn) {
-        btn.disabled = true;
-        const originalHTML = btn.innerHTML;
-        btn.textContent = 'Signing in...';
+    const handleGoogleSignIn = async (btn) => {
+        isGoogleSignInInProgress = true; // Prevent auth state observer from redirecting
+        await withButtonState(btn, 'Signing in...', async () => {
+            try {
+                const { user } = await signInWithPopup(auth, new GoogleAuthProvider());
+                const userDoc = await getDoc(doc(db, 'users', user.uid));
 
-        try {
-            const { user } = await signInWithPopup(auth, new GoogleAuthProvider());
-            const userDocRef = doc(db, 'users', user.uid);
-            const userDoc = await getDoc(userDocRef);
-
-            if (!userDoc.exists()) {
-                const [firstName = '', ...rest] = (user.displayName || '').split(' ');
-                await setDoc(userDocRef, {
-                    email: user.email,
-                    firstName,
-                    lastName: rest.join(' ') || '',
-                    displayName: user.displayName || user.email,
-                    role: 'petOwner',
-                    createdAt: serverTimestamp(),
-                    emailVerified: user.emailVerified,
-                    photoURL: user.photoURL || null
-                });
-                redirectToDashboard();
-            } else {
-                const { role, displayName } = userDoc.data();
-                if (role === 'vet') {
-                    alert(`Welcome back, Dr. ${displayName}! (Vet dashboard coming soon)`);
-                } else {
+                if (!userDoc.exists()) {
+                    const [firstName = '', ...rest] = (user.displayName || '').split(' ');
+                    await createUserDoc(user.uid, { 
+                        email: user.email, firstName, lastName: rest.join(' '), 
+                        displayName: user.displayName || user.email, emailVerified: user.emailVerified, photoURL: user.photoURL 
+                    });
+                    isGoogleSignInInProgress = false;
                     redirectToDashboard();
+                } else {
+                    isGoogleSignInInProgress = false;
+                    await handleAuthenticatedUser(user);
                 }
+            } catch (error) {
+                isGoogleSignInInProgress = false;
+                console.error('Google sign-in error:', error);
+                alert(AUTH_ERRORS[error.code] || `Google sign-in failed: ${error.message}`);
             }
-        } catch (error) {
-            console.error('Google sign-in error:', error);
-            const messages = {
-                'auth/popup-closed-by-user': 'Sign-in was cancelled.',
-                'auth/popup-blocked': 'Pop-up blocked. Please allow pop-ups.',
-                'auth/unauthorized-domain': 'Domain not authorized in Firebase Console.'
-            };
-            alert(messages[error.code] || `Google sign-in failed: ${error.message}`);
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = originalHTML;
-        }
-    }
+        });
+    };
 
-
-    // Handle Email/Password Login
-    async function handleLogin(e) {
+    // Email/Password Login
+    const handleLogin = async (e) => {
         e.preventDefault();
-        const email = $('login_email').value.trim();
-        const password = $('login_pass').value;
-
+        const [email, password] = ['login_email', 'login_pass'].map(id => $(id).value.trim());
         if (!email || !password) return alert('Please enter both email and password.');
 
-        const btn = e.target.querySelector('button[type="submit"]');
-        btn.disabled = true;
-        btn.textContent = 'Logging in...';
-
-        try {
-            const { user } = await signInWithEmailAndPassword(auth, email, password);
-
-            if (!user.emailVerified) {
-                alert('Please verify your email before logging in.');
-                await auth.signOut();
-                return;
+        await withButtonState(e.target.querySelector('button[type="submit"]'), 'Logging in...', async () => {
+            try {
+                const { user } = await signInWithEmailAndPassword(auth, email, password);
+                if (!user.emailVerified) {
+                    alert('Please verify your email before logging in.');
+                    return await auth.signOut();
+                }
+                await handleAuthenticatedUser(user);
+            } catch (error) {
+                console.error('Login error:', error);
+                alert(AUTH_ERRORS[error.code] || `Login failed: ${error.message}`);
             }
+        });
+    };
 
-            const userDocRef = doc(db, 'users', user.uid);
-            const userDoc = await getDoc(userDocRef);
-            if (!userDoc.exists()) return alert('User profile not found. Contact support.');
-
-            // Sync emailVerified status from Firebase Auth to Firestore (fallback for login)
-            if (user.emailVerified && !userDoc.data().emailVerified) {
-                await syncEmailVerificationToFirestore(user.uid);
-            }
-
-            const { role, displayName } = userDoc.data();
-            if (role === 'vet') {
-                alert(`Welcome back, Dr. ${displayName}! (Vet dashboard coming soon)`);
-            } else {
-                redirectToDashboard();
-            }
-        } catch (error) {
-            console.error('Login error:', error);
-            const messages = {
-                'auth/invalid-credential': 'Invalid email or password.',
-                'auth/user-not-found': 'Invalid email or password.',
-                'auth/wrong-password': 'Invalid email or password.',
-                'auth/invalid-email': 'Invalid email address.',
-                'auth/too-many-requests': 'Too many failed attempts. Try again later.'
-            };
-            alert(messages[error.code] || `Login failed: ${error.message}`);
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'Login';
-        }
-    }
-
-    // Handle Password Reset
-    async function handlePasswordReset() {
+    // Password Reset
+    const handlePasswordReset = async () => {
         const email = $('forgot_email').value.trim();
         if (!email) return alert('Please enter your email address.');
 
-        const btn = $('btn-send-reset');
-        btn.disabled = true;
-        const originalText = btn.textContent;
-        btn.textContent = 'Sending...';
+        await withButtonState($('btn-send-reset'), 'Sending...', async () => {
+            try {
+                await sendPasswordResetEmail(auth, email);
+                alert('If an account exists with this email, a reset link has been sent.');
+                showTab('login');
+            } catch (error) {
+                console.error('Password reset error:', error);
+                alert(AUTH_ERRORS[error.code] || 'If an account exists with this email, a reset link has been sent.');
+            }
+        });
+    };
 
-        try {
-            await sendPasswordResetEmail(auth, email);
-            alert('If an account exists with this email, a reset link has been sent.');
-            showLoginForm();
-        } catch (error) {
-            console.error('Password reset error:', error);
-            alert(error.code === 'auth/invalid-email' 
-                ? 'Invalid email address.' 
-                : 'If an account exists with this email, a reset link has been sent.');
-        } finally {
-            btn.disabled = false;
-            btn.textContent = originalText;
-        }
-    }
-
-    // Event Listeners
-    function init() {
-        if (!DOM.tabLogin || !DOM.tabSignup) return;
+    // Initialize
+    const init = () => {
+        if (!DOM.tabLogin) return;
 
         DOM.tabLogin.addEventListener('click', () => showTab('login'));
         DOM.tabSignup.addEventListener('click', () => showTab('signup'));
         DOM.formLogin?.addEventListener('submit', handleLogin);
-        DOM.formSignup?.addEventListener('submit', e => e.preventDefault());
-        
         $('btn-create-account')?.addEventListener('click', createAccount);
-        $('btn-back-email')?.addEventListener('click', () => {
-            DOM.signupStepActivate.classList.add('hidden');
-            DOM.signupStepForm.classList.remove('hidden');
-        });
+        $('btn-back-email')?.addEventListener('click', () => (DOM.signupStepActivate.classList.add('hidden'), DOM.signupStepForm.classList.remove('hidden')));
         $('btn-google-login')?.addEventListener('click', e => handleGoogleSignIn(e.target));
         $('btn-google-signup')?.addEventListener('click', e => handleGoogleSignIn(e.target));
-        $('btn-forgot-password')?.addEventListener('click', showForgotPasswordForm);
-        $('btn-back-to-login')?.addEventListener('click', showLoginForm);
+        $('btn-forgot-password')?.addEventListener('click', () => (DOM.formLogin.classList.add('hidden'), DOM.forgotPasswordSection.classList.remove('hidden'), $('forgot_email').value = ''));
+        $('btn-back-to-login')?.addEventListener('click', () => showTab('login'));
         $('btn-send-reset')?.addEventListener('click', handlePasswordReset);
 
-        // Handle URL hash navigation from index page
-        const hash = window.location.hash.substring(1); // Remove the '#' character
-        if (hash === 'signup') {
-            showTab('signup');
-        } else {
-            showTab('login'); // Default to login
-        }
-    }
+        showTab(window.location.hash === '#signup' ? 'signup' : 'login');
+    };
 
-    // Handle email verification redirect - update Firestore immediately when user clicks verification link
+    // Auth state observer
     onAuthStateChanged(auth, async (user) => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const isVerificationRedirect = urlParams.get('verified') === 'true';
+        const isVerificationRedirect = new URLSearchParams(window.location.search).get('verified') === 'true';
+        const isSignupPending = sessionStorage.getItem('telehealthSignupPending') === 'true';
+        
+        // Don't interfere if Google sign-in is in progress (it handles its own redirect)
+        if (isGoogleSignInInProgress) {
+            return;
+        }
         
         if (isVerificationRedirect && user) {
-            // Reload user to get latest emailVerified status from Firebase
             await user.reload();
-            const refreshedUser = auth.currentUser;
-            
-            if (refreshedUser.emailVerified) {
-                const synced = await syncEmailVerificationToFirestore(refreshedUser.uid);
-                if (synced) {
-                    alert('Email verified successfully! You can now log in.');
-                    window.history.replaceState({}, document.title, window.location.pathname);
-                    redirectToDashboard();
-                }
+            if (auth.currentUser.emailVerified && await syncEmailVerification(user.uid)) {
+                alert('Email verified successfully! You can now log in.');
+                window.history.replaceState({}, document.title, window.location.pathname);
+                redirectToDashboard();
             }
-        }
-
-        if (user && !isVerificationRedirect) {
+        } else if (user && isSignupPending) {
+            return;
+        } else if (user && !user.emailVerified) {
+            await auth.signOut();
+            return;
+        } else if (user) {
             redirectToDashboard();
         }
     });
 
-    // Initialize
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
+    document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', init) : init();
 })();

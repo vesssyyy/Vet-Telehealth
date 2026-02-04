@@ -1,0 +1,115 @@
+/**
+ * Profile loading overlay — prevents sidebar profile flicker on multi-provider accounts.
+ * Shows cat/ZZZ animation until profile data is ready.
+ */
+
+/* When body has this class, only the loader is visible */
+body.profile-loading .profile-loading-overlay {
+    display: flex;
+}
+
+body.profile-loading .sidebar,
+body.profile-loading .main-content,
+body.profile-loading .mobile-menu-toggle {
+    visibility: hidden !important;
+}
+
+.profile-loading-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background-color: #E3E3E3;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.profile-loading-overlay .loader {
+    width: fit-content;
+    height: fit-content;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.profile-loading-overlay .wrapper {
+    width: fit-content;
+    height: fit-content;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.profile-loading-overlay .catContainer {
+    width: 100%;
+    height: fit-content;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.profile-loading-overlay .catbody {
+    width: 80px;
+}
+
+.profile-loading-overlay .tail {
+    position: absolute;
+    width: 17px;
+    top: 50%;
+    animation: profile-loading-tail 0.6s ease-in infinite alternate-reverse;
+    transform-origin: top;
+}
+
+@keyframes profile-loading-tail {
+    0% {
+        transform: rotateZ(60deg);
+    }
+    50% {
+        transform: rotateZ(0deg);
+    }
+    100% {
+        transform: rotateZ(-20deg);
+    }
+}
+
+.profile-loading-overlay .wall {
+    width: 300px;
+}
+
+.profile-loading-overlay .text {
+    display: flex;
+    flex-direction: column;
+    width: 50px;
+    position: absolute;
+    margin: 0 0 100px 120px;
+}
+
+.profile-loading-overlay .zzz {
+    color: #1B3C53;
+    font-weight: 700;
+    font-size: 15px;
+    animation: profile-loading-zzz 2s linear infinite;
+}
+
+.profile-loading-overlay .bigzzz {
+    color: #1B3C53;
+    font-weight: 700;
+    font-size: 25px;
+    margin-left: 10px;
+    animation: profile-loading-zzz 2.3s linear infinite;
+}
+
+@keyframes profile-loading-zzz {
+    0% {
+        color: transparent;
+    }
+    50% {
+        color: #1B3C53;
+    }
+    100% {
+        color: transparent;
+    }
+}
