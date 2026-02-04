@@ -31,6 +31,9 @@
         <div class="sidebar-header">
             <a href="dashboard.html" class="sidebar-brand">Televet Health</a>
             <div class="sidebar-tagline">Pet Owner Portal</div>
+            <button class="sidebar-close" aria-label="Close Menu">
+                <i class="fa fa-times"></i>
+            </button>
         </div>
 
         <!-- User Profile -->
@@ -38,14 +41,13 @@
             <a href="profile.html" class="user-profile-link">
                 <div class="user-info">
                     <div class="user-avatar">
-                        <img id="sidebar-avatar-img" class="user-avatar-img is-hidden" alt="Profile photo">
-                        <span class="user-avatar-initials" id="sidebar-avatar">PO</span>
+                        PO
                     </div>
                     <div class="user-text">
-                        <div class="user-name" id="sidebar-name">Pet Owner</div>
+                        <div class="user-name">Pet Owner</div>
                         <div class="user-email">
                             <i class="fa fa-envelope"></i>
-                            <span id="sidebar-email">owner@example.com</span>
+                            <span>owner@example.com</span>
                         </div>
                     </div>
                 </div>
@@ -66,8 +68,15 @@
             <a href="skinDisease.html" class="nav-item">
                 <i class="fa fa-stethoscope"></i> Skin Health
             </a>
+        </nav>
+
+        <!-- Footer Navigation (About, Feedback) -->
+        <nav class="footer-nav">
             <a href="aboutUs.html" class="nav-item">
                 <i class="fa fa-info-circle"></i> About Us
+            </a>
+            <a href="feedback.html" class="nav-item">
+                <i class="fa fa-comment"></i> Feedback
             </a>
         </nav>
 
@@ -94,6 +103,5 @@
     <!-- Scripts -->
     <script src="js/sidebar.js"></script>
     <script type="module" src="js/dashboard-auth.js"></script>
-    <script type="module" src="js/profile.js"></script>
 </body>
 </html>
