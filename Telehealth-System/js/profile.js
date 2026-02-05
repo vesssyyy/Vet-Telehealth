@@ -1,5 +1,5 @@
 /**
- * Televet Health — Profile Sync
+ * Televet Health — Profile sync (sidebar + profile page)
  */
 import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
@@ -9,71 +9,45 @@ import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-
     'use strict';
 
     const $ = id => document.getElementById(id);
-
     const DOM = {
-        sidebarName: $('sidebar-name'),
-        sidebarEmail: $('sidebar-email'),
-        sidebarAvatar: $('sidebar-avatar'),
-        sidebarAvatarImg: $('sidebar-avatar-img'),
-        profileName: $('profile-name'),
-        profileEmail: $('profile-email'),
-        profileRole: $('profile-role'),
-        profileVerified: $('profile-verified'),
-        profileCreated: $('profile-created'),
-        profilePhoto: $('profile-photo'),
-        profilePhotoPlaceholder: $('profile-photo-placeholder')
+        sidebarName: $('sidebar-name'), sidebarEmail: $('sidebar-email'), sidebarAvatar: $('sidebar-avatar'),
+        sidebarAvatarImg: $('sidebar-avatar-img'), profileName: $('profile-name'), profileEmail: $('profile-email'),
+        profileRole: $('profile-role'), profileVerified: $('profile-verified'), profileCreated: $('profile-created'),
+        profilePhoto: $('profile-photo'), profilePhotoPlaceholder: $('profile-photo-placeholder')
     };
-
-    const CACHE_KEY_PREFIX = 'telehealthProfileCache:';
+    const CACHE_PREFIX = 'telehealthProfileCache:';
     const LAST_UID_KEY = 'telehealthLastUid';
 
     const getInitials = (name) => {
         if (!name) return '?';
         const parts = name.trim().split(' ').filter(Boolean);
-        if (parts.length >= 2) {
-            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-        }
-        return name[0].toUpperCase();
+        return parts.length >= 2 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : (name[0] || '?').toUpperCase();
     };
-
     const formatRole = (role) => role === 'vet' ? 'Veterinarian' : 'Pet Owner';
-
     const formatDate = (timestamp) => {
         if (!timestamp) return '—';
         const date = typeof timestamp.toDate === 'function' ? timestamp.toDate() : new Date(timestamp);
-        if (Number.isNaN(date.getTime())) return '—';
-        return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+        return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
     };
 
-    const setPhoto = (photoUrl, name) => {
-        if (!DOM.profilePhoto || !DOM.profilePhotoPlaceholder) return;
-
+    const setPhoto = (photoUrl, name, imgEl, placeholderEl, initialsEl) => {
+        if (!imgEl) return;
         if (photoUrl) {
-            DOM.profilePhoto.src = photoUrl;
-            DOM.profilePhoto.alt = name ? `${name} profile photo` : 'Profile photo';
-            DOM.profilePhoto.classList.remove('is-hidden');
-            DOM.profilePhotoPlaceholder.classList.add('is-hidden');
+            imgEl.src = photoUrl;
+            imgEl.alt = name ? `${name} profile photo` : 'Profile photo';
+            imgEl.classList.remove('is-hidden');
+            if (placeholderEl) placeholderEl.classList.add('is-hidden');
+            if (initialsEl) initialsEl.classList.add('is-hidden');
         } else {
-            DOM.profilePhoto.removeAttribute('src');
-            DOM.profilePhoto.classList.add('is-hidden');
-            DOM.profilePhotoPlaceholder.classList.remove('is-hidden');
+            imgEl.removeAttribute('src');
+            imgEl.classList.add('is-hidden');
+            if (placeholderEl) placeholderEl.classList.remove('is-hidden');
+            if (initialsEl) initialsEl.classList.remove('is-hidden');
         }
     };
 
-    const setSidebarPhoto = (photoUrl, name) => {
-        if (!DOM.sidebarAvatarImg || !DOM.sidebarAvatar) return;
-
-        if (photoUrl) {
-            DOM.sidebarAvatarImg.src = photoUrl;
-            DOM.sidebarAvatarImg.alt = name ? `${name} profile photo` : 'Profile photo';
-            DOM.sidebarAvatarImg.classList.remove('is-hidden');
-            DOM.sidebarAvatar.classList.add('is-hidden');
-        } else {
-            DOM.sidebarAvatarImg.removeAttribute('src');
-            DOM.sidebarAvatarImg.classList.add('is-hidden');
-            DOM.sidebarAvatar.classList.remove('is-hidden');
-        }
-    };
+    const setSidebarPhoto = (photoUrl, name) => setPhoto(photoUrl, name, DOM.sidebarAvatarImg, null, DOM.sidebarAvatar);
+    const setProfilePhoto = (photoUrl, name) => setPhoto(photoUrl, name, DOM.profilePhoto, DOM.profilePhotoPlaceholder);
 
     const applyProfile = (profile) => {
         if (!profile) return;
@@ -92,29 +66,15 @@ import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-
         if (DOM.profileRole) DOM.profileRole.textContent = role;
         if (DOM.profileVerified) DOM.profileVerified.textContent = verified ? 'Verified' : 'Unverified';
         if (DOM.profileCreated) DOM.profileCreated.textContent = formatDate(profile.createdAt);
-
-        setPhoto(profile.photoUrl, displayName);
+        setProfilePhoto(profile.photoUrl, displayName);
     };
 
     const buildProfileFromUser = (user) => {
-        // Check if user has multiple providers (e.g., both Google and email/password)
-        const hasGoogleProvider = user.providerData?.some(p => p.providerId === 'google.com');
-        const hasEmailProvider = user.providerData?.some(p => p.providerId === 'password');
-        const isMultiProvider = hasGoogleProvider && hasEmailProvider;
-
-        // For multi-provider accounts, prefer email-derived name to avoid showing Google name
-        // The Firestore document has the authoritative display name set during email signup
-        let displayName;
-        if (isMultiProvider) {
-            displayName = (user.email ? user.email.split('@')[0] : '')
-                || user.displayName
-                || 'Pet Owner';
-        } else {
-            displayName = user.displayName
-                || (user.email ? user.email.split('@')[0] : '')
-                || 'Pet Owner';
-        }
-
+        const hasGoogle = user.providerData?.some(p => p.providerId === 'google.com');
+        const hasEmail = user.providerData?.some(p => p.providerId === 'password');
+        const displayName = (hasGoogle && hasEmail)
+            ? (user.email ? user.email.split('@')[0] : '') || user.displayName || 'Pet Owner'
+            : user.displayName || (user.email ? user.email.split('@')[0] : '') || 'Pet Owner';
         return {
             displayName,
             email: user.email || '—',
@@ -127,36 +87,22 @@ import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-
 
     const readCache = (uid) => {
         if (!uid) return null;
-        const cached = sessionStorage.getItem(`${CACHE_KEY_PREFIX}${uid}`);
-        if (!cached) return null;
-        try {
-            return JSON.parse(cached);
-        } catch (error) {
-            console.warn('Profile cache parse error:', error);
-            return null;
-        }
+        try { return JSON.parse(sessionStorage.getItem(`${CACHE_PREFIX}${uid}`) || 'null'); }
+        catch { return null; }
     };
-
     const writeCache = (uid, profile) => {
         if (!uid || !profile) return;
-        sessionStorage.setItem(`${CACHE_KEY_PREFIX}${uid}`, JSON.stringify(profile));
+        sessionStorage.setItem(`${CACHE_PREFIX}${uid}`, JSON.stringify(profile));
         sessionStorage.setItem(LAST_UID_KEY, uid);
     };
 
     const syncProfile = async (user) => {
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         const data = userDoc.exists() ? userDoc.data() : {};
-
-        const currentName = DOM.profileName?.textContent
-            || DOM.sidebarName?.textContent
-            || '';
-
-        const displayName = data.displayName
-            || currentName
-            || user.displayName
+        const currentName = DOM.profileName?.textContent || DOM.sidebarName?.textContent || '';
+        const displayName = data.displayName || currentName || user.displayName
             || `${data.firstName || ''} ${data.lastName || ''}`.trim()
-            || (user.email ? user.email.split('@')[0] : '')
-            || 'Pet Owner';
+            || (user.email ? user.email.split('@')[0] : '') || 'Pet Owner';
 
         const profile = {
             displayName,
@@ -166,13 +112,11 @@ import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-
             photoUrl: data.photoURL || user.photoURL || '',
             createdAt: data.createdAt || null
         };
-
         applyProfile(profile);
         writeCache(user.uid, profile);
         return profile;
     };
 
-    /** Call when profile is ready to show; hides loading overlay and reveals page */
     const profileReady = () => {
         document.body.classList.remove('profile-loading');
         window.dispatchEvent(new CustomEvent('profileReady'));
@@ -180,36 +124,23 @@ import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-
 
     onAuthStateChanged(auth, (user) => {
         if (!user) return;
-
-        // Check if this is a different user than the cached one
         const cachedUid = sessionStorage.getItem(LAST_UID_KEY);
-        if (cachedUid && cachedUid !== user.uid) {
-            sessionStorage.removeItem(`${CACHE_KEY_PREFIX}${cachedUid}`);
-        }
-
+        if (cachedUid && cachedUid !== user.uid) sessionStorage.removeItem(`${CACHE_PREFIX}${cachedUid}`);
         sessionStorage.setItem(LAST_UID_KEY, user.uid);
 
         const userCache = readCache(user.uid);
         if (userCache) {
-            // Use cached profile immediately — no flicker, then sync in background
             applyProfile(userCache);
             profileReady();
-            syncProfile(user).catch((error) => {
-                console.error('Profile sync error:', error);
-            });
+            syncProfile(user).catch(err => console.error('Profile sync error:', err));
             return;
         }
-
-        // No cache: resolve profile first (Firestore), then apply once and show page
         syncProfile(user)
-            .then(() => {
-                profileReady();
-            })
-            .catch((error) => {
-                console.error('Profile sync error:', error);
-                const quickProfile = buildProfileFromUser(user);
-                applyProfile(quickProfile);
-                writeCache(user.uid, quickProfile);
+            .then(profileReady)
+            .catch((err) => {
+                console.error('Profile sync error:', err);
+                applyProfile(buildProfileFromUser(user));
+                writeCache(user.uid, buildProfileFromUser(user));
                 profileReady();
             });
     });
