@@ -68,7 +68,7 @@ import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "https://www.gst
 
     const redirectToDashboard = () => {
         sessionStorage.removeItem('telehealthLoggedOut');
-        window.location.replace('dashboard.html');
+        window.location.replace('petowner/dashboard.html');
     };
 
     const handleAuthenticatedUser = async (user) => {

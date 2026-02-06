@@ -17,23 +17,14 @@
 </head>
 
 <body>
-    <!-- Mobile Menu Toggle -->
-    <button class="mobile-menu-toggle" aria-label="Toggle Menu">
-        <i class="fa fa-bars"></i>
-    </button>
-
-    <!-- Sidebar Overlay (Mobile) -->
     <div class="sidebar-overlay"></div>
 
-    <!-- Sidebar -->
     <aside class="sidebar">
-        <!-- Brand -->
         <div class="sidebar-header">
             <a href="dashboard.html" class="sidebar-brand">Televet Health</a>
             <div class="sidebar-tagline">Pet Owner Portal</div>
         </div>
 
-        <!-- User Profile -->
         <div class="user-profile">
             <a href="profile.html" class="user-profile-link">
                 <div class="user-info">
@@ -52,7 +43,6 @@
             </a>
         </div>
 
-        <!-- Navigation -->
         <nav class="sidebar-nav">
             <a href="dashboard.html" class="nav-item">
                 <i class="fa fa-th-large"></i> Dashboard
@@ -68,7 +58,6 @@
             </a>
         </nav>
 
-        <!-- Footer Navigation (About, Feedback) -->
         <nav class="footer-nav">
             <a href="aboutUs.html" class="nav-item">
                 <i class="fa fa-info-circle"></i> About Us
@@ -78,7 +67,6 @@
             </a>
         </nav>
 
-        <!-- Logout -->
         <div class="logout-section">
             <button id="logout-btn" class="logout-btn">
                 <i class="fa fa-sign-out"></i> Logout
@@ -86,8 +74,23 @@
         </div>
     </aside>
 
-    <!-- Main Content -->
     <main class="main-content">
+        <header class="app-top-header">
+            <div class="header-left">
+                <button class="mobile-menu-toggle" aria-label="Toggle Menu">
+                    <i class="fa fa-bars"></i>
+                </button>
+                <span class="role-badge"><i class="fa fa-id-badge" aria-hidden="true"></i> Pet Owner</span>
+            </div>
+            <div class="header-right">
+                <button type="button" class="dark-mode-toggle" aria-label="Toggle dark mode">
+                    <i class="fa fa-moon-o" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="profile-header-btn" aria-label="Profile">
+                    <i class="fa fa-user-circle" aria-hidden="true"></i>
+                </button>
+            </div>
+        </header>
         <div class="page-header">
             <h1 class="page-title">Messages</h1>
             <p class="page-subtitle">Chat with your veterinarian</p>
@@ -98,7 +101,6 @@
         </div>
     </main>
 
-    <!-- Scripts -->
     <script src="js/sidebar.js"></script>
     <script type="module" src="js/dashboard-auth.js"></script>
     <script type="module" src="js/profile.js"></script>
