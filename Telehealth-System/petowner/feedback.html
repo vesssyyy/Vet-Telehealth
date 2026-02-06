@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Messages - Televet Health</title>
+    <title>Feedback - Televet Health</title>
     
     <!-- Stylesheets -->
     <link rel="stylesheet" href="css/sidebar-layout.css">
-    <link rel="stylesheet" href="css/messages.css">
+    <link rel="stylesheet" href="css/feedback.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     <link href="https://fonts.googleapis.com/css?family=Lalezar" rel="stylesheet">
     
@@ -17,11 +17,6 @@
 </head>
 
 <body>
-    <!-- Mobile Menu Toggle -->
-    <button class="mobile-menu-toggle" aria-label="Toggle Menu">
-        <i class="fa fa-bars"></i>
-    </button>
-
     <!-- Sidebar Overlay (Mobile) -->
     <div class="sidebar-overlay"></div>
 
@@ -73,7 +68,7 @@
             <a href="aboutUs.html" class="nav-item">
                 <i class="fa fa-info-circle"></i> About Us
             </a>
-            <a href="feedback.html" class="nav-item">
+            <a href="feedback.html" class="nav-item active">
                 <i class="fa fa-comment"></i> Feedback
             </a>
         </nav>
@@ -88,13 +83,29 @@
 
     <!-- Main Content -->
     <main class="main-content">
+        <header class="app-top-header">
+            <div class="header-left">
+                <button class="mobile-menu-toggle" aria-label="Toggle Menu">
+                    <i class="fa fa-bars"></i>
+                </button>
+                <span class="role-badge"><i class="fa fa-id-badge" aria-hidden="true"></i> Pet Owner</span>
+            </div>
+            <div class="header-right">
+                <button type="button" class="dark-mode-toggle" aria-label="Toggle dark mode">
+                    <i class="fa fa-moon-o" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="profile-header-btn" aria-label="Profile">
+                    <i class="fa fa-user-circle" aria-hidden="true"></i>
+                </button>
+            </div>
+        </header>
         <div class="page-header">
-            <h1 class="page-title">Messages</h1>
-            <p class="page-subtitle">Chat with your veterinarian</p>
+            <h1 class="page-title">Feedback</h1>
+            <p class="page-subtitle">We'd love to hear from you! Share your thoughts and suggestions</p>
         </div>
 
         <div class="content-wrapper">
-            <!-- Page content will go here -->
+            <!-- Feedback form content will go here -->
         </div>
     </main>
 

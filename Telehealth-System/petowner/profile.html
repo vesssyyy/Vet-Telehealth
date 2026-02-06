@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile - Televet Health</title>
+    <link rel="stylesheet" href="css/sidebar-layout.css">
+    <link rel="stylesheet" href="css/profile.css">
+    <link rel="stylesheet" href="css/profile-loading.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link href="https://fonts.googleapis.com/css?family=Lalezar" rel="stylesheet">
+    <style>body { visibility: hidden; }</style>
+</head>
+<body>
+    <div class="profile-loading-overlay" aria-hidden="true">
+        <div class="loader"><div class="wrapper"><div class="catContainer"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 733 673" class="catbody"><path fill="#212121" d="M111.002 139.5C270.502 -24.5001 471.503 2.4997 621.002 139.5C770.501 276.5 768.504 627.5 621.002 649.5C473.5 671.5 246 687.5 111.002 649.5C-23.9964 611.5 -48.4982 303.5 111.002 139.5Z"></path><path fill="#212121" d="M184 9L270.603 159H97.3975L184 9Z"></path><path fill="#212121" d="M541 0L627.603 150H454.397L541 0Z"></path></svg><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 158 564" class="tail"><path fill="#191919" d="M5.97602 76.066C-11.1099 41.6747 12.9018 0 51.3036 0V0C71.5336 0 89.8636 12.2558 97.2565 31.0866C173.697 225.792 180.478 345.852 97.0691 536.666C89.7636 553.378 73.0672 564 54.8273 564V564C16.9427 564 -5.4224 521.149 13.0712 488.085C90.2225 350.15 87.9612 241.089 5.97602 76.066Z"></path></svg><div class="text"><span class="bigzzz">Z</span><span class="zzz">Z</span></div></div></div></div></div>
+    </div>
+    <div class="sidebar-overlay"></div>
+
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <a href="dashboard.html" class="sidebar-brand">Televet Health</a>
+            <div class="sidebar-tagline">Pet Owner Portal</div>
+        </div>
+        <div class="user-profile">
+            <a href="profile.html" class="user-profile-link">
+                <div class="user-info">
+                    <div class="user-avatar">
+                        <img id="sidebar-avatar-img" class="user-avatar-img is-hidden" alt="Profile photo">
+                        <span class="user-avatar-initials" id="sidebar-avatar">PO</span>
+                    </div>
+                    <div class="user-text">
+                        <div class="user-name" id="sidebar-name">Pet Owner</div>
+                        <div class="user-email"><i class="fa fa-envelope"></i><span id="sidebar-email">owner@example.com</span></div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item"><i class="fa fa-th-large"></i> Dashboard</a>
+            <a href="appointment.html" class="nav-item"><i class="fa fa-calendar"></i> Appointments</a>
+            <a href="messages.html" class="nav-item"><i class="fa fa-envelope"></i> Messages</a>
+            <a href="skinDisease.html" class="nav-item"><i class="fa fa-stethoscope"></i> Skin Health</a>
+        </nav>
+        <nav class="footer-nav">
+            <a href="aboutUs.html" class="nav-item"><i class="fa fa-info-circle"></i> About Us</a>
+            <a href="feedback.html" class="nav-item"><i class="fa fa-comment"></i> Feedback</a>
+        </nav>
+        <div class="logout-section">
+            <button id="logout-btn" class="logout-btn"><i class="fa fa-sign-out"></i> Logout</button>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="app-top-header">
+            <div class="header-left">
+                <button class="mobile-menu-toggle" aria-label="Toggle Menu"><i class="fa fa-bars"></i></button>
+                <span class="role-badge"><i class="fa fa-id-badge" aria-hidden="true"></i> Pet Owner</span>
+            </div>
+            <div class="header-right">
+                <button type="button" class="dark-mode-toggle" aria-label="Toggle dark mode"><i class="fa fa-moon-o" aria-hidden="true"></i></button>
+                <button type="button" class="profile-header-btn" aria-label="Profile"><i class="fa fa-user-circle" aria-hidden="true"></i></button>
+            </div>
+        </header>
+        <div class="page-header">
+            <h1 class="page-title">My Profile</h1>
+            <p class="page-subtitle">Manage your account information and preferences</p>
+        </div>
+        <div class="content-wrapper">
+            <section class="profile-card" aria-label="Profile details">
+                <div class="profile-avatar">
+                    <img id="profile-photo" class="profile-photo is-hidden" alt="Profile photo">
+                    <div id="profile-photo-placeholder" class="profile-photo-placeholder" aria-hidden="true"></div>
+                </div>
+                <div class="profile-details">
+                    <h2 id="profile-name">Pet Owner</h2>
+                    <p id="profile-email">owner@example.com</p>
+                    <div class="profile-meta">
+                        <div class="meta-item"><span class="meta-label">Account Type</span><span id="profile-role" class="meta-value">Pet Owner</span></div>
+                        <div class="meta-item"><span class="meta-label">Email Status</span><span id="profile-verified" class="meta-value">Unverified</span></div>
+                        <div class="meta-item"><span class="meta-label">Member Since</span><span id="profile-created" class="meta-value">—</span></div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script src="js/sidebar.js"></script>
+    <script type="module" src="js/dashboard-auth.js"></script>
+    <script type="module" src="js/profile.js"></script>
+</body>
+</html>

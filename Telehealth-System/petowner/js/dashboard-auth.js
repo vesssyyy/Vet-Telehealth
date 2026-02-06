@@ -1,7 +1,7 @@
 /**
  * Televet Health — Dashboard Auth Guard
  */
-import { auth } from './firebase-config.js';
+import { auth } from '../../shared/js/firebase-config.js';
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
 
 (function () {
@@ -30,7 +30,7 @@ import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/
             
             sessionStorage.setItem('telehealthLoggedOut', 'true');
             await signOut(auth);
-            window.location.replace('auth.html#login');
+            window.location.replace('../auth.html#login');
         } catch (error) {
             console.error('Logout error:', error);
             alert('Logout failed. Please try again.');
@@ -41,7 +41,7 @@ import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/
     // Auth state observer: show loading overlay until profile is ready (prevents sidebar flicker)
     onAuthStateChanged(auth, (user) => {
         if (!user) {
-            const target = sessionStorage.getItem('telehealthLoggedOut') === 'true' ? 'index.html' : 'auth.html#login';
+            const target = sessionStorage.getItem('telehealthLoggedOut') === 'true' ? '../index.html' : '../auth.html#login';
             return window.location.replace(target);
         }
 
