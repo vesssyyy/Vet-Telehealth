@@ -11,8 +11,9 @@ import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-
     const $ = id => document.getElementById(id);
     const DOM = {
         sidebarName: $('sidebar-name'), sidebarEmail: $('sidebar-email'), sidebarAvatar: $('sidebar-avatar'),
-        sidebarAvatarImg: $('sidebar-avatar-img'), profileName: $('profile-name'), profileEmail: $('profile-email'),
-        profileRole: $('profile-role'), profileVerified: $('profile-verified'), profileCreated: $('profile-created'),
+        dashboardUserName: $('dashboard-user-name'), sidebarAvatarImg: $('sidebar-avatar-img'),
+        profileName: $('profile-name'), profileEmail: $('profile-email'), profileRole: $('profile-role'),
+        profileVerified: $('profile-verified'), profileCreated: $('profile-created'),
         profilePhoto: $('profile-photo'), profilePhotoPlaceholder: $('profile-photo-placeholder')
     };
     const CACHE_PREFIX = 'telehealthProfileCache:';
@@ -20,89 +21,67 @@ import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-
 
     const getInitials = (name) => {
         if (!name) return '?';
-        const parts = name.trim().split(' ').filter(Boolean);
-        return parts.length >= 2 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : (name[0] || '?').toUpperCase();
+        const p = name.trim().split(' ').filter(Boolean);
+        return p.length >= 2 ? (p[0][0] + p[p.length - 1][0]).toUpperCase() : (name[0] || '?').toUpperCase();
     };
     const formatRole = (role) => role === 'vet' ? 'Veterinarian' : 'Pet Owner';
-    const formatDate = (timestamp) => {
-        if (!timestamp) return '—';
-        const date = typeof timestamp.toDate === 'function' ? timestamp.toDate() : new Date(timestamp);
-        return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    const formatDate = (ts) => {
+        if (!ts) return '—';
+        const d = typeof ts?.toDate === 'function' ? ts.toDate() : new Date(ts);
+        return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
     };
 
     const setPhoto = (photoUrl, name, imgEl, placeholderEl, initialsEl) => {
         if (!imgEl) return;
-        if (photoUrl) {
-            imgEl.src = photoUrl;
-            imgEl.alt = name ? `${name} profile photo` : 'Profile photo';
-            imgEl.classList.remove('is-hidden');
-            if (placeholderEl) placeholderEl.classList.add('is-hidden');
-            if (initialsEl) initialsEl.classList.add('is-hidden');
-        } else {
-            imgEl.removeAttribute('src');
-            imgEl.classList.add('is-hidden');
-            if (placeholderEl) placeholderEl.classList.remove('is-hidden');
-            if (initialsEl) initialsEl.classList.remove('is-hidden');
-        }
+        const show = Boolean(photoUrl);
+        if (show) { imgEl.src = photoUrl; imgEl.alt = name ? `${name} profile photo` : 'Profile photo'; }
+        else imgEl.removeAttribute('src');
+        imgEl.classList.toggle('is-hidden', !show);
+        if (placeholderEl) placeholderEl.classList.toggle('is-hidden', show);
+        if (initialsEl) initialsEl.classList.toggle('is-hidden', show);
     };
+    const setSidebarPhoto = (url, name) => setPhoto(url, name, DOM.sidebarAvatarImg, null, DOM.sidebarAvatar);
+    const setProfilePhoto = (url, name) => setPhoto(url, name, DOM.profilePhoto, DOM.profilePhotoPlaceholder);
 
-    const setSidebarPhoto = (photoUrl, name) => setPhoto(photoUrl, name, DOM.sidebarAvatarImg, null, DOM.sidebarAvatar);
-    const setProfilePhoto = (photoUrl, name) => setPhoto(photoUrl, name, DOM.profilePhoto, DOM.profilePhotoPlaceholder);
-
+    const setText = (el, text) => { if (el) el.textContent = text; };
     const applyProfile = (profile) => {
         if (!profile) return;
-        const displayName = profile.displayName || 'Pet Owner';
-        const email = profile.email || '—';
-        const role = profile.role || 'Pet Owner';
+        const { displayName = 'Pet Owner', email = '—', role = 'Pet Owner', photoUrl = '', createdAt } = profile;
         const verified = Boolean(profile.verified);
+        const firstName = displayName.trim().split(' ')[0] || '';
+        const dashName = (firstName && firstName.toLowerCase() !== 'pet') ? firstName : 'there';
 
-        if (DOM.sidebarName) DOM.sidebarName.textContent = displayName;
-        if (DOM.sidebarEmail) DOM.sidebarEmail.textContent = email;
-        if (DOM.sidebarAvatar) DOM.sidebarAvatar.textContent = getInitials(displayName);
-        setSidebarPhoto(profile.photoUrl, displayName);
+        setText(DOM.sidebarName, displayName);
+        setText(DOM.sidebarEmail, email);
+        setText(DOM.dashboardUserName, dashName);
+        setText(DOM.sidebarAvatar, getInitials(displayName));
+        setSidebarPhoto(photoUrl, displayName);
 
-        if (DOM.profileName) DOM.profileName.textContent = displayName;
-        if (DOM.profileEmail) DOM.profileEmail.textContent = email;
-        if (DOM.profileRole) DOM.profileRole.textContent = role;
-        if (DOM.profileVerified) DOM.profileVerified.textContent = verified ? 'Verified' : 'Unverified';
-        if (DOM.profileCreated) DOM.profileCreated.textContent = formatDate(profile.createdAt);
-        setProfilePhoto(profile.photoUrl, displayName);
+        setText(DOM.profileName, displayName);
+        setText(DOM.profileEmail, email);
+        setText(DOM.profileRole, role);
+        setText(DOM.profileVerified, verified ? 'Verified' : 'Unverified');
+        setText(DOM.profileCreated, formatDate(createdAt));
+        setProfilePhoto(photoUrl, displayName);
     };
 
     const buildProfileFromUser = (user) => {
         const hasGoogle = user.providerData?.some(p => p.providerId === 'google.com');
         const hasEmail = user.providerData?.some(p => p.providerId === 'password');
         const displayName = (hasGoogle && hasEmail)
-            ? (user.email ? user.email.split('@')[0] : '') || user.displayName || 'Pet Owner'
-            : user.displayName || (user.email ? user.email.split('@')[0] : '') || 'Pet Owner';
-        return {
-            displayName,
-            email: user.email || '—',
-            role: formatRole(),
-            verified: user.emailVerified,
-            photoUrl: user.photoURL || '',
-            createdAt: null
-        };
+            ? (user.email?.split('@')[0] || '') || user.displayName || 'Pet Owner'
+            : user.displayName || (user.email?.split('@')[0] || '') || 'Pet Owner';
+        return { displayName, email: user.email || '—', role: formatRole(), verified: user.emailVerified, photoUrl: user.photoURL || '', createdAt: null };
     };
 
-    const readCache = (uid) => {
-        if (!uid) return null;
-        try { return JSON.parse(sessionStorage.getItem(`${CACHE_PREFIX}${uid}`) || 'null'); }
-        catch { return null; }
-    };
-    const writeCache = (uid, profile) => {
-        if (!uid || !profile) return;
-        sessionStorage.setItem(`${CACHE_PREFIX}${uid}`, JSON.stringify(profile));
-        sessionStorage.setItem(LAST_UID_KEY, uid);
-    };
+    const readCache = (uid) => { try { return uid ? JSON.parse(sessionStorage.getItem(`${CACHE_PREFIX}${uid}`) || 'null') : null; } catch { return null; } };
+    const writeCache = (uid, p) => { if (uid && p) { sessionStorage.setItem(`${CACHE_PREFIX}${uid}`, JSON.stringify(p)); sessionStorage.setItem(LAST_UID_KEY, uid); } };
 
     const syncProfile = async (user) => {
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         const data = userDoc.exists() ? userDoc.data() : {};
         const currentName = DOM.profileName?.textContent || DOM.sidebarName?.textContent || '';
-        const displayName = data.displayName || currentName || user.displayName
-            || `${data.firstName || ''} ${data.lastName || ''}`.trim()
-            || (user.email ? user.email.split('@')[0] : '') || 'Pet Owner';
+        const displayName = data.displayName || currentName || user.displayName || `${data.firstName || ''} ${data.lastName || ''}`.trim() || (user.email?.split('@')[0] || '') || 'Pet Owner';
 
         const profile = {
             displayName,
@@ -135,13 +114,12 @@ import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-
             syncProfile(user).catch(err => console.error('Profile sync error:', err));
             return;
         }
-        syncProfile(user)
-            .then(profileReady)
-            .catch((err) => {
-                console.error('Profile sync error:', err);
-                applyProfile(buildProfileFromUser(user));
-                writeCache(user.uid, buildProfileFromUser(user));
-                profileReady();
-            });
+        syncProfile(user).then(profileReady).catch((err) => {
+            console.error('Profile sync error:', err);
+            const fallback = buildProfileFromUser(user);
+            applyProfile(fallback);
+            writeCache(user.uid, fallback);
+            profileReady();
+        });
     });
 })();
