@@ -4,11 +4,11 @@
 (function () {
     'use strict';
 
-    function getInitials(name) {
+    const getInitials = (name) => {
         if (!name) return '?';
-        const parts = name.trim().split(' ');
-        return parts.length >= 2 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : (name[0] || '?').toUpperCase();
-    }
+        const p = name.trim().split(' ');
+        return p.length >= 2 ? (p[0][0] + p[p.length - 1][0]).toUpperCase() : (name[0] || '?').toUpperCase();
+    };
 
     function init() {
         const menuToggle = document.querySelector('.mobile-menu-toggle');
@@ -21,8 +21,8 @@
             overlay?.addEventListener('click', close);
         }
 
-        const currentPage = window.location.pathname.split('/').pop();
-        document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.getAttribute('href') === currentPage));
+        const page = window.location.pathname.split('/').pop();
+        document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.getAttribute('href') === page));
 
         const userName = document.querySelector('.user-name');
         const avatarInitials = document.getElementById('sidebar-avatar');

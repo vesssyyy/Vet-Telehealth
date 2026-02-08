@@ -8,42 +8,31 @@ import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/
     'use strict';
 
     let isLoggedIn = false;
+    const CACHE_PREFIX = 'telehealthProfileCache:';
+    const LAST_UID_KEY = 'telehealthLastUid';
 
-    // Prevent back navigation when logged in
     window.addEventListener('popstate', () => isLoggedIn && history.go(1));
 
-    // Logout handler
     document.getElementById('logout-btn')?.addEventListener('click', async (e) => {
-        // Ask for confirmation before logging out
-        if (!confirm('Are you sure you want to logout?')) {
-            return;
-        }
-        
+        if (!confirm('Are you sure you want to logout?')) return;
+
         e.target.disabled = true;
         try {
-            // Clear profile cache to prevent flicker on account switch
-            const lastUid = sessionStorage.getItem('telehealthLastUid');
-            if (lastUid) {
-                sessionStorage.removeItem(`telehealthProfileCache:${lastUid}`);
-                sessionStorage.removeItem('telehealthLastUid');
-            }
-            
+            const lastUid = sessionStorage.getItem(LAST_UID_KEY);
+            if (lastUid) sessionStorage.removeItem(`${CACHE_PREFIX}${lastUid}`);
+            sessionStorage.removeItem(LAST_UID_KEY);
             sessionStorage.setItem('telehealthLoggedOut', 'true');
             await signOut(auth);
             window.location.replace('../auth.html#login');
-        } catch (error) {
-            console.error('Logout error:', error);
+        } catch (err) {
+            console.error('Logout error:', err);
             alert('Logout failed. Please try again.');
             e.target.disabled = false;
         }
     });
 
-    // Auth state observer: show loading overlay until profile is ready (prevents sidebar flicker)
     onAuthStateChanged(auth, (user) => {
-        if (!user) {
-            const target = sessionStorage.getItem('telehealthLoggedOut') === 'true' ? '../index.html' : '../auth.html#login';
-            return window.location.replace(target);
-        }
+        if (!user) return window.location.replace(sessionStorage.getItem('telehealthLoggedOut') === 'true' ? '../index.html' : '../auth.html#login');
 
         sessionStorage.removeItem('telehealthLoggedOut');
         isLoggedIn = true;
@@ -53,15 +42,6 @@ import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/
         document.body.classList.add('profile-loading');
     });
 
-    // Hide loading overlay when profile is ready (profile.js fires this)
-    window.addEventListener('profileReady', () => {
-        document.body.classList.remove('profile-loading');
-    });
-
-    // Fallback: if profile never signals ready (e.g. script error), show page after 5s
-    setTimeout(() => {
-        if (document.body.classList.contains('profile-loading')) {
-            document.body.classList.remove('profile-loading');
-        }
-    }, 5000);
+    window.addEventListener('profileReady', () => document.body.classList.remove('profile-loading'));
+    setTimeout(() => document.body.classList.remove('profile-loading'), 5000);
 })();
