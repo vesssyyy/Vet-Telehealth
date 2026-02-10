@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Profile - Televet Health</title>
+    <title>My Profile - Televet Health (Vet)</title>
     <link rel="stylesheet" href="css/sidebar-layout.css">
     <link rel="stylesheet" href="css/profile.css">
     <link rel="stylesheet" href="css/profile-loading.css">
@@ -34,31 +34,30 @@
     <aside class="sidebar">
         <div class="sidebar-header">
             <a href="dashboard.html" class="sidebar-brand">Televet Health</a>
-            <div class="sidebar-tagline">Pet Owner Portal</div>
+            <div class="sidebar-tagline">Veterinarian Portal</div>
         </div>
         <div class="user-profile">
             <a href="profile.html" class="user-profile-link">
                 <div class="user-info">
                     <div class="user-avatar">
                         <img id="sidebar-avatar-img" class="user-avatar-img is-hidden" alt="Profile photo">
-                        <span class="user-avatar-initials" id="sidebar-avatar">PO</span>
+                        <span class="user-avatar-initials" id="sidebar-avatar">V</span>
                     </div>
                     <div class="user-text">
-                        <div class="user-name" id="sidebar-name">Pet Owner</div>
-                        <div class="user-email"><i class="fa fa-envelope"></i> <span id="sidebar-email">owner@example.com</span></div>
+                        <div class="user-name" id="sidebar-name">Veterinarian</div>
+                        <div class="user-email"><i class="fa fa-envelope"></i> <span id="sidebar-email">vet@example.com</span></div>
                     </div>
                 </div>
             </a>
         </div>
         <nav class="sidebar-nav">
             <a href="dashboard.html" class="nav-item"><i class="fa fa-th-large"></i> Dashboard</a>
-            <a href="appointment.html" class="nav-item"><i class="fa fa-calendar"></i> Appointments</a>
+            <a href="appointments.html" class="nav-item"><i class="fa fa-calendar"></i> Appointments</a>
             <a href="messages.html" class="nav-item"><i class="fa fa-envelope"></i> Messages</a>
-            <a href="skinDisease.html" class="nav-item"><i class="fa fa-stethoscope"></i> Skin Health</a>
+            <a href="patients.html" class="nav-item"><i class="fa fa-paw"></i> Patients</a>
         </nav>
         <nav class="footer-nav">
-            <a href="aboutUs.html" class="nav-item"><i class="fa fa-info-circle"></i> About Us</a>
-            <a href="feedback.html" class="nav-item"><i class="fa fa-comment"></i> Feedback</a>
+            <a href="admin.html" class="nav-item"><i class="fa fa-users"></i> Administration</a>
         </nav>
         <div class="logout-section">
             <button id="logout-btn" class="logout-btn"><i class="fa fa-sign-out"></i> Logout</button>
@@ -69,7 +68,7 @@
         <header class="app-top-header">
             <div class="header-left">
                 <button class="mobile-menu-toggle" aria-label="Toggle Menu"><i class="fa fa-bars"></i></button>
-                <span class="role-badge"><i class="fa fa-id-badge" aria-hidden="true"></i> Pet Owner</span>
+                <span class="role-badge"><i class="fa fa-stethoscope" aria-hidden="true"></i> Veterinarian</span>
             </div>
             <div class="header-right">
                 <button type="button" class="dark-mode-toggle" aria-label="Toggle dark mode"><i class="fa fa-moon-o" aria-hidden="true"></i></button>
@@ -124,10 +123,10 @@
                     <div id="profile-photo-placeholder" class="profile-photo-placeholder" aria-hidden="true"></div>
                 </div>
                 <div class="profile-details">
-                    <h2 id="profile-name">Pet Owner</h2>
-                    <p id="profile-email">owner@example.com</p>
+                    <h2 id="profile-name">Veterinarian</h2>
+                    <p id="profile-email">vet@example.com</p>
                     <div class="profile-meta">
-                        <div class="meta-item"><span class="meta-label">Account Type</span><span id="profile-role" class="meta-value">Pet Owner</span></div>
+                        <div class="meta-item"><span class="meta-label">Account Type</span><span id="profile-role" class="meta-value">Veterinarian</span></div>
                         <div class="meta-item"><span class="meta-label">Email Status</span><span id="profile-verified" class="meta-value">Unverified</span></div>
                         <div class="meta-item"><span class="meta-label">Member Since</span><span id="profile-created" class="meta-value">—</span></div>
                     </div>

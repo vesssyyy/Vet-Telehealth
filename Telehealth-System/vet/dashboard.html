@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Televet Health</title>
+    <title>Dashboard - Televet Health (Vet)</title>
     <link rel="stylesheet" href="css/sidebar-layout.css">
+    <link rel="stylesheet" href="../shared/css/loading.css">
     <link rel="stylesheet" href="css/profile-loading.css">
     <link rel="stylesheet" href="css/dashboard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
@@ -56,31 +57,30 @@
     <aside class="sidebar">
         <div class="sidebar-header">
             <a href="dashboard.html" class="sidebar-brand">Televet Health</a>
-            <div class="sidebar-tagline">Pet Owner Portal</div>
+            <div class="sidebar-tagline">Veterinarian Portal</div>
         </div>
         <div class="user-profile">
             <a href="profile.html" class="user-profile-link">
                 <div class="user-info">
                     <div class="user-avatar">
                         <img id="sidebar-avatar-img" class="user-avatar-img is-hidden" alt="Profile photo">
-                        <span class="user-avatar-initials" id="sidebar-avatar">PO</span>
+                        <span class="user-avatar-initials" id="sidebar-avatar">V</span>
                     </div>
                     <div class="user-text">
-                        <div class="user-name" id="sidebar-name">Pet Owner</div>
-                        <div class="user-email"><i class="fa fa-envelope"></i> <span id="sidebar-email">owner@example.com</span></div>
+                        <div class="user-name" id="sidebar-name">Veterinarian</div>
+                        <div class="user-email"><i class="fa fa-envelope"></i> <span id="sidebar-email">vet@example.com</span></div>
                     </div>
                 </div>
             </a>
         </div>
         <nav class="sidebar-nav">
             <a href="dashboard.html" class="nav-item active"><i class="fa fa-th-large"></i> Dashboard</a>
-            <a href="appointment.html" class="nav-item"><i class="fa fa-calendar"></i> Appointments</a>
+            <a href="appointments.html" class="nav-item"><i class="fa fa-calendar"></i> Appointments</a>
             <a href="messages.html" class="nav-item"><i class="fa fa-envelope"></i> Messages</a>
-            <a href="skinDisease.html" class="nav-item"><i class="fa fa-stethoscope"></i> Skin Health</a>
+            <a href="patients.html" class="nav-item"><i class="fa fa-paw"></i> Patients</a>
         </nav>
         <nav class="footer-nav">
-            <a href="aboutUs.html" class="nav-item"><i class="fa fa-info-circle"></i> About Us</a>
-            <a href="feedback.html" class="nav-item"><i class="fa fa-comment"></i> Feedback</a>
+            <a href="admin.html" class="nav-item"><i class="fa fa-users"></i> Administration</a>
         </nav>
         <div class="logout-section">
             <button id="logout-btn" class="logout-btn"><i class="fa fa-sign-out"></i> Logout</button>
@@ -91,7 +91,7 @@
         <header class="app-top-header">
             <div class="header-left">
                 <button class="mobile-menu-toggle" aria-label="Toggle Menu"><i class="fa fa-bars"></i></button>
-                <span class="role-badge"><i class="fa fa-id-badge" aria-hidden="true"></i> Pet Owner</span>
+                <span class="role-badge"><i class="fa fa-stethoscope" aria-hidden="true"></i> Veterinarian</span>
             </div>
             <div class="header-right">
                 <button type="button" class="dark-mode-toggle" aria-label="Toggle dark mode"><i class="fa fa-moon-o" aria-hidden="true"></i></button>
@@ -101,9 +101,9 @@
 
         <div class="page-header dashboard-header">
             <div class="dashboard-header-content">
-                <div class="dashboard-header-icon" aria-hidden="true"><i class="fa fa-th-large"></i></div>
+                <div class="dashboard-header-icon" aria-hidden="true"><i class="fa fa-stethoscope"></i></div>
                 <div class="dashboard-header-text">
-                    <p class="dashboard-greeting">Welcome back, <span id="dashboard-user-name">there</span>!</p>
+                    <p class="dashboard-greeting">Welcome back, Dr. <span id="dashboard-user-name">there</span>!</p>
                     <p class="page-subtitle"><span class="dashboard-date" id="dashboard-date"></span></p>
                 </div>
             </div>
@@ -149,142 +149,184 @@
                 <p class="dashboard-loading-text">Preparing dashboard…</p>
             </div>
             <div class="dashboard-content is-loading" id="dashboard-content">
-                <section class="dashboard-card pet-profile-card">
-                    <div class="pet-empty-state">
-                        <div class="pet-empty-icon" aria-hidden="true"><i class="fa fa-paw"></i></div>
-                        <h2 class="pet-empty-title">You don't have any pets yet…</h2>
-                        <p class="pet-empty-desc">looks like it's a little too quiet here 😄 Add one now!</p>
-                        <button type="button" class="btn btn-primary btn-add-pet" aria-label="Add pet">
-                            <i class="fa fa-plus" aria-hidden="true"></i> Add Pet
-                        </button>
-                    </div>
-                </section>
-                <div class="dashboard-row dashboard-row-three">
-                <section class="dashboard-card appointment-card">
+                <section class="dashboard-card todays-appointments-card">
                     <div class="card-header">
-                        <h3 class="card-title"><i class="fa fa-calendar-check-o" aria-hidden="true"></i> Next Appointment</h3>
+                        <h3 class="card-title">
+                            <i class="fa fa-calendar-check-o" aria-hidden="true"></i>
+                            Today's Appointments
+                        </h3>
+                        <div class="appointment-filters">
+                            <label for="appointment-date-select" class="filter-label">View:</label>
+                            <select id="appointment-date-select" class="filter-select" aria-label="Choose date filter">
+                                <option value="today">Today</option>
+                                <option value="custom">Choose date…</option>
+                            </select>
+                            <input
+                                type="date"
+                                id="appointment-date-input"
+                                class="filter-date-input"
+                                aria-label="Choose appointment date">
+                        </div>
                     </div>
-                    <div class="appointment-details">
-                        <p class="appointment-datetime">Thu, Feb 10, 2026 <span class="separator">•</span> 2:00 PM</p>
-                        <p class="appointment-mode"><i class="fa fa-video-camera" aria-hidden="true"></i> Video Consultation</p>
-                        <a href="#" class="btn btn-primary btn-join" title="Join the video call"><i class="fa fa-video-camera" aria-hidden="true"></i> Join Video Call</a>
-                    </div>
+                    <ul class="schedule-list" id="today-appointments-list">
+                        <li class="schedule-item">
+                            <div class="schedule-time">09:00</div>
+                            <div class="schedule-info">
+                                <div class="schedule-patient">Juan Dela Cruz - Buddy (Dog)</div>
+                                <div class="schedule-detail">Skin irritation follow-up</div>
+                                <div class="schedule-mode">
+                                    <i class="fa fa-video-camera" aria-hidden="true"></i>
+                                    Video consultation
+                                </div>
+                            </div>
+                            <a href="#" class="btn btn-primary btn-join">
+                                <i class="fa fa-video-camera" aria-hidden="true"></i>
+                                Join
+                            </a>
+                        </li>
+                        <li class="schedule-item">
+                            <div class="schedule-time">11:30</div>
+                            <div class="schedule-info">
+                                <div class="schedule-patient">Maria Santos - Luna (Cat)</div>
+                                <div class="schedule-detail">Routine check-up</div>
+                                <div class="schedule-mode">
+                                    <i class="fa fa-stethoscope" aria-hidden="true"></i>
+                                    Face-to-face
+                                </div>
+                            </div>
+                        </li>
+                        <li class="schedule-item">
+                            <div class="schedule-time">15:00</div>
+                            <div class="schedule-info">
+                                <div class="schedule-patient">Mark Reyes - Max (Dog)</div>
+                                <div class="schedule-detail">Post-surgery review</div>
+                                <div class="schedule-mode">
+                                    <i class="fa fa-video-camera" aria-hidden="true"></i>
+                                    Video consultation
+                                </div>
+                            </div>
+                        </li>
+                    </ul>
                 </section>
-                <section class="dashboard-card messages-card">
+
+                <section class="dashboard-card vet-messages-card">
                     <div class="card-header">
-                        <h3 class="card-title"><i class="fa fa-envelope" aria-hidden="true"></i> Messages</h3>
-                        <span class="badge-new">1 new</span>
+                        <h3 class="card-title">
+                            <i class="fa fa-envelope" aria-hidden="true"></i>
+                            Messages
+                        </h3>
+                        <span class="badge-new">3 new</span>
                     </div>
-                    <div class="messages-preview">
-                        <p class="messages-summary">1 new message</p>
-                        <a href="messages.html" class="btn btn-secondary btn-view" title="Open messages"><i class="fa fa-arrow-right" aria-hidden="true"></i> View</a>
-                    </div>
+                    <ul class="upcoming-list messages-list">
+                        <li class="upcoming-item">
+                            <i class="fa fa-user item-icon" aria-hidden="true"></i>
+                            <div class="item-content">
+                                <span class="item-date">Juan Dela Cruz</span>
+                                <span class="item-sep">-</span>
+                                <span class="item-mode">Buddy (Dog)</span>
+                                <span class="item-sep">•</span>
+                                <span class="item-info">"Doc, may redness pa po."</span>
+                            </div>
+                        </li>
+                        <li class="upcoming-item">
+                            <i class="fa fa-user item-icon" aria-hidden="true"></i>
+                            <div class="item-content">
+                                <span class="item-date">Maria Santos</span>
+                                <span class="item-sep">-</span>
+                                <span class="item-mode">Luna (Cat)</span>
+                                <span class="item-sep">•</span>
+                                <span class="item-info">Asked about vaccine schedule</span>
+                            </div>
+                        </li>
+                        <li class="upcoming-item">
+                            <i class="fa fa-user item-icon" aria-hidden="true"></i>
+                            <div class="item-content">
+                                <span class="item-date">Mark Reyes</span>
+                                <span class="item-sep">-</span>
+                                <span class="item-mode">Max (Dog)</span>
+                                <span class="item-sep">•</span>
+                                <span class="item-info">Sent post-op photo</span>
+                            </div>
+                        </li>
+                    </ul>
                 </section>
-                <section class="dashboard-card edit-info-card">
+
+                <section class="dashboard-card users-online-card">
                     <div class="card-header">
-                        <h3 class="card-title"><i class="fa fa-pencil" aria-hidden="true"></i> Update Pet Info</h3>
+                        <h3 class="card-title">
+                            <i class="fa fa-circle" aria-hidden="true"></i>
+                            Users Online Today
+                        </h3>
                     </div>
-                    <div class="edit-info-content">
-                        <p class="edit-info-desc">Update your pet's details and health records</p>
-                        <button type="button" id="edit-pet-info-btn" class="btn btn-secondary" title="Edit pet details"><i class="fa fa-pencil" aria-hidden="true"></i> Edit Info</button>
-                    </div>
+                    <ul class="upcoming-list online-users-list">
+                        <li class="upcoming-item">
+                            <i class="fa fa-circle item-icon online-dot" aria-hidden="true"></i>
+                            <div class="item-content">
+                                <span class="item-date">Juan Dela Cruz</span>
+                            </div>
+                        </li>
+                        <li class="upcoming-item">
+                            <i class="fa fa-circle item-icon online-dot" aria-hidden="true"></i>
+                            <div class="item-content">
+                                <span class="item-date">Maria Santos</span>
+                            </div>
+                        </li>
+                        <li class="upcoming-item">
+                            <i class="fa fa-circle item-icon online-dot" aria-hidden="true"></i>
+                            <div class="item-content">
+                                <span class="item-date">Mark Reyes</span>
+                            </div>
+                        </li>
+                    </ul>
                 </section>
-                </div>
+
                 <section class="dashboard-card past-appointments-card">
-                <div class="card-header">
-                    <h3 class="card-title"><i class="fa fa-history" aria-hidden="true"></i> Past Appointments</h3>
-                    <a href="appointment.html" class="btn btn-link btn-history" title="View full appointment history">View History <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
-                </div>
-                <ul class="past-appointments-list">
-                    <li class="past-appointment-item">
-                        <i class="fa fa-calendar-o item-icon" aria-hidden="true"></i>
-                        <div class="item-content"><span class="item-date">Jan 22, 2026</span><span class="item-sep">•</span><span class="item-mode">Video Consultation</span><span class="item-sep">•</span><span class="item-info">Skin Problem</span></div>
-                    </li>
-                    <li class="past-appointment-item">
-                        <i class="fa fa-calendar-o item-icon" aria-hidden="true"></i>
-                        <div class="item-content"><span class="item-date">Jan 5, 2026</span><span class="item-sep">•</span><span class="item-mode">FTF</span><span class="item-sep">•</span><span class="item-info">Vomits</span></div>
-                    </li>
-                    <li class="past-appointment-item">
-                        <i class="fa fa-calendar-o item-icon" aria-hidden="true"></i>
-                        <div class="item-content"><span class="item-date">Dec 18, 2025</span><span class="item-sep">•</span><span class="item-mode">Video Consultation</span><span class="item-sep">•</span><span class="item-info">Routine Check-up</span></div>
-                    </li>
-                    <li class="past-appointment-item">
-                        <i class="fa fa-calendar-o item-icon" aria-hidden="true"></i>
-                        <div class="item-content"><span class="item-date">Nov 30, 2025</span><span class="item-sep">•</span><span class="item-mode">FTF</span><span class="item-sep">•</span><span class="item-info">Vaccination</span></div>
-                    </li>
-                </ul>
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fa fa-history" aria-hidden="true"></i>
+                            Past Appointments
+                        </h3>
+                    </div>
+                    <ul class="upcoming-list">
+                        <li class="upcoming-item">
+                            <i class="fa fa-calendar-o item-icon" aria-hidden="true"></i>
+                            <div class="item-content">
+                                <span class="item-date">Jan 22, 2026</span>
+                                <span class="item-sep">•</span>
+                                <span class="item-mode">Video Consultation</span>
+                                <span class="item-sep">•</span>
+                                <span class="item-info">Buddy (Dog) - Skin problem</span>
+                            </div>
+                        </li>
+                        <li class="upcoming-item">
+                            <i class="fa fa-calendar-o item-icon" aria-hidden="true"></i>
+                            <div class="item-content">
+                                <span class="item-date">Jan 10, 2026</span>
+                                <span class="item-sep">•</span>
+                                <span class="item-mode">Face-to-face</span>
+                                <span class="item-sep">•</span>
+                                <span class="item-info">Luna (Cat) - Vaccination</span>
+                            </div>
+                        </li>
+                        <li class="upcoming-item">
+                            <i class="fa fa-calendar-o item-icon" aria-hidden="true"></i>
+                            <div class="item-content">
+                                <span class="item-date">Dec 18, 2025</span>
+                                <span class="item-sep">•</span>
+                                <span class="item-mode">Video Consultation</span>
+                                <span class="item-sep">•</span>
+                                <span class="item-info">Max (Dog) - Routine check-up</span>
+                            </div>
+                        </li>
+                    </ul>
                 </section>
             </div>
         </div>
     </main>
 
-    <div id="add-pet-success-toast" class="add-pet-success-toast" role="status" aria-live="polite" aria-hidden="true">
-        <i class="fa fa-check-circle" aria-hidden="true"></i>
-        <span>Pet added successfully!</span>
-    </div>
-    <div id="update-pet-success-toast" class="add-pet-success-toast" role="status" aria-live="polite" aria-hidden="true">
-        <i class="fa fa-check-circle" aria-hidden="true"></i>
-        <span>Pet updated successfully!</span>
-    </div>
-    <div id="add-pet-overlay" class="add-pet-overlay" aria-hidden="true"></div>
-    <aside id="add-pet-panel" class="add-pet-panel" role="dialog" aria-modal="true" aria-labelledby="add-pet-title" aria-hidden="true">
-        <div class="add-pet-panel-inner">
-            <div class="add-pet-panel-header">
-                <h2 id="add-pet-title" class="add-pet-panel-title"><i class="fa fa-paw" aria-hidden="true"></i> Add Pet</h2>
-                <button type="button" id="add-pet-close" class="add-pet-close-btn" aria-label="Close panel"><i class="fa fa-times" aria-hidden="true"></i></button>
-            </div>
-            <form id="add-pet-form" class="add-pet-form" novalidate>
-                <div class="add-pet-field">
-                    <label for="add-pet-name">Pet Name <span class="required">*</span></label>
-                    <input type="text" id="add-pet-name" name="petName" placeholder="e.g. Buddy" required autocomplete="off">
-                </div>
-                <div class="add-pet-field">
-                    <label for="add-pet-species">Species <span class="required">*</span></label>
-                    <select id="add-pet-species" name="species" required>
-                        <option value="">Select species…</option>
-                    </select>
-                </div>
-                <div class="add-pet-field">
-                    <label for="add-pet-breed">Breed</label>
-                    <input type="text" id="add-pet-breed" name="breed" placeholder="e.g. Golden Retriever" autocomplete="off">
-                </div>
-                <div class="add-pet-field">
-                    <label for="add-pet-sex">Sex</label>
-                    <select id="add-pet-sex" name="sex">
-                        <option value="">Select…</option>
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                    </select>
-                </div>
-                <div class="add-pet-row">
-                    <div class="add-pet-field">
-                        <label for="add-pet-age">Age (years)</label>
-                        <input type="number" id="add-pet-age" name="age" min="0" max="50" step="0.5" placeholder="0" autocomplete="off">
-                    </div>
-                    <div class="add-pet-field">
-                        <label for="add-pet-weight">Weight (kg)</label>
-                        <input type="number" id="add-pet-weight" name="weight" min="0" max="200" step="0.1" placeholder="0" autocomplete="off">
-                    </div>
-                </div>
-                <div class="add-pet-field add-pet-image-placeholder">
-                    <label>Pet Image</label>
-                    <div class="add-pet-image-box">
-                        <i class="fa fa-camera" aria-hidden="true"></i>
-                        <span>Coming soon</span>
-                    </div>
-                </div>
-                <div class="add-pet-form-actions">
-                    <button type="button" id="add-pet-cancel" class="btn btn-secondary">Cancel</button>
-                    <button type="submit" class="btn btn-primary"><i class="fa fa-check" aria-hidden="true"></i> Add Pet</button>
-                </div>
-            </form>
-        </div>
-    </aside>
-
     <script src="js/sidebar.js"></script>
     <script type="module" src="js/dashboard-auth.js"></script>
     <script type="module" src="js/profile.js"></script>
-    <script type="module" src="js/pet-manager.js"></script>
     <script src="js/dashboard.js"></script>
 </body>
 </html>

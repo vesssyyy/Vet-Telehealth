@@ -1,6 +1,5 @@
 @import "../../shared/css/loading.css";
 
-/* Profile loading — full-page on login, content-only when navigating */
 body.profile-loading .profile-loading-overlay { display: flex; }
 body.profile-loading.profile-loading-full-page .sidebar,
 body.profile-loading.profile-loading-full-page .main-content,

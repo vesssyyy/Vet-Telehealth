@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administration - Televet Health (Vet)</title>
+    <link rel="stylesheet" href="css/sidebar-layout.css">
+    <link rel="stylesheet" href="../shared/css/loading.css">
+    <link rel="stylesheet" href="css/profile-loading.css">
+    <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link href="https://fonts.googleapis.com/css?family=Lalezar" rel="stylesheet">
+    <style>body { visibility: hidden; }</style>
+</head>
+<body>
+    <div class="profile-loading-overlay loading-animation" aria-hidden="true">
+        <div class="loader">
+            <div class="wrapper">
+                <div class="catContainer">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 733 673" class="catbody">
+                        <path fill="#212121" d="M111.002 139.5C270.502 -24.5001 471.503 2.4997 621.002 139.5C770.501 276.5 768.504 627.5 621.002 649.5C473.5 671.5 246 687.5 111.002 649.5C-23.9964 611.5 -48.4982 303.5 111.002 139.5Z"></path>
+                        <path fill="#212121" d="M184 9L270.603 159H97.3975L184 9Z"></path>
+                        <path fill="#212121" d="M541 0L627.603 150H454.397L541 0Z"></path>
+                    </svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 158 564" class="tail">
+                        <path fill="#191919" d="M5.97602 76.066C-11.1099 41.6747 12.9018 0 51.3036 0V0C71.5336 0 89.8636 12.2558 97.2565 31.0866C173.697 225.792 180.478 345.852 97.0691 536.666C89.7636 553.378 73.0672 564 54.8273 564V564C16.9427 564 -5.4224 521.149 13.0712 488.085C90.2225 350.15 87.9612 241.089 5.97602 76.066Z"></path>
+                    </svg>
+                    <div class="text"><span class="bigzzz">Z</span><span class="zzz">Z</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="sidebar-overlay"></div>
+
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <a href="dashboard.html" class="sidebar-brand">Televet Health</a>
+            <div class="sidebar-tagline">Veterinarian Portal</div>
+        </div>
+        <div class="user-profile">
+            <a href="profile.html" class="user-profile-link">
+                <div class="user-info">
+                    <div class="user-avatar">
+                        <img id="sidebar-avatar-img" class="user-avatar-img is-hidden" alt="Profile photo">
+                        <span class="user-avatar-initials" id="sidebar-avatar">V</span>
+                    </div>
+                    <div class="user-text">
+                        <div class="user-name" id="sidebar-name">Veterinarian</div>
+                        <div class="user-email"><i class="fa fa-envelope"></i> <span id="sidebar-email">vet@example.com</span></div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item"><i class="fa fa-th-large"></i> Dashboard</a>
+            <a href="appointments.html" class="nav-item"><i class="fa fa-calendar"></i> Appointments</a>
+            <a href="messages.html" class="nav-item"><i class="fa fa-envelope"></i> Messages</a>
+            <a href="patients.html" class="nav-item"><i class="fa fa-paw"></i> Patients</a>
+        </nav>
+        <nav class="footer-nav">
+            <a href="admin.html" class="nav-item active"><i class="fa fa-users"></i> Administration</a>
+        </nav>
+        <div class="logout-section">
+            <button id="logout-btn" class="logout-btn"><i class="fa fa-sign-out"></i> Logout</button>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="app-top-header">
+            <div class="header-left">
+                <button class="mobile-menu-toggle" aria-label="Toggle Menu"><i class="fa fa-bars"></i></button>
+                <span class="role-badge"><i class="fa fa-stethoscope" aria-hidden="true"></i> Veterinarian</span>
+            </div>
+            <div class="header-right">
+                <button type="button" class="dark-mode-toggle" aria-label="Toggle dark mode"><i class="fa fa-moon-o" aria-hidden="true"></i></button>
+                <button type="button" class="profile-header-btn" aria-label="Profile"><i class="fa fa-user-circle" aria-hidden="true"></i></button>
+            </div>
+        </header>
+
+        <div class="page-header">
+            <h1 class="page-title"><i class="fa fa-users" aria-hidden="true"></i> Administration</h1>
+            <p class="page-subtitle">View, disable, or remove pet owner accounts</p>
+        </div>
+
+        <div class="content-wrapper admin-content-wrapper">
+            <div class="admin-loading loading-animation" id="admin-loading" aria-live="polite">
+                <div class="loader">
+                    <div class="wrapper">
+                        <div class="catContainer">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 733 673" class="catbody">
+                                <path fill="#212121" d="M111.002 139.5C270.502 -24.5001 471.503 2.4997 621.002 139.5C770.501 276.5 768.504 627.5 621.002 649.5C473.5 671.5 246 687.5 111.002 649.5C-23.9964 611.5 -48.4982 303.5 111.002 139.5Z"></path>
+                                <path fill="#212121" d="M184 9L270.603 159H97.3975L184 9Z"></path>
+                                <path fill="#212121" d="M541 0L627.603 150H454.397L541 0Z"></path>
+                            </svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 158 564" class="tail">
+                                <path fill="#191919" d="M5.97602 76.066C-11.1099 41.6747 12.9018 0 51.3036 0V0C71.5336 0 89.8636 12.2558 97.2565 31.0866C173.697 225.792 180.478 345.852 97.0691 536.666C89.7636 553.378 73.0672 564 54.8273 564V564C16.9427 564 -5.4224 521.149 13.0712 488.085C90.2225 350.15 87.9612 241.089 5.97602 76.066Z"></path>
+                            </svg>
+                            <div class="text"><span class="bigzzz">Z</span><span class="zzz">Z</span></div>
+                        </div>
+                    </div>
+                </div>
+                <p class="admin-loading-text">Loading pet owners…</p>
+            </div>
+
+            <div class="admin-error is-hidden" id="admin-error" role="alert">
+                <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+                <span id="admin-error-message">Failed to load pet owners.</span>
+            </div>
+
+            <div class="admin-toolbar is-hidden" id="admin-toolbar">
+                <div class="admin-stats">
+                    <span class="admin-count" id="admin-count">0</span> registered pet owner<span id="admin-count-plural">s</span>
+                </div>
+                <div class="admin-toolbar-actions">
+                    <button type="button" class="admin-refresh-btn" id="admin-refresh-btn" aria-label="Refresh list">
+                        <i class="fa fa-refresh" aria-hidden="true"></i> Refresh
+                    </button>
+                    <div class="admin-search">
+                        <label for="admin-search-input" class="sr-only">Search by name or email</label>
+                        <i class="fa fa-search" aria-hidden="true"></i>
+                        <input type="search" id="admin-search-input" class="admin-search-input" placeholder="Search by name or email…" aria-label="Search pet owners">
+                    </div>
+                </div>
+            </div>
+
+            <div class="admin-list-wrapper is-hidden" id="admin-list-wrapper">
+                <div class="admin-table-scroll">
+                    <table class="admin-table" id="admin-table" aria-label="Registered pet owners">
+                        <thead>
+                            <tr>
+                                <th scope="col">Name</th>
+                                <th scope="col">Email</th>
+                                <th scope="col">Registered</th>
+                                <th scope="col">Last login</th>
+                                <th scope="col">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-table-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="admin-empty is-hidden" id="admin-empty">
+                <i class="fa fa-user-times" aria-hidden="true"></i>
+                <p>No registered pet owners found.</p>
+            </div>
+
+            <div class="admin-modal-overlay is-hidden" id="admin-action-overlay"></div>
+            <div class="admin-modal is-hidden" id="admin-action-modal" role="dialog" aria-modal="true" aria-labelledby="admin-action-title">
+                <div class="admin-modal-card">
+                    <div class="admin-modal-header">
+                        <h2 class="admin-modal-title" id="admin-action-title">Account actions</h2>
+                        <button type="button" class="admin-modal-close" id="admin-action-close" aria-label="Close">
+                            <i class="fa fa-times" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <div class="admin-modal-body">
+                        <div class="admin-modal-user">
+                            <div class="admin-modal-user-main">
+                                <div class="admin-modal-avatar">
+                                    <i class="fa fa-user" aria-hidden="true"></i>
+                                </div>
+                                <div class="admin-modal-user-text">
+                                    <div class="admin-modal-name" id="admin-action-name">Pet Owner</div>
+                                    <div class="admin-modal-email" id="admin-action-email">email@example.com</div>
+                                </div>
+                            </div>
+                            <div class="admin-modal-status">
+                                <span class="admin-badge" id="admin-action-status">Status</span>
+                            </div>
+                        </div>
+                        <div class="admin-modal-meta">
+                            <span class="admin-modal-lastlogin">Last login: <strong id="admin-action-lastlogin">—</strong></span>
+                            <span class="admin-badge" id="admin-action-activity">—</span>
+                        </div>
+                        <p class="admin-modal-hint">Choose what you want to do with this account.</p>
+                    </div>
+                    <div class="admin-modal-footer">
+                        <button type="button" class="admin-btn admin-btn-disable" id="admin-action-disable-btn">
+                            <i class="fa fa-ban" aria-hidden="true"></i>
+                            Disable account
+                        </button>
+                        <button type="button" class="admin-btn admin-btn-delete" id="admin-action-delete-btn">
+                            <i class="fa fa-trash-o" aria-hidden="true"></i>
+                            Delete account
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/sidebar.js"></script>
+    <script type="module" src="js/admin-auth.js"></script>
+    <script type="module" src="js/profile.js"></script>
+    <script type="module" src="js/admin.js"></script>
+</body>
+</html>

@@ -162,6 +162,9 @@ body { margin: 0; min-height: 100vh; font-family: 'DM Sans', system-ui, sans-ser
 .activate-sub { font-size: 0.875rem; color: var(--text-muted); text-align: center; margin: 0 0 1rem; }
 .forgot-hint { font-size: 0.875rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 1rem; }
 
+.auth-alert { padding: 0.75rem 1rem; border-radius: var(--radius-sm); margin-bottom: 1rem; font-size: 0.875rem; }
+.auth-alert-disabled { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; }
+
 @media (max-width: 480px) {
     .auth-container { padding: 1.5rem 1.25rem 2rem; }
     .tabs { margin-bottom: 1.25rem; }
