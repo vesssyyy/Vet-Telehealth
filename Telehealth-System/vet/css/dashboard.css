@@ -1,0 +1,197 @@
+/* Vet Dashboard */
+.dashboard-header {
+    --dashboard-section-gap: 24px;
+    margin: calc(var(--dashboard-section-gap) + 6px) 0 var(--dashboard-section-gap);
+    padding: 25px 29px;
+    background: linear-gradient(135deg, var(--bg-white) 0%, var(--bg-light) 100%);
+    border-radius: 14px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    position: relative;
+    overflow: hidden;
+}
+.dashboard-header::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+    background: linear-gradient(180deg, var(--primary-color) 0%, var(--accent-color) 100%);
+    border-radius: 4px 0 0 4px;
+}
+.dashboard-header-content { display: flex; align-items: flex-start; gap: 21px; position: relative; z-index: 1; }
+.dashboard-header-icon {
+    width: 55px; height: 55px; min-width: 55px;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    color: white; border-radius: 13px; font-size: 23px;
+    box-shadow: 0 4px 12px rgba(44, 95, 125, 0.25);
+}
+.dashboard-header-text { flex: 1; min-width: 0; }
+.dashboard-greeting { font-size: 16px; color: var(--text-light); margin: 0 0 6px; font-weight: 500; }
+.dashboard-greeting #dashboard-user-name { color: var(--primary-color); font-weight: 600; }
+.dashboard-header .page-subtitle { font-size: 15px; color: var(--text-light); margin: 0; line-height: 1.6; }
+.dashboard-date { font-weight: 500; color: var(--accent-color); }
+
+.content-wrapper {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 8px 28px rgba(0, 0, 0, 0.08),
+        inset 20px 0 32px -20px rgba(0, 0, 0, 0.07), inset -20px 0 32px -20px rgba(0, 0, 0, 0.07);
+}
+
+.dashboard-loading { display: none; }
+body.dashboard-waiting .dashboard-loading { display: flex; }
+body.dashboard-ready .dashboard-loading { display: none; }
+.dashboard-content.is-loading { display: none !important; }
+body.dashboard-ready .dashboard-content { display: flex !important; }
+.dashboard-content { flex-direction: column; gap: 25px; min-height: auto; }
+
+.dashboard-card {
+    background: var(--bg-white); border-radius: 13px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    border: 1px solid var(--border-color);
+    padding: 25px;
+    transition: box-shadow 0.2s ease;
+}
+.dashboard-card:hover { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); }
+.card-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 13px; margin-bottom: 17px; }
+.card-title { font-size: 19px; font-weight: 600; color: var(--text-dark); display: flex; align-items: center; gap: 11px; }
+.card-title i { color: var(--primary-color); font-size: 21px; }
+
+/* Stats row */
+.vet-stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.vet-stat-card {
+    display: flex; align-items: center; gap: 18px;
+    padding: 20px; background: var(--bg-light); border-radius: 12px;
+    border: 1px solid var(--border-color);
+}
+.vet-stat-icon {
+    width: 50px; height: 50px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
+    color: white; font-size: 22px;
+}
+.vet-stat-content { flex: 1; min-width: 0; }
+.vet-stat-value { font-size: 24px; font-weight: 700; color: var(--text-dark); line-height: 1.2; }
+.vet-stat-label { font-size: 14px; color: var(--text-light); margin-top: 2px; }
+
+/* Today's schedule */
+.schedule-list { list-style: none; }
+.schedule-item {
+    display: flex; align-items: center; gap: 15px;
+    padding: 16px 0; border-bottom: 1px solid var(--border-color);
+}
+.schedule-item:last-child { border-bottom: none; padding-bottom: 0; }
+.schedule-time { font-size: 15px; font-weight: 600; color: var(--primary-color); min-width: 70px; }
+.schedule-info { flex: 1; min-width: 0; }
+.schedule-patient { font-weight: 600; color: var(--text-dark); margin-bottom: 2px; }
+.schedule-detail { font-size: 14px; color: var(--text-light); }
+.schedule-mode { font-size: 12px; color: var(--accent-color); display: flex; align-items: center; gap: 4px; }
+.btn-join { padding: 8px 16px; font-size: 13px; align-self: flex-start; }
+
+/* Messages card */
+.messages-preview { display: flex; flex-direction: column; gap: 17px; }
+.messages-summary { font-size: 16px; color: var(--text-dark); margin: 0; }
+.badge-new { background: var(--primary-color); color: white; font-size: 12px; font-weight: 600; padding: 4px 8px; border-radius: 6px; }
+
+/* Upcoming appointments */
+.upcoming-list { list-style: none; }
+.upcoming-item {
+    display: flex; align-items: center; gap: 15px;
+    padding: 15px 0; border-bottom: 1px solid var(--border-color); font-size: 15px;
+}
+.upcoming-item:first-child { padding-top: 0; }
+.upcoming-item:last-child { border-bottom: none; padding-bottom: 0; }
+.item-icon { color: var(--accent-color); font-size: 17px; flex-shrink: 0; }
+.item-content { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.item-date { font-weight: 500; color: var(--text-dark); }
+.item-sep { color: var(--text-light); font-size: 13px; }
+.item-mode { color: var(--primary-color); }
+.item-info { color: var(--text-light); }
+
+/* Empty state */
+.vet-empty-state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 50px 25px; min-height: 180px;
+}
+.vet-empty-icon {
+    width: 70px; height: 70px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
+    color: rgba(255, 255, 255, 0.9);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px; margin-bottom: 16px;
+}
+.vet-empty-title { font-size: 18px; font-weight: 600; color: var(--text-dark); margin: 0 0 6px; }
+.vet-empty-desc { font-size: 15px; color: var(--text-light); margin: 0; line-height: 1.5; }
+
+.btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 11px 19px; font-size: 15px; font-weight: 500;
+    border-radius: 8px; text-decoration: none; cursor: pointer;
+    transition: all 0.2s ease; border: none;
+}
+.btn i { font-size: 15px; }
+.btn-primary { background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%); color: white; }
+.btn-primary:hover { opacity: 0.95; transform: translateY(-1px); }
+.btn-secondary { background: var(--bg-light); color: var(--primary-color); border: 1px solid var(--border-color); }
+.btn-secondary:hover { background: var(--border-color); }
+.btn-link { background: none; color: var(--primary-color); padding: 6px 0; }
+.btn-link:hover { text-decoration: underline; }
+
+/* Vet dashboard layout */
+.todays-appointments-card {
+    margin-bottom: 4px;
+}
+
+.appointment-filters {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+}
+
+.filter-label {
+    color: var(--text-light);
+}
+
+.filter-select,
+.filter-date-input {
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    font-size: 14px;
+    background: var(--bg-light);
+    color: var(--text-dark);
+}
+
+.filter-date-input[disabled] {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.vet-messages-card,
+.users-online-card,
+.past-appointments-card {
+    margin-top: 4px;
+}
+
+.messages-list .item-date {
+    font-weight: 600;
+}
+
+.online-users-list .online-dot {
+    color: #1db954;
+}
+
+@media (max-width: 992px) {
+    .vet-stats-row { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 768px) {
+    .vet-stats-row { grid-template-columns: 1fr; }
+    .dashboard-header { padding: 15px 17px; }
+    .dashboard-header-icon { width: 42px; height: 42px; min-width: 42px; font-size: 17px; }
+    .dashboard-greeting { font-size: 14px; }
+    .vet-stat-value { font-size: 20px; }
+}
+@media (max-width: 480px) {
+    .vet-stat-card { padding: 16px; }
+    .vet-stat-icon { width: 44px; height: 44px; font-size: 18px; }
+}

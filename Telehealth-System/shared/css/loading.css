@@ -1,0 +1,89 @@
+/**
+ * Shared loading animation (cat + Zzz) — used by petowner and vet portals.
+ * Wrap the loader markup in an element with class "loading-animation".
+ *
+ * Required HTML structure:
+ *   <div class="loading-animation">
+ *     <div class="loader">
+ *       <div class="wrapper">
+ *         <div class="catContainer">
+ *           <svg class="catbody">...</svg>
+ *           <svg class="tail">...</svg>
+ *           <div class="text"><span class="bigzzz">Z</span><span class="zzz">Z</span></div>
+ *         </div>
+ *         <div class="wallContainer">
+ *           <svg class="wall">...</svg>
+ *         </div>
+ *       </div>
+ *     </div>
+ *   </div>
+ * See shared/loading-snippet.html for full markup to copy.
+ */
+
+.loading-animation .loader,
+.loading-animation .wrapper,
+.loading-animation .catContainer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.loading-animation .wrapper {
+    flex-direction: column;
+}
+
+.loading-animation .catContainer {
+    width: 100%;
+    height: fit-content;
+    position: relative;
+}
+
+.loading-animation .catbody {
+    width: 80px;
+}
+
+.loading-animation .tail {
+    position: absolute;
+    width: 17px;
+    top: 50%;
+    transform-origin: top;
+    animation: loading-tail 0.6s ease-in infinite alternate-reverse;
+}
+
+.loading-animation .wall {
+    width: 300px;
+}
+
+.loading-animation .text {
+    display: flex;
+    flex-direction: column;
+    width: 50px;
+    position: absolute;
+    margin: 0 0 100px 120px;
+}
+
+.loading-animation .zzz {
+    color: #1B3C53;
+    font-weight: 700;
+    font-size: 15px;
+    animation: loading-zzz 2s linear infinite;
+}
+
+.loading-animation .bigzzz {
+    color: #1B3C53;
+    font-weight: 700;
+    font-size: 25px;
+    margin-left: 10px;
+    animation: loading-zzz 2.3s linear infinite;
+}
+
+@keyframes loading-tail {
+    0% { transform: rotateZ(60deg); }
+    50% { transform: rotateZ(0deg); }
+    100% { transform: rotateZ(-20deg); }
+}
+
+@keyframes loading-zzz {
+    0%, 100% { color: transparent; }
+    50% { color: #1B3C53; }
+}

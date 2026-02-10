@@ -4,7 +4,7 @@
 import { auth, db } from './firebase-config.js';
 import {
     createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup,
-    GoogleAuthProvider, sendEmailVerification, sendPasswordResetEmail, onAuthStateChanged
+    GoogleAuthProvider, sendEmailVerification, sendPasswordResetEmail, onAuthStateChanged, signOut
 } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
 
@@ -66,9 +66,10 @@ import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "https://www.gst
         return false;
     };
 
-    const redirectToDashboard = () => {
+    const redirectToDashboard = (role = 'petOwner') => {
         sessionStorage.removeItem('telehealthLoggedOut');
-        window.location.replace('petowner/dashboard.html');
+        const path = role === 'vet' ? 'vet/dashboard.html' : 'petowner/dashboard.html';
+        window.location.replace(path);
     };
 
     const handleAuthenticatedUser = async (user) => {
@@ -92,8 +93,18 @@ import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "https://www.gst
             }
         }
         if (user.emailVerified && !userDoc.data().emailVerified) await syncEmailVerification(user.uid);
-        const { role, displayName } = userDoc.data();
-        role === 'vet' ? alert(`Welcome back, Dr. ${displayName}! (Vet dashboard coming soon)`) : redirectToDashboard();
+        const { role, disabled } = userDoc.data();
+        if (role === 'petOwner' && disabled) {
+            await signOut(auth);
+            alert('Your account has been disabled. Please contact support.');
+            return;
+        }
+        try {
+            await updateDoc(doc(db, 'users', user.uid), { lastLoginAt: serverTimestamp() });
+        } catch (err) {
+            console.warn('Could not update lastLoginAt (check Firestore rules):', err.message);
+        }
+        redirectToDashboard(role);
     };
 
     const showTab = (tab) => {
@@ -152,12 +163,9 @@ import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "https://www.gst
                         email: user.email, firstName, lastName: rest.join(' '),
                         displayName: user.displayName || user.email, emailVerified: user.emailVerified, photoURL: user.photoURL
                     });
-                    isGoogleSignInInProgress = false;
-                    redirectToDashboard();
-                } else {
-                    isGoogleSignInInProgress = false;
-                    await handleAuthenticatedUser(user);
                 }
+                isGoogleSignInInProgress = false;
+                await handleAuthenticatedUser(user);
             } catch (error) {
                 isGoogleSignInInProgress = false;
                 console.error('Google sign-in error:', error);
@@ -217,6 +225,11 @@ import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "https://www.gst
         $('btn-back-to-login')?.addEventListener('click', () => showTab('login'));
         $('btn-send-reset')?.addEventListener('click', handlePasswordReset);
         showTab(window.location.hash === '#signup' ? 'signup' : 'login');
+        const disabledMsg = $('auth-disabled-message');
+        if (disabledMsg && new URLSearchParams(window.location.search).get('disabled') === '1') {
+            disabledMsg.classList.remove('hidden');
+            window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+        }
     };
 
     onAuthStateChanged(auth, async (user) => {
