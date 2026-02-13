@@ -465,6 +465,20 @@
     font-size: 11px;
 }
 
+.admin-modal-disabled-notice {
+    margin-top: 12px;
+    padding: 10px 12px;
+    font-size: 13px;
+    color: #b91c1c;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+}
+
+.admin-modal-disabled-notice.is-hidden {
+    display: none !important;
+}
+
 .admin-modal-hint {
     margin-top: 12px;
     margin-bottom: 0;

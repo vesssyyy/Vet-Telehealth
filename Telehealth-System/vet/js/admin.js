@@ -5,7 +5,7 @@ import { collection, query, where, getDocs, doc, updateDoc, writeBatch, serverTi
 (function () {
     'use strict';
     const $ = id => document.getElementById(id);
-    const els = { load: $('admin-loading'), wrap: document.querySelector('.admin-content-wrapper'), err: $('admin-error'), errMsg: $('admin-error-message'), toolbar: $('admin-toolbar'), list: $('admin-list-wrapper'), body: $('admin-table-body'), count: $('admin-count'), plural: $('admin-count-plural'), empty: $('admin-empty'), search: $('admin-search-input'), overlay: $('admin-action-overlay'), modal: $('admin-action-modal'), name: $('admin-action-name'), email: $('admin-action-email'), status: $('admin-action-status'), lastLogin: $('admin-action-lastlogin'), activity: $('admin-action-activity'), disableBtn: $('admin-action-disable-btn'), deleteBtn: $('admin-action-delete-btn'), close: $('admin-action-close') };
+    const els = { load: $('admin-loading'), wrap: document.querySelector('.admin-content-wrapper'), err: $('admin-error'), errMsg: $('admin-error-message'), toolbar: $('admin-toolbar'), list: $('admin-list-wrapper'), body: $('admin-table-body'), count: $('admin-count'), plural: $('admin-count-plural'), empty: $('admin-empty'), search: $('admin-search-input'), overlay: $('admin-action-overlay'), modal: $('admin-action-modal'), name: $('admin-action-name'), email: $('admin-action-email'), status: $('admin-action-status'), lastLogin: $('admin-action-lastlogin'), activity: $('admin-action-activity'), disabledNotice: $('admin-action-disabled-notice'), disableBtn: $('admin-action-disable-btn'), deleteBtn: $('admin-action-delete-btn'), close: $('admin-action-close') };
     const MONTH = 30 * 24 * 60 * 60 * 1000;
     let owners = [], current = null;
 
@@ -45,6 +45,7 @@ import { collection, query, where, getDocs, doc, updateDoc, writeBatch, serverTi
         if (els.lastLogin) els.lastLogin.textContent = lastTxt;
         if (els.activity) { els.activity.className = 'admin-badge ' + (inact ? 'admin-badge-inactive' : 'admin-badge-active'); els.activity.textContent = inact ? 'Inactive' : 'Active'; }
         if (els.disableBtn) els.disableBtn.innerHTML = dis ? '<i class="fa fa-check-circle" aria-hidden="true"></i> Enable account' : '<i class="fa fa-ban" aria-hidden="true"></i> Disable account';
+        if (els.disabledNotice) { els.disabledNotice.classList.toggle('is-hidden', !dis); els.disabledNotice.textContent = dis ? 'This account is disabled. The user cannot log in until you re-enable them.' : ''; }
         els.overlay.classList.remove('is-hidden');
         els.modal.classList.remove('is-hidden');
     };
@@ -54,7 +55,11 @@ import { collection, query, where, getDocs, doc, updateDoc, writeBatch, serverTi
         try {
             await updateDoc(doc(db, 'users', uid), dis ? { disabled: true, disabledAt: serverTimestamp(), disabledBy: auth.currentUser?.uid || null } : { disabled: false, disabledAt: deleteField(), disabledBy: deleteField() });
             const i = owners.findIndex(x => x.id === uid);
-            if (i !== -1) { owners[i] = { ...owners[i], data: { ...owners[i].data, disabled: dis } }; current?.id === uid ? openModal(owners[i]) : applyFilter(); } else applyFilter();
+            if (i !== -1) {
+                owners[i] = { ...owners[i], data: { ...owners[i].data, disabled: dis } };
+                applyFilter();
+                if (current?.id === uid) openModal(owners[i]);
+            } else applyFilter();
         } catch (e) { console.error('Set disabled error:', e); alert(e.message || 'Failed to update account.'); }
     };
     const deleteAcct = async uid => {
