@@ -67,6 +67,11 @@ import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-
             window.location.replace('../auth.html#login');
             return;
         }
+        const role = userDoc.data().role;
+        if (role === 'vet') {
+            window.location.replace('../vet/dashboard.html');
+            return;
+        }
         if (userDoc.data().disabled) {
             await signOut(auth);
             sessionStorage.setItem('telehealthLoggedOut', 'true');

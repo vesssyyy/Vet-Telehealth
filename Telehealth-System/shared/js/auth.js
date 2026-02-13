@@ -232,6 +232,12 @@ import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "https://www.gst
         }
     };
 
+    const redirectBasedOnRole = async (user) => {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const role = userDoc.exists() ? (userDoc.data().role || 'petOwner') : 'petOwner';
+        redirectToDashboard(role);
+    };
+
     onAuthStateChanged(auth, async (user) => {
         const isVerificationRedirect = new URLSearchParams(window.location.search).get('verified') === 'true';
         const isSignupPending = sessionStorage.getItem('telehealthSignupPending') === 'true';
@@ -241,11 +247,11 @@ import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "https://www.gst
             if (auth.currentUser.emailVerified && await syncEmailVerification(user.uid)) {
                 alert('Email verified successfully! You can now log in.');
                 window.history.replaceState({}, document.title, window.location.pathname);
-                redirectToDashboard();
+                await redirectBasedOnRole(user);
             }
         } else if (user && isSignupPending) return;
         else if (user && !user.emailVerified) { await auth.signOut(); return; }
-        else if (user) redirectToDashboard();
+        else if (user) await redirectBasedOnRole(user);
     });
 
     document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', init) : init();

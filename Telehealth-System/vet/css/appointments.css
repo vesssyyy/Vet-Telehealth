@@ -1,0 +1,619 @@
+/* Appointments — Availability templates */
+.appointments-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.appointments-toolbar h2 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-dark);
+    margin: 0;
+}
+
+.appointments-create-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    color: white;
+    background: var(--primary-color);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.appointments-create-btn:hover {
+    background: var(--primary-dark);
+}
+
+.appointments-create-btn i {
+    font-size: 14px;
+}
+
+.appointments-templates-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.appointments-template-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 18px;
+    background: var(--bg-light);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    transition: border-color 0.2s;
+}
+
+.appointments-template-card:hover {
+    border-color: var(--primary-color);
+}
+
+.appointments-template-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.appointments-template-btn {
+    padding: 6px 10px;
+    font-size: 13px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-white);
+    color: var(--text-dark);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.appointments-template-btn:hover {
+    background: var(--bg-light);
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.appointments-template-btn.btn-delete:hover {
+    border-color: #b91c1c;
+    color: #b91c1c;
+    background: #fef2f2;
+}
+
+.appointments-template-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.appointments-template-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: rgba(44, 95, 125, 0.12);
+    color: var(--primary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.appointments-template-icon i {
+    font-size: 18px;
+}
+
+.appointments-template-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.appointments-template-meta {
+    font-size: 13px;
+    color: var(--text-light);
+    margin-top: 2px;
+}
+
+.appointments-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--text-light);
+}
+
+.appointments-empty i {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.6;
+    color: var(--primary-color);
+}
+
+.appointments-empty p {
+    font-size: 16px;
+    margin: 0 0 8px;
+}
+
+.appointments-empty-hint {
+    font-size: 14px;
+    margin: 0;
+}
+
+/* Template modal */
+.template-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    z-index: 1200;
+}
+
+.template-modal-overlay.is-hidden {
+    display: none !important;
+}
+
+.template-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1201;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    overflow-y: auto;
+}
+
+.template-modal.is-hidden {
+    display: none !important;
+}
+
+.template-modal-card {
+    background: var(--bg-white);
+    border-radius: 12px;
+    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.25);
+    padding: 24px;
+    max-width: 720px;
+    width: 100%;
+    margin: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-height: 90vh;
+    overflow: hidden;
+}
+
+.template-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.template-modal-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-dark);
+    margin: 0;
+}
+
+.template-modal-close {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: var(--text-light);
+    padding: 6px;
+    border-radius: 8px;
+}
+
+.template-modal-close:hover {
+    background: var(--bg-light);
+    color: var(--text-dark);
+}
+
+.template-form-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.template-form-group {
+    flex: 1;
+    min-width: 200px;
+}
+
+.template-form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-dark);
+    margin-bottom: 6px;
+}
+
+.template-form-group input[type="text"] {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-dark);
+    background: var(--bg-white);
+}
+
+.template-form-group input[type="text"]:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(44, 95, 125, 0.2);
+}
+
+.template-type-options {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.template-type-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-white);
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.template-type-option:hover {
+    border-color: var(--primary-color);
+    background: var(--bg-light);
+}
+
+.template-type-option input {
+    margin: 0;
+}
+
+.template-type-option.selected {
+    border-color: var(--primary-color);
+    background: rgba(44, 95, 125, 0.08);
+}
+
+.template-modal-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* Week template layout */
+.template-week-layout {
+    display: flex;
+    gap: 24px;
+    min-height: 280px;
+}
+
+.template-days-panel {
+    flex-shrink: 0;
+    width: 180px;
+    padding: 16px;
+    background: var(--bg-light);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+.template-days-panel h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-dark);
+    margin: 0 0 12px;
+}
+
+.template-day-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-bottom: 4px;
+}
+
+.template-day-item:hover {
+    background: rgba(44, 95, 125, 0.06);
+}
+
+.template-day-item.selected {
+    background: var(--primary-color);
+    color: white;
+}
+
+.template-day-item input[type="checkbox"] {
+    margin: 0;
+    pointer-events: none;
+}
+
+.template-day-item.selected input {
+    accent-color: white;
+}
+
+.template-availability-panel {
+    flex: 1;
+    min-width: 0;
+    padding: 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-white);
+}
+
+.template-availability-panel h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-dark);
+    margin: 0 0 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.template-availability-panel .template-panel-hint {
+    font-size: 13px;
+    color: var(--text-light);
+    margin: 0 0 16px;
+}
+
+.template-add-slot-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--primary-color);
+    background: rgba(44, 95, 125, 0.1);
+    border: 1px solid var(--primary-color);
+    border-radius: 8px;
+    cursor: pointer;
+    margin-bottom: 16px;
+    transition: background 0.2s;
+}
+
+.template-add-slot-btn:hover {
+    background: rgba(44, 95, 125, 0.18);
+}
+
+.template-slots-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.template-slot-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.template-slot-time-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+}
+
+.template-slots-header {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dark);
+    padding-bottom: 8px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.template-slots-header .template-slot-time-wrap {
+    min-width: 172px;
+}
+
+.template-slots-header .template-slot-time-wrap span {
+    display: block;
+}
+
+.template-slots-header .template-slot-col-delete {
+    display: inline-block;
+    min-width: 42px;
+}
+
+.template-slot-time-wrap input {
+    padding: 8px 10px;
+    font-size: 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-dark);
+    box-sizing: border-box;
+}
+
+.template-slot-time-wrap input[type="time"] {
+    min-width: 150px;
+    width: 150px;
+}
+
+.template-slot-time-wrap input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.template-slot-time-wrap .fa-clock-o {
+    color: var(--text-light);
+    font-size: 14px;
+}
+
+.template-slot-delete {
+    padding: 8px 10px;
+    border: none;
+    background: transparent;
+    color: var(--text-light);
+    cursor: pointer;
+    border-radius: 6px;
+}
+
+.template-slot-delete:hover {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+/* Day template (no days panel) */
+.template-day-layout .template-availability-panel {
+    width: 100%;
+}
+
+.template-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-shrink: 0;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-color);
+}
+
+.template-modal-footer .btn-cancel {
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-dark);
+    background: var(--bg-light);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.template-modal-footer .btn-cancel:hover {
+    background: #e2e8f0;
+}
+
+.template-modal-footer .btn-save {
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 500;
+    color: white;
+    background: var(--primary-color);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.template-modal-footer .btn-save:hover {
+    background: var(--primary-dark);
+}
+
+.template-modal-footer .btn-save:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.template-error-msg {
+    font-size: 13px;
+    color: #b91c1c;
+    margin-top: 8px;
+}
+
+/* View template modal */
+.template-view-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    z-index: 1200;
+}
+
+.template-view-overlay.is-hidden,
+.template-view-modal.is-hidden {
+    display: none !important;
+}
+
+.template-view-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1201;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.template-view-type {
+    font-size: 14px;
+    color: var(--text-light);
+    margin: 0 0 12px;
+}
+
+.template-view-schedule {
+    font-size: 14px;
+    color: var(--text-dark);
+}
+
+.template-view-day {
+    margin-bottom: 12px;
+}
+
+.template-view-day-name {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.template-view-slots {
+    list-style: none;
+    padding-left: 16px;
+    margin: 0;
+}
+
+.template-view-slots li {
+    padding: 2px 0;
+}
+
+.template-success-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 12px 20px;
+    background: #065f46;
+    color: white;
+    border-radius: 8px;
+    font-size: 14px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1300;
+    animation: templateToastIn 0.3s ease;
+}
+
+@keyframes templateToastIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@media (max-width: 640px) {
+    .template-week-layout {
+        flex-direction: column;
+    }
+
+    .template-days-panel {
+        width: 100%;
+    }
+
+    .template-modal-card {
+        max-height: 85vh;
+    }
+}
