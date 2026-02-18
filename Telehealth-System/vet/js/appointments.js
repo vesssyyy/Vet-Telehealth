@@ -1,8 +1,9 @@
-/** Televet Health — Vet Appointments: availability templates (week/day) & schedules */
+/**
+ * Televet Health — Vet Appointments
+ * Availability templates (week/day) & schedules management
+ */
 import { auth, db } from '../../shared/js/firebase-config.js';
-import {
-    collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
-} from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
+import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 
 (function () {
     'use strict';
@@ -10,12 +11,17 @@ import {
     const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
     const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
     const DAY_LABELS = { monday: 'Monday', tuesday: 'Tuesday', wednesday: 'Wednesday', thursday: 'Thursday', friday: 'Friday', saturday: 'Saturday', sunday: 'Sunday' };
+    const WEEK_START_HOUR = 7;
+    const WEEK_END_HOUR = 20;
+    const HOUR_HEIGHT = 55;
+    const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
     const $ = (id) => document.getElementById(id);
     const templateCol = (uid) => collection(db, 'users', uid, 'template');
     const templateDoc = (uid, id) => doc(db, 'users', uid, 'template', id);
     const scheduleCol = (uid) => collection(db, 'users', uid, 'schedules');
     const scheduleDoc = (uid, dateStr) => doc(db, 'users', uid, 'schedules', dateStr);
+    const typeLabel = (t) => (t?.type === 'week' ? 'Week template' : 'Day template');
 
     let selectedDay = 'monday';
     let editingTemplateId = null;
@@ -23,27 +29,16 @@ import {
     let weekSlots = {};
     let daySlots = [];
     let templateType = 'week';
+    let gridViewActive = false;
 
-    // --- DOM helpers ---
-    function escapeHtml(text) {
-        const d = document.createElement('div');
-        d.textContent = text == null ? '' : String(text);
-        return d.innerHTML;
-    }
+    const escapeHtml = (text) => { const d = document.createElement('div'); d.textContent = text == null ? '' : String(text); return d.innerHTML; };
 
     function setModalVisible(overlayId, modalId, visible) {
-        const overlay = $(overlayId);
-        const modal = $(modalId);
         const hidden = !visible;
-        if (overlay) {
-            overlay.classList.toggle('is-hidden', hidden);
-            overlay.setAttribute('aria-hidden', String(hidden));
-        }
-        if (modal) {
-            modal.classList.toggle('is-hidden', hidden);
-            modal.setAttribute('aria-hidden', String(hidden));
-        }
+        [$(overlayId), $(modalId)].forEach((el) => { if (el) { el.classList.toggle('is-hidden', hidden); el.setAttribute('aria-hidden', String(hidden)); } });
     }
+
+    const onOverlayClick = (overlayId, closeFn) => $(overlayId)?.addEventListener('click', (e) => { if (e.target.id === overlayId) closeFn(); });
 
     // --- Templates list ---
     function showEmpty(show) {
@@ -61,27 +56,24 @@ import {
         }
         showEmpty(false);
         templates.forEach((t) => {
-            const typeLabel = t.type === 'week' ? 'Week template' : 'Day template';
             const card = document.createElement('div');
-            card.className = 'appointments-template-card';
+            card.className = 'appointments-template-card appointments-template-card-clickable';
             card.dataset.templateId = t.id;
+            card.setAttribute('role', 'button');
+            card.setAttribute('tabindex', '0');
+            card.setAttribute('aria-label', `Template: ${escapeHtml(t.name || 'Unnamed')}. Click to view actions.`);
             card.innerHTML = `
                 <div class="appointments-template-info">
                     <div class="appointments-template-icon"><i class="fa fa-${t.type === 'week' ? 'calendar' : 'clock-o'}" aria-hidden="true"></i></div>
                     <div>
                         <div class="appointments-template-name">${escapeHtml(t.name || 'Unnamed')}</div>
-                        <div class="appointments-template-meta">${escapeHtml(typeLabel)}</div>
+                        <div class="appointments-template-meta">${escapeHtml(typeLabel(t))}</div>
                     </div>
                 </div>
-                <div class="appointments-template-actions">
-                    <button type="button" class="appointments-template-btn btn-apply" data-action="apply" aria-label="Apply"><i class="fa fa-calendar-check-o" aria-hidden="true"></i> Apply</button>
-                    <button type="button" class="appointments-template-btn btn-view" data-action="view" aria-label="View"><i class="fa fa-eye" aria-hidden="true"></i> View</button>
-                    <button type="button" class="appointments-template-btn btn-edit" data-action="edit" aria-label="Edit"><i class="fa fa-pencil" aria-hidden="true"></i> Edit</button>
-                    <button type="button" class="appointments-template-btn btn-delete" data-action="delete" aria-label="Delete"><i class="fa fa-trash-o" aria-hidden="true"></i> Delete</button>
-                </div>
+                <i class="fa fa-chevron-right appointments-template-chevron" aria-hidden="true"></i>
             `;
-            const actions = { apply: () => openApplyModal(t), view: () => openViewModal(t), edit: () => openModalForEdit(t), delete: () => deleteTemplate(t) };
-            card.querySelectorAll('[data-action]').forEach((btn) => btn.addEventListener('click', () => actions[btn.dataset.action]?.()));
+            card.addEventListener('click', () => openTemplateActionModal(t));
+            card.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openTemplateActionModal(t); } });
             list.appendChild(card);
         });
     }
@@ -103,10 +95,8 @@ import {
     }
 
     // --- Schedules ---
-    function getTodayDateString() {
-        const d = new Date();
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    }
+    const getTodayDateString = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+    const getActiveSlotFilter = () => document.querySelector('.schedules-slot-btn.active')?.dataset?.slotFilter || 'all';
 
     async function loadAllSchedules() {
         const user = auth.currentUser;
@@ -123,6 +113,38 @@ import {
         return sorted;
     }
 
+    function renderBlockedDatesView(blockedSchedules) {
+        const list = $('blocked-dates-list');
+        const empty = $('blocked-dates-empty');
+        if (!list) return;
+        list.innerHTML = '';
+        if (!blockedSchedules?.length) {
+            list.classList.add('is-hidden');
+            empty?.classList.remove('is-hidden');
+            return;
+        }
+        list.classList.remove('is-hidden');
+        empty?.classList.add('is-hidden');
+        const sorted = [...blockedSchedules].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+        sorted.forEach((sch) => {
+            const dateStr = sch.date || sch.id || '';
+            const item = document.createElement('div');
+            item.className = 'blocked-dates-item';
+            item.innerHTML = `
+                <span class="blocked-dates-item-date">${escapeHtml(formatDisplayDate(dateStr))}</span>
+                <button type="button" class="schedules-unblock-btn" data-date="${escapeHtml(dateStr)}" aria-label="Unblock date"><i class="fa fa-undo" aria-hidden="true"></i> Unblock</button>
+            `;
+            item.querySelector('.schedules-unblock-btn')?.addEventListener('click', () => unblockDate(dateStr));
+            list.appendChild(item);
+        });
+    }
+
+    async function loadBlockedDatesView() {
+        const all = await loadAllSchedules();
+        const blocked = all.filter((s) => s.blocked === true);
+        renderBlockedDatesView(blocked);
+    }
+
     function dedupeSlots(slots, dateStr) {
         const seen = new Set();
         return slots.filter((s) => {
@@ -133,19 +155,37 @@ import {
         });
     }
 
-    function formatDisplayDate(dateStr) {
-        if (!dateStr) return '—';
-        return new Date(dateStr + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const formatDisplayDate = (dateStr) => !dateStr ? '—' : new Date(dateStr + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+    function parseTimeParts(timeStr) {
+        if (timeStr == null || !String(timeStr).trim()) return null;
+        const parts = String(timeStr).trim().split(':');
+        const h = parseInt(parts[0], 10);
+        const m = parts[1] != null ? parseInt(parts[1], 10) : 0;
+        return isNaN(h) ? null : { h, m };
     }
 
-    function formatTime12h(timeStr) {
+    function formatTime12h(timeStr, withAmPm = true) {
         if (!timeStr || typeof timeStr !== 'string') return timeStr || '—';
-        const [h, m] = timeStr.split(':').map(Number);
-        if (isNaN(h)) return timeStr;
-        const hour = h % 12 || 12;
-        const ampm = h < 12 ? 'AM' : 'PM';
-        const min = isNaN(m) ? '00' : String(m).padStart(2, '0');
-        return `${hour}:${min} ${ampm}`;
+        const p = parseTimeParts(timeStr);
+        if (!p) return timeStr || '—';
+        const hour = p.h % 12 || 12;
+        const min = isNaN(p.m) ? '00' : String(p.m).padStart(2, '0');
+        return withAmPm ? `${hour}:${min} ${p.h < 12 ? 'AM' : 'PM'}` : `${hour}:${min}`;
+    }
+
+    const formatTimeCompact = (timeStr) => formatTime12h(timeStr, false);
+
+    function formatTimeRangeCompact(startStr, endStr) {
+        const start = formatTimeCompact(startStr);
+        const end = formatTimeCompact(endStr);
+        if (start === '—' || end === '—') return `${start} – ${end}`;
+        const sh = parseInt(String(startStr || '').split(':')[0], 10);
+        const eh = parseInt(String(endStr || '').split(':')[0], 10);
+        if (isNaN(sh) || isNaN(eh)) return `${start} – ${end}`;
+        if (sh < 12 && eh < 12) return `${start}–${end} AM`;
+        if (sh >= 12 && eh >= 12) return `${start}–${end} PM`;
+        return `${formatTime12h(startStr)} – ${formatTime12h(endStr)}`;
     }
 
     function renderSchedulesView(schedules, slotFilter) {
@@ -154,7 +194,8 @@ import {
         const listEl = $('schedules-list');
         if (!wrap || !listEl) return;
 
-        if (!schedules?.length) {
+        const nonBlocked = (schedules || []).filter((s) => s.blocked !== true);
+        if (!nonBlocked?.length) {
             wrap.classList.add('is-hidden');
             empty?.classList.remove('is-hidden');
             const p = empty?.querySelector('p');
@@ -172,14 +213,20 @@ import {
             return `<div class="schedules-slot-item" data-status="${status}" data-date="${escapeHtml(dateStr)}" data-start="${escapeHtml(s.start)}"><span class="schedules-slot-indicator ${status}" aria-hidden="true"></span><span class="schedules-slot-time">${escapeHtml(formatTime12h(s.start))} – ${escapeHtml(formatTime12h(s.end))}</span></div>`;
         };
 
-        const blocks = schedules.map((sch) => {
+        const blocks = nonBlocked.map((sch) => {
             const dateStr = sch.date || sch.id || '';
             const slots = dedupeSlots(sch.slots || [], dateStr);
             let filtered = filter === 'available' ? slots.filter((s) => (s.status || 'available') === 'available')
                 : filter === 'booked' ? slots.filter((s) => s.status === 'booked') : slots;
             if (filter !== 'all' && !filtered.length) return '';
             const slotHtml = filtered.length ? filtered.map((s) => renderSlot(s, dateStr)).join('') : '<p class="schedules-no-slots">None</p>';
-            return `<div class="schedules-date-block"><h3 class="schedules-date-title">${escapeHtml(formatDisplayDate(dateStr))}</h3><div class="schedules-slot-list">${slotHtml}</div></div>`;
+            return `<div class="schedules-date-block" data-date="${escapeHtml(dateStr)}">
+                <div class="schedules-schedule-header">
+                    <h3 class="schedules-date-title">${escapeHtml(formatDisplayDate(dateStr))}</h3>
+                    <button type="button" class="schedules-edit-day-btn" data-date="${escapeHtml(dateStr)}" aria-label="Edit this day"><i class="fa fa-pencil" aria-hidden="true"></i> Edit day</button>
+                </div>
+                <div class="schedules-slot-list">${slotHtml}</div>
+            </div>`;
         }).filter(Boolean).join('');
 
         listEl.innerHTML = blocks || (filter !== 'all' ? '<p class="schedules-no-slots">No matching slots in this view.</p>' : '');
@@ -188,10 +235,193 @@ import {
     async function loadSchedulesView() {
         const filterMode = $('schedules-filter')?.value || 'all';
         const specificDate = $('schedules-date-picker')?.value || '';
-        const slotFilter = document.querySelector('.schedules-slot-btn.active')?.dataset?.slotFilter || 'all';
+        const slotFilter = getActiveSlotFilter();
         const all = await loadAllSchedules();
         const filtered = filterSchedules(all, filterMode, specificDate);
         renderSchedulesView(filtered, slotFilter);
+    }
+
+    // --- Weekly Schedule Viewer (Booked only) ---
+    function getStartOfWeek(date) {
+        const d = new Date(date);
+        d.setDate(d.getDate() - d.getDay());
+        return d;
+    }
+
+    function getWeekRangeForFilter(weekFilter, specificDateStr) {
+        const now = new Date();
+        let ref = now;
+        if (weekFilter === 'specific' && specificDateStr) {
+            const d = new Date(specificDateStr + 'T12:00:00');
+            if (!isNaN(d.getTime())) ref = d;
+        }
+        let start = getStartOfWeek(ref);
+        if (weekFilter === 'next') start.setDate(start.getDate() + 7);
+        const end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        return { start: toLocalDateString(start), end: toLocalDateString(end), startDate: start, endDate: end };
+    }
+
+    function parseTimeToMinutes(timeStr) {
+        const p = parseTimeParts(timeStr);
+        return p ? p.h * 60 + (isNaN(p.m) ? 0 : p.m) : 0;
+    }
+
+    function minsToPxWithinHour(mins) {
+        return (mins / 60) * HOUR_HEIGHT;
+    }
+
+    function timeToDurationPx(startStr, endStr) {
+        const startMins = parseTimeToMinutes(startStr);
+        const endMins = parseTimeToMinutes(endStr);
+        const startBound = Math.max(startMins, WEEK_START_HOUR * 60);
+        const endBound = Math.min(endMins, WEEK_END_HOUR * 60);
+        const durationMins = Math.max(0, endBound - startBound);
+        return minsToPxWithinHour(durationMins);
+    }
+
+    function getDateStrDayIndex(dateStr) {
+        const d = new Date(dateStr + 'T12:00:00');
+        return d.getDay();
+    }
+
+    function renderWeeklyScheduleGridFixed(weekSlots, weekRange, slotFilter) {
+        const gridEl = $('weekly-schedule-grid');
+        const emptyEl = $('weekly-schedule-empty');
+        const wrapEl = $('weekly-schedule-grid-wrap');
+        const labelEl = $('weekly-schedule-week-label');
+        const emptyMsgEl = $('weekly-schedule-empty-msg');
+
+        if (!gridEl) return;
+
+        const totalHours = WEEK_END_HOUR - WEEK_START_HOUR;
+        const totalRows = totalHours;
+        const startFmt = weekRange.startDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        const endFmt = weekRange.endDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+
+        const filter = slotFilter || 'all';
+        const filtered = filter === 'available' ? weekSlots.filter((x) => (x.slot.status || 'available') === 'available')
+            : filter === 'booked' ? weekSlots.filter((x) => x.slot.status === 'booked') : weekSlots;
+
+        const weekDisplayText = `${startFmt} – ${endFmt}`;
+        const weekDisplayEl = $('weekly-schedule-week-display');
+        if (weekDisplayEl) weekDisplayEl.textContent = `Viewing week: ${weekDisplayText}`;
+        if (labelEl) labelEl.textContent = weekDisplayText;
+
+        if (gridViewActive) {
+            wrapEl?.classList.remove('is-hidden');
+            emptyEl?.classList.add('is-hidden');
+        }
+
+        const rows = totalRows + 1;
+        const cols = 8;
+        let html = '';
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const isCorner = r === 0 && c === 0;
+                const isTimeCol = c === 0;
+                const isHeaderRow = r === 0;
+                let cls = 'weekly-schedule-cell';
+                let content = '';
+                if (isCorner) {
+                    cls += ' weekday-header';
+                    content = '';
+                } else if (isHeaderRow) {
+                    cls += ' weekday-header';
+                    content = WEEKDAY_LABELS[c - 1];
+                } else if (isTimeCol) {
+                    cls += ' time-header';
+                    const hour = WEEK_START_HOUR + r - 1;
+                    const h12 = hour % 12 || 12;
+                    const ampm = hour < 12 ? 'AM' : 'PM';
+                    content = `${h12} ${ampm}`;
+                } else {
+                    cls += ' slot-cell';
+                    const hourRow = r - 1;
+                    const dayCol = c - 1;
+                    const gridRow = r + 1;
+                    const gridCol = c + 1;
+                    html += `<div class="${cls}" data-day="${dayCol}" data-hour="${hourRow}" style="grid-row:${gridRow};grid-column:${gridCol}"></div>`;
+                    continue;
+                }
+                const gridRow = r === 0 ? 1 : r + 1;
+                const gridCol = c + 1;
+                html += `<div class="${cls}" style="grid-row:${gridRow};grid-column:${gridCol}">${content}</div>`;
+            }
+        }
+
+        gridEl.innerHTML = html;
+        gridEl.style.gridTemplateRows = `60px repeat(${totalRows}, ${HOUR_HEIGHT}px)`;
+
+        filtered.forEach((item) => {
+            const { dateStr, slot } = item;
+            const status = slot.status || 'available';
+            const dayIdx = getDateStrDayIndex(dateStr);
+            const startMins = parseTimeToMinutes(slot.start);
+            const startHour = Math.floor(startMins / 60);
+            const minsIntoHour = startMins - (startHour * 60);
+            const hourRow = Math.max(0, Math.min(startHour - WEEK_START_HOUR, totalRows - 1));
+            const top = minsToPxWithinHour(minsIntoHour);
+            const durationPx = timeToDurationPx(slot.start, slot.end);
+            const height = Math.max(minsToPxWithinHour(30), durationPx);
+            const ownerName = slot.ownerName || slot.owner || 'Owner Name';
+            const petName = slot.petName || slot.pet || 'Pet Name';
+            const isPlaceholder = !slot.ownerName && !slot.owner && !slot.petName && !slot.pet;
+
+            const cell = gridEl.querySelector(`.slot-cell[data-day="${dayIdx}"][data-hour="${hourRow}"]`);
+            if (!cell) return;
+
+            const extendsBelow = top + height > HOUR_HEIGHT;
+            if (extendsBelow) cell.classList.add('has-extending-event');
+
+            const eventEl = document.createElement('div');
+            eventEl.className = `weekly-schedule-event status-${status}`;
+            eventEl.style.top = `${top}px`;
+            eventEl.style.height = `${Math.max(0, height - 2)}px`;
+            if (status === 'booked') {
+                eventEl.innerHTML = `
+                    <span class="weekly-schedule-event-name ${isPlaceholder ? 'weekly-schedule-event-placeholder' : ''}">${escapeHtml(ownerName)}</span>
+                    <span class="weekly-schedule-event-pet ${isPlaceholder ? 'weekly-schedule-event-placeholder' : ''}">${escapeHtml(petName)}</span>
+                    <button type="button" class="weekly-schedule-event-btn" data-date="${escapeHtml(dateStr)}" data-start="${escapeHtml(slot.start)}" aria-label="View appointment"><i class="fa fa-eye" aria-hidden="true"></i> View</button>
+                `;
+                eventEl.querySelector('.weekly-schedule-event-btn')?.addEventListener('click', () => openEditDayModal(dateStr));
+            } else {
+                eventEl.innerHTML = `
+                    <span class="weekly-schedule-event-name">Available</span>
+                    <span class="weekly-schedule-event-pet weekly-schedule-event-time">${escapeHtml(formatTimeRangeCompact(slot.start, slot.end))}</span>
+                    <button type="button" class="weekly-schedule-event-btn" data-date="${escapeHtml(dateStr)}" aria-label="Edit this day"><i class="fa fa-pencil" aria-hidden="true"></i> Edit</button>
+                `;
+                eventEl.querySelector('.weekly-schedule-event-btn')?.addEventListener('click', () => openEditDayModal(dateStr));
+            }
+            cell.appendChild(eventEl);
+        });
+    }
+
+    async function loadWeeklyScheduleView() {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const weekFilter = $('schedules-grid-filter')?.value || 'this';
+        const specificWeek = $('schedules-week-picker')?.value || '';
+        const weekRange = getWeekRangeForFilter(weekFilter, specificWeek);
+        const slotFilter = getActiveSlotFilter();
+
+        const all = await loadAllSchedules();
+        const weekSlots = [];
+
+        const current = new Date(weekRange.startDate);
+        const endDay = new Date(weekRange.endDate);
+        while (current <= endDay) {
+            const dateStr = toLocalDateString(current);
+            const sch = all.find((s) => (s.date || s.id) === dateStr);
+            if (sch && sch.blocked !== true && Array.isArray(sch.slots)) {
+                const daySlots = dedupeSlots(sch.slots, dateStr);
+                daySlots.forEach((slot) => weekSlots.push({ dateStr, slot }));
+            }
+            current.setDate(current.getDate() + 1);
+        }
+
+        renderWeeklyScheduleGridFixed(weekSlots, weekRange, slotFilter);
     }
 
     // --- Template modal (create/edit) ---
@@ -221,7 +451,7 @@ import {
             initWeekSlots();
         }
 
-        document.querySelectorAll('.template-type-option').forEach((el) => el.classList.toggle('selected', el.querySelector('input')?.value === templateType));
+        syncTemplateTypeUI();
         toggleWeekDaySections();
         renderDaysList();
         renderWeekSlots();
@@ -234,10 +464,6 @@ import {
         setTimeout(() => $('template-name')?.focus(), 100);
     }
 
-    function openModalForEdit(template) {
-        openModal(template);
-    }
-
     function closeModal() {
         editingTemplateId = null;
         setModalVisible('template-modal-overlay', 'template-modal', false);
@@ -245,15 +471,13 @@ import {
 
     // --- View modal ---
     function openViewModal(template) {
-        const overlay = $('template-view-overlay');
-        const modal = $('template-view-modal');
         const titleEl = $('template-view-title');
         const typeEl = $('template-view-type');
         const scheduleEl = $('template-view-schedule');
-        if (!overlay || !modal || !titleEl || !typeEl || !scheduleEl) return;
+        if (!titleEl || !typeEl || !scheduleEl) return;
 
         titleEl.textContent = template.name || 'Unnamed';
-        typeEl.textContent = template.type === 'week' ? 'Week template' : 'Day template';
+        typeEl.textContent = typeLabel(template);
         if (template.type === 'week' && template.days) {
             scheduleEl.innerHTML = DAYS.map((day) => {
                 const slots = template.days[day];
@@ -274,11 +498,26 @@ import {
         setModalVisible('template-view-overlay', 'template-view-modal', false);
     }
 
+    // --- Template action modal (popup when clicking a template card) ---
+    let currentTemplateAction = null;
+    function openTemplateActionModal(template) {
+        if (!$('template-action-overlay') || !$('template-action-modal')) return;
+        currentTemplateAction = template;
+        const iconEl = $('template-action-modal')?.querySelector('.appointments-template-icon i');
+        if (iconEl) iconEl.className = `fa fa-${template.type === 'week' ? 'calendar' : 'clock-o'}`;
+        $('template-action-name').textContent = template.name || 'Unnamed';
+        $('template-action-meta').textContent = typeLabel(template);
+        setModalVisible('template-action-overlay', 'template-action-modal', true);
+    }
+    function closeTemplateActionModal() {
+        currentTemplateAction = null;
+        setModalVisible('template-action-overlay', 'template-action-modal', false);
+    }
+
     // --- Apply modal ---
     function openApplyModal(template) {
         const overlay = $('apply-modal-overlay');
-        const modal = $('apply-modal');
-        if (!overlay || !modal) return;
+        if (!overlay) return;
 
         $('apply-template-name').textContent = template.name || 'Unnamed';
         $('apply-start-date').value = '';
@@ -325,6 +564,7 @@ import {
             closeConflictModal();
             showToast(`Schedule created for ${count} day(s).`);
             loadSchedulesView();
+            loadWeeklyScheduleView();
         } catch (e) {
             if (errEl) { errEl.textContent = e.message || 'Failed to apply template.'; errEl.classList.remove('is-hidden'); }
         } finally {
@@ -368,6 +608,7 @@ import {
             closeApplyModal();
             showToast(`Schedule created for ${count} day(s).`);
             loadSchedulesView();
+            loadWeeklyScheduleView();
         } catch (e) {
             if (errEl) { errEl.textContent = e.message || 'Failed to apply template.'; errEl.classList.remove('is-hidden'); }
         } finally {
@@ -375,28 +616,23 @@ import {
         }
     }
 
+    function getConflictOverlayData() {
+        const o = $('conflict-modal-overlay');
+        const { templateJson, startVal, endVal, case2Json } = o?.dataset || {};
+        if (!templateJson || !startVal || !endVal || !case2Json) return null;
+        return { template: JSON.parse(templateJson), startVal, endVal, case2: JSON.parse(case2Json) };
+    }
+
     function onConflictReplace() {
-        const overlay = $('conflict-modal-overlay');
-        const templateJson = overlay?.dataset?.templateJson;
-        const startVal = overlay?.dataset?.startVal;
-        const endVal = overlay?.dataset?.endVal;
-        const case2Json = overlay?.dataset?.case2Json;
-        if (!templateJson || !startVal || !endVal || !case2Json) return;
-        const template = JSON.parse(templateJson);
-        const replaceDates = JSON.parse(case2Json);
-        executeApplyWithOptions(template, startVal, endVal, replaceDates, []);
+        const d = getConflictOverlayData();
+        if (!d) return;
+        executeApplyWithOptions(d.template, d.startVal, d.endVal, d.case2, []);
     }
 
     function onConflictCancel() {
-        const overlay = $('conflict-modal-overlay');
-        const templateJson = overlay?.dataset?.templateJson;
-        const startVal = overlay?.dataset?.startVal;
-        const endVal = overlay?.dataset?.endVal;
-        const case2Json = overlay?.dataset?.case2Json;
-        if (!templateJson || !startVal || !endVal || !case2Json) return;
-        const template = JSON.parse(templateJson);
-        const skipDates = JSON.parse(case2Json);
-        executeApplyWithOptions(template, startVal, endVal, [], skipDates);
+        const d = getConflictOverlayData();
+        if (!d) return;
+        executeApplyWithOptions(d.template, d.startVal, d.endVal, [], d.case2);
     }
 
     // --- Date/slot helpers ---
@@ -431,25 +667,11 @@ import {
     }
 
     function getConflictCase(existingSlots, newSlots) {
-        if (!existingSlots?.length) return { case: 1 };
-        if (!newSlots?.length) return { case: 1 };
-        let hasOverlap = false;
-        let hasBookedOverlap = false;
-        for (const existing of existingSlots) {
-            for (const neu of newSlots) {
-                if (slotsOverlap(existing, neu)) {
-                    hasOverlap = true;
-                    if ((existing.status || 'available') === 'booked') {
-                        hasBookedOverlap = true;
-                        break;
-                    }
-                }
-            }
-            if (hasBookedOverlap) break;
-        }
+        if (!existingSlots?.length || !newSlots?.length) return { case: 1 };
+        const hasBookedOverlap = existingSlots.some((e) => (e.status || 'available') === 'booked' && newSlots.some((n) => slotsOverlap(e, n)));
         if (hasBookedOverlap) return { case: 3 };
-        if (hasOverlap) return { case: 2 };
-        return { case: 1 };
+        const hasOverlap = existingSlots.some((e) => newSlots.some((n) => slotsOverlap(e, n)));
+        return { case: hasOverlap ? 2 : 1 };
     }
 
     function mergeSlots(existingSlots, newSlots) {
@@ -474,12 +696,16 @@ import {
 
         while (current <= endDay) {
             const dateStr = toLocalDateString(current);
+            const existingDoc = await getDoc(scheduleDoc(user.uid, dateStr));
+            if (existingDoc.exists() && existingDoc.data().blocked === true) {
+                current.setDate(current.getDate() + 1);
+                continue;
+            }
             const newSlots = getSlotsForDateFromTemplate(template, current);
             if (newSlots.length === 0) {
                 current.setDate(current.getDate() + 1);
                 continue;
             }
-            const existingDoc = await getDoc(scheduleDoc(user.uid, dateStr));
             const existingSlots = existingDoc.exists() ? (existingDoc.data().slots || []) : [];
             const conflict = getConflictCase(existingSlots, newSlots);
             result[`case${conflict.case}`].push(dateStr);
@@ -503,6 +729,11 @@ import {
 
         while (current <= endDay) {
             const dateStr = toLocalDateString(current);
+            const existingDoc = await getDoc(scheduleDoc(user.uid, dateStr));
+            if (existingDoc.exists() && existingDoc.data().blocked === true) {
+                current.setDate(current.getDate() + 1);
+                continue;
+            }
             if (skipDates.has(dateStr)) {
                 current.setDate(current.getDate() + 1);
                 continue;
@@ -512,7 +743,6 @@ import {
                 current.setDate(current.getDate() + 1);
                 continue;
             }
-            const existingDoc = await getDoc(scheduleDoc(user.uid, dateStr));
             const existingSlots = existingDoc.exists() ? (existingDoc.data().slots || []) : [];
             const conflict = getConflictCase(existingSlots, newSlots);
 
@@ -532,46 +762,52 @@ import {
     }
 
     // --- Slot rendering (unified for week & day) ---
-    function createSlotRow(slotsArray, idx, onRemove) {
+    function createSlotRow(slotsArray, idx, onRemove, opts = {}) {
+        const { isEditDay = false } = opts;
+        const slot = slotsArray[idx];
+        const isBooked = isEditDay && (slot?.status || 'available') === 'booked';
+        const disabled = isBooked ? ' disabled' : '';
+        const statusIcon = isBooked ? '<span class="template-slot-status-icon template-slot-status-booked" title="Booked"><i class="fa fa-calendar-check-o" aria-hidden="true"></i></span>' : '<span class="template-slot-status-icon" aria-hidden="true"></span>';
+        const deleteBtnHtml = isBooked
+            ? `<button type="button" class="template-slot-delete" data-slot-index="${idx}" disabled aria-label="Booked slots cannot be removed"><i class="fa fa-trash-o" aria-hidden="true"></i></button>`
+            : `<button type="button" class="template-slot-delete" data-slot-index="${idx}" aria-label="Delete slot"><i class="fa fa-trash-o" aria-hidden="true"></i></button>`;
         const row = document.createElement('div');
-        row.className = 'template-slot-row';
-        row.innerHTML = `
+        row.className = 'template-slot-row' + (isBooked ? ' template-slot-row-booked' : '');
+        row.innerHTML = (isEditDay ? statusIcon : '') + `
             <div class="template-slot-time-wrap">
                 <i class="fa fa-clock-o" aria-hidden="true"></i>
-                <input type="time" data-slot-index="${idx}" data-slot-field="start" aria-label="Start time">
+                <input type="time" data-slot-index="${idx}" data-slot-field="start" aria-label="Start time"${disabled}>
             </div>
             <div class="template-slot-time-wrap">
                 <i class="fa fa-clock-o" aria-hidden="true"></i>
-                <input type="time" data-slot-index="${idx}" data-slot-field="end" aria-label="End time">
+                <input type="time" data-slot-index="${idx}" data-slot-field="end" aria-label="End time"${disabled}>
             </div>
-            <button type="button" class="template-slot-delete" data-slot-index="${idx}" aria-label="Delete slot"><i class="fa fa-trash-o" aria-hidden="true"></i></button>
+            ${deleteBtnHtml}
         `;
         const startInput = row.querySelector('[data-slot-field="start"]');
         const endInput = row.querySelector('[data-slot-field="end"]');
         const deleteBtn = row.querySelector('.template-slot-delete');
-        const update = () => {
-            slotsArray[idx].start = startInput?.value ?? '';
-            slotsArray[idx].end = endInput?.value ?? '';
-        };
+        const update = () => { slotsArray[idx].start = startInput?.value ?? ''; slotsArray[idx].end = endInput?.value ?? ''; };
         startInput?.addEventListener('change', update);
         endInput?.addEventListener('change', update);
-        deleteBtn?.addEventListener('click', () => { slotsArray.splice(idx, 1); onRemove(); });
+        if (!isBooked && deleteBtn) deleteBtn.addEventListener('click', () => { slotsArray.splice(idx, 1); onRemove(); });
         return row;
     }
 
-    function renderSlotsList(containerId, slotsArray, onRemove) {
+    function renderSlotsList(containerId, slotsArray, onRemove, isEditDay = false) {
         const list = $(containerId);
         if (!list) return;
         list.innerHTML = '';
+        const defaultSlot = isEditDay ? { start: '', end: '', status: 'available' } : { start: '', end: '' };
         if (slotsArray.length === 0) {
-            slotsArray.push({ start: '', end: '' });
-            list.appendChild(createSlotRow(slotsArray, 0, onRemove));
+            slotsArray.push(defaultSlot);
+            list.appendChild(createSlotRow(slotsArray, 0, onRemove, { isEditDay }));
             return;
         }
         slotsArray.forEach((slot, i) => {
-            const row = createSlotRow(slotsArray, i, onRemove);
-            row.querySelector('[data-slot-field="start"]').value = slot.start;
-            row.querySelector('[data-slot-field="end"]').value = slot.end;
+            const row = createSlotRow(slotsArray, i, onRemove, { isEditDay });
+            row.querySelector('[data-slot-field="start"]').value = slot.start || '';
+            row.querySelector('[data-slot-field="end"]').value = slot.end || '';
             list.appendChild(row);
         });
     }
@@ -594,6 +830,10 @@ import {
     function toggleWeekDaySections() {
         $('template-week-section')?.classList.toggle('is-hidden', templateType !== 'week');
         $('template-day-section')?.classList.toggle('is-hidden', templateType !== 'day');
+    }
+
+    function syncTemplateTypeUI() {
+        document.querySelectorAll('.template-type-option').forEach((el) => el.classList.toggle('selected', el.querySelector('input')?.value === templateType));
     }
 
     function renderDaysList() {
@@ -693,17 +933,13 @@ import {
     }
 
     // --- Validation & save ---
-    function validateSlotList(slots, dayLabel) {
+    function validateSlots(slots, dayLabel) {
         const prefix = dayLabel ? dayLabel + ': ' : '';
         const withTimes = slots.filter((s) => s.start && s.end);
-        for (const s of withTimes) {
-            if (s.start >= s.end) return { valid: false, message: prefix + 'Start time must be before end time.' };
-        }
+        for (const s of withTimes) { if (s.start >= s.end) return { valid: false, message: prefix + 'Start time must be before end time.' }; }
         const validSlots = withTimes.filter((s) => s.start < s.end).sort((a, b) => a.start.localeCompare(b.start));
-        for (let i = 1; i < validSlots.length; i++) {
-            if (validSlots[i].start < validSlots[i - 1].end) return { valid: false, message: prefix + 'Time slots must not overlap.' };
-        }
-        return { valid: true };
+        for (let i = 1; i < validSlots.length; i++) { if (validSlots[i].start < validSlots[i - 1].end) return { valid: false, message: prefix + 'Time slots must not overlap.' }; }
+        return { valid: true, slots: validSlots };
     }
 
     function getSlotsForSave() {
@@ -720,23 +956,16 @@ import {
         return { type: 'day', slots };
     }
 
-    function showTemplateError(msg) {
-        const el = $('template-error-msg');
-        if (el) { el.textContent = msg || ''; el.classList.remove('is-hidden'); }
-    }
-
-    function hideTemplateError() {
-        const el = $('template-error-msg');
-        if (el) { el.textContent = ''; el.classList.add('is-hidden'); }
-    }
+    const setErrorEl = (id, msg, hidden) => {
+        const el = $(id);
+        if (el) { el.textContent = msg ?? ''; el.classList.toggle('is-hidden', !!hidden); }
+    };
+    const showTemplateError = (msg) => setErrorEl('template-error-msg', msg, false);
+    const hideTemplateError = () => setErrorEl('template-error-msg', '', true);
 
     function showToast(message) {
         document.getElementById('template-success-toast')?.remove();
-        const toast = document.createElement('div');
-        toast.id = 'template-success-toast';
-        toast.className = 'template-success-toast';
-        toast.setAttribute('role', 'status');
-        toast.textContent = message;
+        const toast = Object.assign(document.createElement('div'), { id: 'template-success-toast', className: 'template-success-toast', role: 'status', textContent: message });
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 3000);
     }
@@ -749,16 +978,13 @@ import {
         if (templateType === 'week') {
             for (const day of DAYS) {
                 const slots = weekSlots[day] || [];
-                const result = validateSlotList(slots, slots.length ? DAY_LABELS[day] : null);
+                const result = validateSlots(slots, slots.length ? DAY_LABELS[day] : null);
                 if (!result.valid) { showTemplateError(result.message); return; }
             }
         } else {
-            const result = validateSlotList(daySlots);
+            const result = validateSlots(daySlots);
             if (!result.valid) { showTemplateError(result.message); return; }
-            if (!daySlots.some((s) => s.start && s.end && s.start < s.end)) {
-                showTemplateError('Day template must have at least one time slot.');
-                return;
-            }
+            if (!daySlots.some((s) => s.start && s.end && s.start < s.end)) { showTemplateError('Day template must have at least one time slot.'); return; }
         }
 
         const payload = getSlotsForSave();
@@ -795,36 +1021,227 @@ import {
             .catch((err) => { console.error('Delete template error:', err); showToast('Failed to delete template.'); });
     }
 
+    // --- Block dates (calendar) ---
+    let blockCalendarMonth = null;
+    let blockSelectedDates = new Set();
+    let blockPreviouslyBlocked = new Set();
+
+    function getBlockCalendarMonthLabel(date) {
+        return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    }
+
+    function renderBlockCalendar() {
+        const grid = $('block-calendar-grid');
+        const titleEl = $('block-calendar-month-year');
+        if (!grid || !blockCalendarMonth) return;
+        titleEl.textContent = getBlockCalendarMonthLabel(blockCalendarMonth);
+        const year = blockCalendarMonth.getFullYear();
+        const month = blockCalendarMonth.getMonth();
+        const first = new Date(year, month, 1);
+        const last = new Date(year, month + 1, 0);
+        const startWeekday = first.getDay();
+        const daysInMonth = last.getDate();
+        const dayCells = [];
+        for (let i = 1 - startWeekday; dayCells.length < 42; i++) {
+            const d = new Date(year, month, i);
+            dayCells.push({ dateStr: toLocalDateString(d), dayNum: d.getDate(), otherMonth: d.getMonth() !== month });
+        }
+        const dayBtn = (dateStr, dayNum, otherMonth) => {
+            const selected = blockSelectedDates.has(dateStr);
+            const cls = 'block-calendar-day' + (otherMonth ? ' other-month' : '') + (selected ? ' selected' : '');
+            return `<button type="button" class="${cls}" data-date="${escapeHtml(dateStr)}" aria-label="${escapeHtml(dateStr)}${selected ? ' (blocked)' : ''}" aria-pressed="${selected}"><span class="block-calendar-day-inner"><span class="block-calendar-day-num">${dayNum}</span>${selected ? '<i class="fa fa-check block-calendar-day-check" aria-hidden="true"></i>' : ''}</span></button>`;
+        };
+        grid.innerHTML = dayCells.map((c) => dayBtn(c.dateStr, c.dayNum, c.otherMonth)).join('');
+        grid.querySelectorAll('.block-calendar-day').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const dateStr = btn.getAttribute('data-date');
+                if (!dateStr) return;
+                blockSelectedDates.has(dateStr) ? blockSelectedDates.delete(dateStr) : blockSelectedDates.add(dateStr);
+                const selected = blockSelectedDates.has(dateStr);
+                btn.classList.toggle('selected', selected);
+                btn.setAttribute('aria-pressed', selected);
+                const inner = btn.querySelector('.block-calendar-day-inner');
+                const check = inner?.querySelector('.block-calendar-day-check');
+                if (selected && !check && inner) inner.appendChild(Object.assign(document.createElement('i'), { className: 'fa fa-check block-calendar-day-check', ariaHidden: 'true' }));
+                else if (!selected && check) check.remove();
+            });
+        });
+    }
+
+    const blockCalendarPrevMonth = () => { if (blockCalendarMonth) { blockCalendarMonth = new Date(blockCalendarMonth.getFullYear(), blockCalendarMonth.getMonth() - 1, 1); renderBlockCalendar(); } };
+    const blockCalendarNextMonth = () => { if (blockCalendarMonth) { blockCalendarMonth = new Date(blockCalendarMonth.getFullYear(), blockCalendarMonth.getMonth() + 1, 1); renderBlockCalendar(); } };
+
+    async function openBlockModal() {
+        const errEl = $('block-error-msg');
+        if (errEl) { errEl.textContent = ''; errEl.classList.add('is-hidden'); }
+        const all = await loadAllSchedules();
+        const blocked = all.filter((s) => s.blocked === true);
+        blockSelectedDates = new Set(blocked.map((s) => s.date || s.id || '').filter(Boolean));
+        blockPreviouslyBlocked = new Set(blockSelectedDates);
+        const now = new Date();
+        blockCalendarMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        renderBlockCalendar();
+        setModalVisible('block-modal-overlay', 'block-modal', true);
+        $('block-calendar-prev')?.addEventListener('click', blockCalendarPrevMonth);
+        $('block-calendar-next')?.addEventListener('click', blockCalendarNextMonth);
+        setTimeout(() => $('block-calendar-prev')?.focus(), 100);
+    }
+
+    function closeBlockModal() {
+        $('block-calendar-prev')?.removeEventListener('click', blockCalendarPrevMonth);
+        $('block-calendar-next')?.removeEventListener('click', blockCalendarNextMonth);
+        setModalVisible('block-modal-overlay', 'block-modal', false);
+    }
+
+    async function doBlockDates() {
+        const errEl = $('block-error-msg');
+        const saveBtn = $('block-submit-btn');
+        const user = auth.currentUser;
+        if (!user) return;
+        if (saveBtn) saveBtn.disabled = true;
+        if (errEl) { errEl.textContent = ''; errEl.classList.add('is-hidden'); }
+
+        try {
+            const toAdd = [...blockSelectedDates];
+            const toRemove = [...blockPreviouslyBlocked].filter((d) => !blockSelectedDates.has(d));
+            for (const dateStr of toAdd) {
+                await setDoc(scheduleDoc(user.uid, dateStr), { date: dateStr, blocked: true });
+            }
+            for (const dateStr of toRemove) {
+                await deleteDoc(scheduleDoc(user.uid, dateStr));
+            }
+            closeBlockModal();
+            const added = toAdd.length;
+            const removed = toRemove.length;
+            if (added > 0 || removed > 0) {
+                const parts = [];
+                if (added) parts.push(`${added} date(s) blocked`);
+                if (removed) parts.push(`${removed} unblocked`);
+                showToast(parts.join('. ') + '. Blocked dates prevent scheduling and are skipped when applying templates.');
+            } else {
+                showToast('No changes to blocked dates.');
+            }
+            loadBlockedDatesView();
+            loadSchedulesView();
+            loadWeeklyScheduleView();
+        } catch (e) {
+            console.error('Block dates error:', e);
+            if (errEl) { errEl.textContent = e.message || 'Failed to save blocked dates.'; errEl.classList.remove('is-hidden'); }
+        } finally {
+            if (saveBtn) saveBtn.disabled = false;
+        }
+    }
+
+    async function unblockDate(dateStr) {
+        const user = auth.currentUser;
+        if (!user || !dateStr) return;
+        if (!confirm(`Unblock ${formatDisplayDate(dateStr)}? The date will be cleared and can receive templates again.`)) return;
+        try {
+            await deleteDoc(scheduleDoc(user.uid, dateStr));
+            showToast('Date unblocked.');
+            loadBlockedDatesView();
+            loadSchedulesView();
+            loadWeeklyScheduleView();
+        } catch (e) {
+            console.error('Unblock error:', e);
+            showToast('Failed to unblock date.');
+        }
+    }
+
+    // --- Edit day ---
+    let editDayDateStr = null;
+    let editDaySlots = [];
+
+    function renderEditDaySlots() {
+        renderSlotsList('edit-day-slots-list', editDaySlots, renderEditDaySlots, true);
+    }
+
+    function syncEditDaySlotsFromInputs() {
+        const list = $('edit-day-slots-list');
+        list?.querySelectorAll('input[type="time"]').forEach((inp) => {
+            const idx = parseInt(inp.getAttribute('data-slot-index'), 10);
+            const field = inp.getAttribute('data-slot-field');
+            if (!isNaN(idx) && editDaySlots[idx]) editDaySlots[idx][field] = inp.value || '';
+        });
+    }
+
+    async function openEditDayModal(dateStr) {
+        const user = auth.currentUser;
+        if (!user || !dateStr) return;
+        editDayDateStr = dateStr;
+        const doc = await getDoc(scheduleDoc(user.uid, dateStr));
+        const data = doc.exists() ? doc.data() : {};
+        if (data.blocked === true) return;
+        editDaySlots = (data.slots || []).map((s) => ({ start: s.start || '', end: s.end || '', status: s.status || 'available' }));
+        if (editDaySlots.length === 0) editDaySlots = [{ start: '', end: '', status: 'available' }];
+
+        $('edit-day-date-display').textContent = formatDisplayDate(dateStr);
+        $('edit-day-error-msg').textContent = '';
+        $('edit-day-error-msg').classList.add('is-hidden');
+        renderEditDaySlots();
+        setModalVisible('edit-day-modal-overlay', 'edit-day-modal', true);
+        setTimeout(() => $('edit-day-add-slot-btn')?.focus(), 100);
+    }
+
+    function closeEditDayModal() {
+        editDayDateStr = null;
+        editDaySlots = [];
+        setModalVisible('edit-day-modal-overlay', 'edit-day-modal', false);
+    }
+
+    const showEditDayError = (msg) => setErrorEl('edit-day-error-msg', msg, false);
+
+    function validateEditDaySlots() {
+        syncEditDaySlotsFromInputs();
+        return validateSlots(editDaySlots);
+    }
+
+    async function saveEditDay() {
+        const user = auth.currentUser;
+        if (!user || !editDayDateStr) return;
+        const result = validateEditDaySlots();
+        if (!result.valid) { showEditDayError(result.message); return; }
+        const slotsToSave = result.slots.map((s) => ({ start: s.start, end: s.end, status: s.status || 'available' }));
+        if (slotsToSave.length === 0) {
+            if (!confirm('Remove all slots for this date? The date will be removed from your schedule.')) return;
+        }
+        const saveBtn = $('edit-day-save-btn');
+        if (saveBtn) saveBtn.disabled = true;
+        try {
+            if (slotsToSave.length === 0) {
+                await deleteDoc(scheduleDoc(user.uid, editDayDateStr));
+                closeEditDayModal();
+                showToast('Date removed from schedule.');
+            } else {
+                await setDoc(scheduleDoc(user.uid, editDayDateStr), { date: editDayDateStr, slots: slotsToSave });
+                closeEditDayModal();
+                showToast('Schedule updated for this date.');
+            }
+            loadSchedulesView();
+            loadWeeklyScheduleView();
+        } catch (e) {
+            console.error('Save edit day error:', e);
+            showEditDayError(e.message || 'Failed to save.');
+        } finally {
+            if (saveBtn) saveBtn.disabled = false;
+        }
+    }
+
     // --- Event bindings ---
     document.addEventListener('DOMContentLoaded', () => {
         $('template-create-btn')?.addEventListener('click', () => openModal());
         $('template-modal-close')?.addEventListener('click', closeModal);
         $('template-cancel-btn')?.addEventListener('click', closeModal);
-        $('template-modal-overlay')?.addEventListener('click', (e) => { if (e.target.id === 'template-modal-overlay') closeModal(); });
+        onOverlayClick('template-modal-overlay', closeModal);
         $('template-save-btn')?.addEventListener('click', validateAndSave);
 
         $('template-view-close')?.addEventListener('click', closeViewModal);
         $('template-view-close-btn')?.addEventListener('click', closeViewModal);
-        $('template-view-overlay')?.addEventListener('click', (e) => { if (e.target.id === 'template-view-overlay') closeViewModal(); });
+        onOverlayClick('template-view-overlay', closeViewModal);
 
-        document.querySelectorAll('input[name="template-type"]').forEach((radio) => {
-            radio.addEventListener('change', () => {
-                templateType = radio.value;
-                document.querySelectorAll('.template-type-option').forEach((el) => el.classList.toggle('selected', el.querySelector('input')?.value === templateType));
-                toggleWeekDaySections();
-            });
-        });
-        document.querySelectorAll('.template-type-option').forEach((opt) => {
-            opt.addEventListener('click', (e) => {
-                const input = opt.querySelector('input');
-                if (input && !input.checked) {
-                    input.checked = true;
-                    templateType = input.value;
-                    document.querySelectorAll('.template-type-option').forEach((el) => el.classList.toggle('selected', el.querySelector('input')?.value === templateType));
-                    toggleWeekDaySections();
-                }
-            });
-        });
+        const setTemplateType = (type) => { templateType = type; syncTemplateTypeUI(); toggleWeekDaySections(); };
+        document.querySelectorAll('input[name="template-type"]').forEach((radio) => radio.addEventListener('change', () => setTemplateType(radio.value)));
+        document.querySelectorAll('.template-type-option').forEach((opt) => opt.addEventListener('click', (e) => { const input = opt.querySelector('input'); if (input && !input.checked) { input.checked = true; setTemplateType(input.value); } }));
 
         $('template-add-slot-btn')?.addEventListener('click', () => {
             if (!weekSlots[selectedDay]) weekSlots[selectedDay] = [];
@@ -835,24 +1252,96 @@ import {
         $('template-copy-from-template-btn')?.addEventListener('click', copyFromTemplate);
         document.querySelectorAll('input[name="template-copy-source"]').forEach((r) => r.addEventListener('change', populateCopySourceSelect));
 
+        const escapeModals = [
+            ['conflict-modal', () => closeConflictModal(true)],
+            ['edit-day-modal', closeEditDayModal],
+            ['block-modal', closeBlockModal],
+            ['template-view-modal', closeViewModal],
+            ['apply-modal', closeApplyModal],
+            ['template-action-modal', closeTemplateActionModal],
+            ['template-modal', closeModal],
+        ];
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                if (!$('conflict-modal')?.classList.contains('is-hidden')) closeConflictModal(true);
-                else if (!$('template-view-modal')?.classList.contains('is-hidden')) closeViewModal();
-                else if (!$('apply-modal')?.classList.contains('is-hidden')) closeApplyModal();
-                else if (!$('template-modal')?.classList.contains('is-hidden')) closeModal();
-            }
+            if (e.key !== 'Escape') return;
+            const pair = escapeModals.find(([id]) => !$(id)?.classList.contains('is-hidden'));
+            if (pair) pair[1]();
         });
+
+        $('block-dates-btn')?.addEventListener('click', openBlockModal);
+        $('block-modal-close')?.addEventListener('click', closeBlockModal);
+        $('block-cancel-btn')?.addEventListener('click', closeBlockModal);
+        onOverlayClick('block-modal-overlay', closeBlockModal);
+        $('block-submit-btn')?.addEventListener('click', doBlockDates);
+
+        $('schedules-list')?.addEventListener('click', (e) => {
+            const editBtn = e.target.closest('.schedules-edit-day-btn');
+            if (editBtn?.dataset?.date) openEditDayModal(editBtn.dataset.date);
+        });
+
+        $('edit-day-modal-close')?.addEventListener('click', closeEditDayModal);
+        $('edit-day-cancel-btn')?.addEventListener('click', closeEditDayModal);
+        onOverlayClick('edit-day-modal-overlay', closeEditDayModal);
+        $('edit-day-save-btn')?.addEventListener('click', saveEditDay);
+        $('edit-day-add-slot-btn')?.addEventListener('click', () => {
+            editDaySlots.push({ start: '', end: '', status: 'available' });
+            renderEditDaySlots();
+        });
+
+        $('template-action-close')?.addEventListener('click', closeTemplateActionModal);
+        onOverlayClick('template-action-overlay', closeTemplateActionModal);
+        $('template-action-modal')?.addEventListener('click', (e) => e.stopPropagation());
+        $('template-action-apply')?.addEventListener('click', () => { const t = currentTemplateAction; if (t) { closeTemplateActionModal(); openApplyModal(t); } });
+        $('template-action-view')?.addEventListener('click', () => { const t = currentTemplateAction; if (t) { closeTemplateActionModal(); openViewModal(t); } });
+        $('template-action-edit')?.addEventListener('click', () => { const t = currentTemplateAction; if (t) { closeTemplateActionModal(); openModal(t); } });
+        $('template-action-delete')?.addEventListener('click', () => { const t = currentTemplateAction; if (t) { closeTemplateActionModal(); deleteTemplate(t); } });
 
         $('apply-modal-close')?.addEventListener('click', closeApplyModal);
         $('apply-cancel-btn')?.addEventListener('click', closeApplyModal);
-        $('apply-modal-overlay')?.addEventListener('click', (e) => { if (e.target.id === 'apply-modal-overlay') closeApplyModal(); });
+        onOverlayClick('apply-modal-overlay', closeApplyModal);
         $('apply-submit-btn')?.addEventListener('click', doApplyTemplate);
 
         $('conflict-modal-close')?.addEventListener('click', () => closeConflictModal(true));
-        $('conflict-modal-overlay')?.addEventListener('click', (e) => { if (e.target.id === 'conflict-modal-overlay') closeConflictModal(true); });
+        onOverlayClick('conflict-modal-overlay', () => closeConflictModal(true));
         $('conflict-replace-btn')?.addEventListener('click', onConflictReplace);
         $('conflict-cancel-btn')?.addEventListener('click', onConflictCancel);
+
+        function setScheduleViewMode(isGrid) {
+            const scrollY = window.scrollY || document.documentElement.scrollTop;
+            gridViewActive = isGrid;
+            $('schedules-list-filter-row')?.classList.toggle('is-hidden', isGrid);
+            $('schedules-grid-filter-row')?.classList.toggle('is-hidden', !isGrid);
+            $('weekly-schedule-empty')?.classList.add('is-hidden');
+            $('weekly-schedule-grid-wrap')?.classList.toggle('is-hidden', !isGrid);
+            $('schedules-view-wrap')?.classList.toggle('is-hidden', isGrid);
+            $('schedules-view-empty')?.classList.toggle('is-hidden', isGrid);
+            if (!isGrid) { $('schedules-filter').value = 'all'; $('schedules-date-wrap')?.classList.add('is-hidden'); }
+            else { $('schedules-grid-filter').value = 'this'; $('schedules-week-wrap')?.classList.add('is-hidden'); }
+            (isGrid ? loadWeeklyScheduleView() : loadSchedulesView()).then(() => requestAnimationFrame(() => window.scrollTo(0, scrollY)));
+        }
+
+        $('schedules-view-settings-btn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const dd = $('schedules-view-dropdown');
+            const isOpen = !dd?.classList.contains('is-hidden');
+            dd?.classList.toggle('is-hidden', isOpen);
+            $('schedules-view-settings-btn')?.setAttribute('aria-expanded', !isOpen);
+        });
+        document.addEventListener('click', (e) => {
+            const btn = $('schedules-view-settings-btn');
+            const dd = $('schedules-view-dropdown');
+            if (btn?.contains(e.target) || dd?.contains(e.target)) return;
+            dd?.classList.add('is-hidden');
+            btn?.setAttribute('aria-expanded', 'false');
+        });
+
+        document.querySelectorAll('.schedules-view-option').forEach((opt) => {
+            opt.addEventListener('click', () => {
+                const view = opt.dataset.view;
+                $('schedules-view-dropdown')?.classList.add('is-hidden');
+                $('schedules-view-settings-btn')?.setAttribute('aria-expanded', 'false');
+                setScheduleViewMode(view === 'grid');
+            });
+        });
 
         $('schedules-filter')?.addEventListener('change', () => {
             $('schedules-date-wrap')?.classList.toggle('is-hidden', $('schedules-filter')?.value !== 'date');
@@ -860,20 +1349,35 @@ import {
             loadSchedulesView();
         });
         $('schedules-date-picker')?.addEventListener('change', loadSchedulesView);
+
+        $('schedules-grid-filter')?.addEventListener('change', () => {
+            $('schedules-week-wrap')?.classList.toggle('is-hidden', $('schedules-grid-filter')?.value !== 'specific');
+            if ($('schedules-grid-filter')?.value === 'specific' && !$('schedules-week-picker')?.value) {
+                const wr = getWeekRangeForFilter('this');
+                $('schedules-week-picker').value = wr.start;
+            }
+            if (gridViewActive) loadWeeklyScheduleView();
+        });
+        $('schedules-week-picker')?.addEventListener('change', () => {
+            if (gridViewActive) loadWeeklyScheduleView();
+        });
+
         document.querySelectorAll('.schedules-slot-btn').forEach((btn) => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.schedules-slot-btn').forEach((b) => b.classList.remove('active'));
                 btn.classList.add('active');
-                loadSchedulesView();
+                if (gridViewActive) loadWeeklyScheduleView();
+                else loadSchedulesView();
             });
         });
 
         if (auth.currentUser) {
             loadTemplates();
+            loadBlockedDatesView();
             loadSchedulesView();
         } else {
             const unsub = auth.onAuthStateChanged((user) => {
-                if (user) { loadTemplates(); loadSchedulesView(); unsub(); }
+                if (user) { loadTemplates(); loadBlockedDatesView(); loadSchedulesView(); unsub(); }
             });
         }
     });

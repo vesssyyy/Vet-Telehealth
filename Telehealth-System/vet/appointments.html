@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="css/appointments.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     <link href="https://fonts.googleapis.com/css?family=Lalezar" rel="stylesheet">
-    <style>body { visibility: hidden; }</style>
+    <style>body{visibility:hidden}</style>
 </head>
 <body>
     <div class="profile-loading-overlay loading-animation" aria-hidden="true">
@@ -100,49 +100,73 @@
             <p class="page-subtitle">Manage availability templates and view your schedules</p>
         </div>
         <div class="content-wrapper">
-            <!-- Availability Templates -->
-            <section class="appointments-section appointments-templates-section" aria-labelledby="templates-heading">
-                <div class="appointments-section-header">
-                    <h2 id="templates-heading" class="appointments-section-title">
-                        <i class="fa fa-file-text-o" aria-hidden="true"></i> Availability Templates
-                    </h2>
-                    <p class="appointments-section-desc">Define weekly or daily availability. Apply to date ranges to generate schedules.</p>
-                    <button type="button" class="appointments-create-btn" id="template-create-btn" aria-label="Create template">
-                        <i class="fa fa-plus" aria-hidden="true"></i> Create template
-                    </button>
-                </div>
-                <div id="appointments-templates-list-wrap" class="appointments-templates-wrap">
-                    <div class="appointments-templates-list" id="appointments-templates-list" aria-live="polite"></div>
-                    <div class="appointments-empty is-hidden" id="appointments-empty" aria-live="polite">
-                        <i class="fa fa-calendar-plus-o" aria-hidden="true"></i>
-                        <p>No templates yet</p>
-                        <span class="appointments-empty-hint">Create a week or day template to define your availability.</span>
+            <div class="appointments-top-row">
+                <section class="appointments-section appointments-templates-section" aria-labelledby="templates-heading">
+                    <div class="appointments-section-header">
+                        <h2 id="templates-heading" class="appointments-section-title"><i class="fa fa-file-text-o" aria-hidden="true"></i> Availability Templates</h2>
+                        <p class="appointments-section-desc">Define weekly or daily availability. Apply to date ranges to generate schedules.</p>
+                        <button type="button" class="appointments-create-btn" id="template-create-btn" aria-label="Create template"><i class="fa fa-plus" aria-hidden="true"></i> Create template</button>
                     </div>
-                </div>
-            </section>
+                    <div id="appointments-templates-list-wrap" class="appointments-templates-wrap">
+                        <div class="appointments-templates-list" id="appointments-templates-list" aria-live="polite"></div>
+                        <div class="appointments-empty is-hidden" id="appointments-empty" aria-live="polite">
+                            <i class="fa fa-calendar-plus-o" aria-hidden="true"></i>
+                            <p>No templates yet</p>
+                            <span class="appointments-empty-hint">Create a week or day template to define your availability.</span>
+                        </div>
+                    </div>
+                </section>
+                <div class="appointments-partition-vertical" aria-hidden="true"></div>
+                <section class="appointments-section appointments-blocked-section" aria-labelledby="blocked-heading">
+                    <div class="appointments-section-header">
+                        <h2 id="blocked-heading" class="appointments-section-title"><i class="fa fa-ban" aria-hidden="true"></i> Blocked dates</h2>
+                        <p class="appointments-section-desc">Block dates for holidays or leave. Blocked dates are skipped when applying templates.</p>
+                        <button type="button" class="appointments-create-btn btn-block-dates" id="block-dates-btn" aria-label="Block dates"><i class="fa fa-ban" aria-hidden="true"></i> Block dates</button>
+                    </div>
+                    <div id="blocked-dates-list-wrap" class="blocked-dates-wrap">
+                        <div class="blocked-dates-list" id="blocked-dates-list" aria-live="polite"></div>
+                        <div class="blocked-dates-empty is-hidden" id="blocked-dates-empty" aria-live="polite">
+                            <i class="fa fa-calendar-o" aria-hidden="true"></i>
+                            <p>No blocked dates</p>
+                            <span class="blocked-dates-empty-hint">Block dates for holidays or leave.</span>
+                        </div>
+                    </div>
+                </section>
+            </div>
             <div class="appointments-partition-horizontal" aria-hidden="true"></div>
-            <!-- Schedules -->
             <section class="appointments-schedules-section" aria-labelledby="schedules-heading">
                 <div class="schedules-section-header">
-                    <h2 id="schedules-heading" class="appointments-section-title">
-                        <i class="fa fa-calendar-o" aria-hidden="true"></i> Schedules
-                    </h2>
+                    <h2 id="schedules-heading" class="appointments-section-title"><i class="fa fa-calendar-o" aria-hidden="true"></i> Schedules</h2>
                     <div class="schedules-view-controls">
-                        <div class="schedules-filter-row">
+                        <div id="schedules-list-filter-row" class="schedules-filter-row">
                             <label for="schedules-filter">Date</label>
                             <select id="schedules-filter" aria-label="Filter schedules by date">
                                 <option value="all">All schedules</option>
                                 <option value="today">Today</option>
                                 <option value="date">Specific date</option>
                             </select>
-                            <div id="schedules-date-wrap" class="schedules-date-wrap is-hidden">
-                                <input type="date" id="schedules-date-picker" aria-label="Select date">
-                            </div>
+                            <div id="schedules-date-wrap" class="schedules-date-wrap is-hidden"><input type="date" id="schedules-date-picker" aria-label="Select date"></div>
+                        </div>
+                        <div id="schedules-grid-filter-row" class="schedules-filter-row is-hidden">
+                            <label for="schedules-grid-filter">Week</label>
+                            <select id="schedules-grid-filter" aria-label="Filter by week">
+                                <option value="this">This week</option>
+                                <option value="next">Next week</option>
+                                <option value="specific">Specific week</option>
+                            </select>
+                            <div id="schedules-week-wrap" class="schedules-date-wrap is-hidden"><input type="date" id="schedules-week-picker" aria-label="Select week"></div>
                         </div>
                         <div class="schedules-slot-filter">
                             <button type="button" class="schedules-slot-btn active" id="schedules-slot-all" data-slot-filter="all">All</button>
                             <button type="button" class="schedules-slot-btn" id="schedules-slot-available" data-slot-filter="available">Available</button>
                             <button type="button" class="schedules-slot-btn" id="schedules-slot-booked" data-slot-filter="booked">Booked</button>
+                        </div>
+                        <div class="schedules-view-dropdown-wrap">
+                            <button type="button" class="schedules-settings-btn" id="schedules-view-settings-btn" aria-label="View settings" aria-expanded="false" aria-haspopup="true"><i class="fa fa-cog" aria-hidden="true"></i></button>
+                            <div id="schedules-view-dropdown" class="schedules-view-dropdown is-hidden" role="menu">
+                                <button type="button" class="schedules-view-option" data-view="list" role="menuitem"><i class="fa fa-list" aria-hidden="true"></i> List</button>
+                                <button type="button" class="schedules-view-option" data-view="grid" role="menuitem"><i class="fa fa-th" aria-hidden="true"></i> Grid</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -151,14 +175,48 @@
                     <p>No schedules to display</p>
                     <span class="schedules-view-empty-hint">Apply a template to a date range first to generate schedules.</span>
                 </div>
-                <div id="schedules-view-wrap" class="schedules-view-wrap is-hidden">
-                    <div id="schedules-list" class="schedules-list"></div>
+                <div id="schedules-view-wrap" class="schedules-view-wrap is-hidden"><div id="schedules-list" class="schedules-list"></div></div>
+                <div id="weekly-schedule-empty" class="weekly-schedule-empty is-hidden">
+                    <i class="fa fa-calendar-o" aria-hidden="true"></i>
+                    <p id="weekly-schedule-empty-msg">No schedules this week</p>
+                    <span class="weekly-schedule-week-label" id="weekly-schedule-week-label"></span>
+                </div>
+                <div id="weekly-schedule-grid-wrap" class="weekly-schedule-grid-wrap is-hidden">
+                    <div id="weekly-schedule-week-info" class="weekly-schedule-week-info" aria-live="polite"><span id="weekly-schedule-week-display">—</span></div>
+                    <div id="weekly-schedule-grid" class="weekly-schedule-grid" role="grid" aria-label="Weekly schedule"></div>
                 </div>
             </section>
         </div>
     </main>
 
-    <!-- Template View Modal -->
+    <!-- Template action modal -->
+    <div class="template-modal-overlay is-hidden" id="template-action-overlay" aria-hidden="true"></div>
+    <div class="template-modal is-hidden" id="template-action-modal" role="dialog" aria-labelledby="template-action-title" aria-modal="true">
+        <div class="template-modal-card">
+            <div class="template-modal-header">
+                <h2 class="template-modal-title" id="template-action-title">Template actions</h2>
+                <button type="button" class="template-modal-close" id="template-action-close" aria-label="Close"><i class="fa fa-times" aria-hidden="true"></i></button>
+            </div>
+            <div class="template-modal-body">
+                <div class="template-action-info">
+                    <div class="appointments-template-icon"><i class="fa fa-calendar" aria-hidden="true"></i></div>
+                    <div>
+                        <div class="appointments-template-name" id="template-action-name">—</div>
+                        <div class="appointments-template-meta" id="template-action-meta">—</div>
+                    </div>
+                </div>
+                <p class="template-panel-hint">Choose what you want to do with this template.</p>
+            </div>
+            <div class="template-modal-footer template-action-footer">
+                <button type="button" class="appointments-template-btn btn-apply" id="template-action-apply" aria-label="Apply"><i class="fa fa-calendar-check-o" aria-hidden="true"></i> Apply</button>
+                <button type="button" class="appointments-template-btn btn-view" id="template-action-view" aria-label="View"><i class="fa fa-eye" aria-hidden="true"></i> View</button>
+                <button type="button" class="appointments-template-btn btn-edit" id="template-action-edit" aria-label="Edit"><i class="fa fa-pencil" aria-hidden="true"></i> Edit</button>
+                <button type="button" class="appointments-template-btn btn-delete" id="template-action-delete" aria-label="Delete"><i class="fa fa-trash-o" aria-hidden="true"></i> Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Template view modal -->
     <div class="template-view-overlay is-hidden" id="template-view-overlay" aria-hidden="true"></div>
     <div class="template-view-modal is-hidden" id="template-view-modal" role="dialog" aria-labelledby="template-view-title" aria-modal="true">
         <div class="template-modal-card">
@@ -170,13 +228,11 @@
                 <p class="template-view-type" id="template-view-type"></p>
                 <div class="template-view-schedule" id="template-view-schedule"></div>
             </div>
-            <div class="template-modal-footer">
-                <button type="button" class="btn-cancel" id="template-view-close-btn">Close</button>
-            </div>
+            <div class="template-modal-footer"><button type="button" class="btn-cancel" id="template-view-close-btn">Close</button></div>
         </div>
     </div>
 
-    <!-- Template Create/Edit Modal -->
+    <!-- Template create/edit modal -->
     <div class="template-modal-overlay is-hidden" id="template-modal-overlay" aria-hidden="true"></div>
     <div class="template-modal is-hidden" id="template-modal" role="dialog" aria-labelledby="template-modal-title" aria-modal="true">
         <div class="template-modal-card">
@@ -193,12 +249,8 @@
                     <div class="template-form-group">
                         <label>Type</label>
                         <div class="template-type-options">
-                            <label class="template-type-option" id="template-type-week-wrap">
-                                <input type="radio" name="template-type" value="week" id="template-type-week" checked> Week template
-                            </label>
-                            <label class="template-type-option" id="template-type-day-wrap">
-                                <input type="radio" name="template-type" value="day" id="template-type-day"> Day template
-                            </label>
+                            <label class="template-type-option" id="template-type-week-wrap"><input type="radio" name="template-type" value="week" id="template-type-week" checked> Week template</label>
+                            <label class="template-type-option" id="template-type-day-wrap"><input type="radio" name="template-type" value="day" id="template-type-day"> Day template</label>
                         </div>
                     </div>
                 </div>
@@ -231,9 +283,7 @@
                         <p class="template-panel-hint">Add exact meeting times for this template.</p>
                         <div class="template-copy-row">
                             <label for="template-copy-from-template">Copy from template</label>
-                            <select id="template-copy-from-template" aria-label="Copy slots from another day template">
-                                <option value="">— Select template —</option>
-                            </select>
+                            <select id="template-copy-from-template" aria-label="Copy from day template"><option value="">— Select template —</option></select>
                             <button type="button" class="template-copy-btn" id="template-copy-from-template-btn"><i class="fa fa-copy" aria-hidden="true"></i> Copy</button>
                         </div>
                         <button type="button" class="template-add-slot-btn" id="template-day-add-slot-btn"><i class="fa fa-plus" aria-hidden="true"></i> Add time slot</button>
@@ -247,14 +297,11 @@
                 </div>
                 <p class="template-error-msg is-hidden" id="template-error-msg" role="alert"></p>
             </div>
-            <div class="template-modal-footer">
-                <button type="button" class="btn-cancel" id="template-cancel-btn">Cancel</button>
-                <button type="button" class="btn-save" id="template-save-btn">Save template</button>
-            </div>
+            <div class="template-modal-footer"><button type="button" class="btn-cancel" id="template-cancel-btn">Cancel</button><button type="button" class="btn-save" id="template-save-btn">Save template</button></div>
         </div>
     </div>
 
-    <!-- Conflict Warning Modal (CASE 2: overlap without bookings) -->
+    <!-- Conflict modal -->
     <div class="template-modal-overlay is-hidden" id="conflict-modal-overlay" aria-hidden="true"></div>
     <div class="template-modal is-hidden" id="conflict-modal" role="dialog" aria-labelledby="conflict-modal-title" aria-modal="true">
         <div class="template-modal-card">
@@ -273,7 +320,57 @@
         </div>
     </div>
 
-    <!-- Apply Template Modal -->
+    <!-- Edit day modal -->
+    <div class="template-modal-overlay is-hidden" id="edit-day-modal-overlay" aria-hidden="true"></div>
+    <div class="template-modal is-hidden" id="edit-day-modal" role="dialog" aria-labelledby="edit-day-modal-title" aria-modal="true">
+        <div class="template-modal-card">
+            <div class="template-modal-header">
+                <h2 class="template-modal-title" id="edit-day-modal-title"><i class="fa fa-pencil" aria-hidden="true"></i> Edit schedule</h2>
+                <button type="button" class="template-modal-close" id="edit-day-modal-close" aria-label="Close"><i class="fa fa-times" aria-hidden="true"></i></button>
+            </div>
+            <div class="template-modal-body">
+                <p class="edit-day-date-display" id="edit-day-date-display"></p>
+                <p class="template-panel-hint">Add, remove, or change time slots for this date only. Changes do not affect templates or other dates.</p>
+                <button type="button" class="template-add-slot-btn" id="edit-day-add-slot-btn"><i class="fa fa-plus" aria-hidden="true"></i> Add time slot</button>
+                <div class="template-slots-header template-slot-row template-slots-header-edit-day">
+                    <span class="template-slot-status-icon" aria-hidden="true"></span>
+                    <div class="template-slot-time-wrap"><span>Start</span></div>
+                    <div class="template-slot-time-wrap"><span>End</span></div>
+                    <span class="template-slot-col-delete" aria-hidden="true"></span>
+                </div>
+                <div class="template-slots-list" id="edit-day-slots-list"></div>
+                <p class="template-error-msg is-hidden" id="edit-day-error-msg" role="alert"></p>
+            </div>
+            <div class="template-modal-footer"><button type="button" class="btn-cancel" id="edit-day-cancel-btn">Cancel</button><button type="button" class="btn-save" id="edit-day-save-btn">Save changes</button></div>
+        </div>
+    </div>
+
+    <!-- Block dates modal -->
+    <div class="template-modal-overlay is-hidden" id="block-modal-overlay" aria-hidden="true"></div>
+    <div class="template-modal is-hidden" id="block-modal" role="dialog" aria-labelledby="block-modal-title" aria-modal="true">
+        <div class="template-modal-card">
+            <div class="template-modal-header">
+                <h2 class="template-modal-title" id="block-modal-title"><i class="fa fa-ban" aria-hidden="true"></i> Block dates (holidays)</h2>
+                <button type="button" class="template-modal-close" id="block-modal-close" aria-label="Close"><i class="fa fa-times" aria-hidden="true"></i></button>
+            </div>
+            <div class="template-modal-body">
+                <p class="template-panel-hint">Click dates on the calendar to block or unblock them. Blocked dates will not be affected when applying templates and prevent booking on those days.</p>
+                <div class="block-calendar-wrap">
+                    <div class="block-calendar-header">
+                        <button type="button" class="block-calendar-nav" id="block-calendar-prev" aria-label="Previous month"><i class="fa fa-chevron-left" aria-hidden="true"></i></button>
+                        <h3 class="block-calendar-month-year" id="block-calendar-month-year" aria-live="polite">—</h3>
+                        <button type="button" class="block-calendar-nav" id="block-calendar-next" aria-label="Next month"><i class="fa fa-chevron-right" aria-hidden="true"></i></button>
+                    </div>
+                    <div class="block-calendar-weekdays" aria-hidden="true"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
+                    <div class="block-calendar-grid" id="block-calendar-grid" role="grid" aria-label="Block dates calendar"></div>
+                </div>
+                <p class="template-error-msg is-hidden" id="block-error-msg" role="alert"></p>
+            </div>
+            <div class="template-modal-footer"><button type="button" class="btn-cancel" id="block-cancel-btn">Cancel</button><button type="button" class="btn-save" id="block-submit-btn">Save blocked dates</button></div>
+        </div>
+    </div>
+
+    <!-- Apply template modal -->
     <div class="template-modal-overlay is-hidden" id="apply-modal-overlay" aria-hidden="true"></div>
     <div class="template-modal is-hidden" id="apply-modal" role="dialog" aria-labelledby="apply-modal-title" aria-modal="true">
         <div class="template-modal-card">
@@ -283,23 +380,20 @@
             </div>
             <div class="template-modal-body">
                 <p class="apply-template-name-wrap">Template: <strong id="apply-template-name">—</strong></p>
-                <p class="template-panel-hint">Select a date range. Schedules will be created per calendar date, matching each date's weekday.</p>
+                <p class="template-panel-hint">Select a date range. Schedules will be created per calendar date. Blocked dates are skipped.</p>
                 <div class="template-form-row">
                     <div class="template-form-group">
                         <label for="apply-start-date">Start date</label>
-                        <input type="date" id="apply-start-date" aria-label="Start date">
+                        <div class="date-input-wrapper"><input type="date" id="apply-start-date" aria-label="Start date"><i class="fa fa-calendar date-input-icon" aria-hidden="true"></i></div>
                     </div>
                     <div class="template-form-group">
                         <label for="apply-end-date">End date</label>
-                        <input type="date" id="apply-end-date" aria-label="End date">
+                        <div class="date-input-wrapper"><input type="date" id="apply-end-date" aria-label="End date"><i class="fa fa-calendar date-input-icon" aria-hidden="true"></i></div>
                     </div>
                 </div>
                 <p class="template-error-msg is-hidden" id="apply-error-msg" role="alert"></p>
             </div>
-            <div class="template-modal-footer">
-                <button type="button" class="btn-cancel" id="apply-cancel-btn">Cancel</button>
-                <button type="button" class="btn-save" id="apply-submit-btn">Apply</button>
-            </div>
+            <div class="template-modal-footer"><button type="button" class="btn-cancel" id="apply-cancel-btn">Cancel</button><button type="button" class="btn-save" id="apply-submit-btn">Apply</button></div>
         </div>
     </div>
 
