@@ -160,12 +160,15 @@
                             <button type="button" class="schedules-slot-btn active" id="schedules-slot-all" data-slot-filter="all">All</button>
                             <button type="button" class="schedules-slot-btn" id="schedules-slot-available" data-slot-filter="available">Available</button>
                             <button type="button" class="schedules-slot-btn" id="schedules-slot-booked" data-slot-filter="booked">Booked</button>
+                            <button type="button" class="schedules-slot-btn" id="schedules-slot-expired" data-slot-filter="expired">Expired Slots</button>
                         </div>
+                        <span class="schedules-current-advance-wrap" id="schedules-current-advance-wrap"><span id="schedules-current-advance" aria-live="polite"></span></span>
                         <div class="schedules-view-dropdown-wrap">
                             <button type="button" class="schedules-settings-btn" id="schedules-view-settings-btn" aria-label="View settings" aria-expanded="false" aria-haspopup="true"><i class="fa fa-cog" aria-hidden="true"></i></button>
                             <div id="schedules-view-dropdown" class="schedules-view-dropdown is-hidden" role="menu">
                                 <button type="button" class="schedules-view-option" data-view="list" role="menuitem"><i class="fa fa-list" aria-hidden="true"></i> List</button>
-                                <button type="button" class="schedules-view-option" data-view="grid" role="menuitem"><i class="fa fa-th" aria-hidden="true"></i> Grid</button>
+                                <button type="button" class="schedules-view-option" id="schedules-view-option-grid" data-view="grid" role="menuitem"><i class="fa fa-th" aria-hidden="true"></i> Grid</button>
+                                <button type="button" class="schedules-view-option" data-view="settings" role="menuitem"><i class="fa fa-clock-o" aria-hidden="true"></i> Limiting Schedule</button>
                             </div>
                         </div>
                     </div>
@@ -175,7 +178,12 @@
                     <p>No schedules to display</p>
                     <span class="schedules-view-empty-hint">Apply a template to a date range first to generate schedules.</span>
                 </div>
-                <div id="schedules-view-wrap" class="schedules-view-wrap is-hidden"><div id="schedules-list" class="schedules-list"></div></div>
+                <div id="schedules-view-wrap" class="schedules-view-wrap is-hidden">
+                    <div id="schedules-expired-actions" class="schedules-expired-actions is-hidden">
+                        <button type="button" class="schedules-delete-expired-btn" id="schedules-delete-all-expired-btn" aria-label="Delete all expired slots"><i class="fa fa-trash-o" aria-hidden="true"></i> Delete All</button>
+                    </div>
+                    <div id="schedules-list" class="schedules-list"></div>
+                </div>
                 <div id="weekly-schedule-empty" class="weekly-schedule-empty is-hidden">
                     <i class="fa fa-calendar-o" aria-hidden="true"></i>
                     <p id="weekly-schedule-empty-msg">No schedules this week</p>
@@ -380,7 +388,7 @@
             </div>
             <div class="template-modal-body">
                 <p class="apply-template-name-wrap">Template: <strong id="apply-template-name">—</strong></p>
-                <p class="template-panel-hint">Select a date range. Schedules will be created per calendar date. Blocked dates are skipped.</p>
+                <p class="template-panel-hint">Select a date range (start date must be today or later). Schedules are created only for future dates; slots within your limiting schedule (minimum advance) are skipped. Blocked dates are skipped.</p>
                 <div class="template-form-row">
                     <div class="template-form-group">
                         <label for="apply-start-date">Start date</label>
@@ -394,6 +402,41 @@
                 <p class="template-error-msg is-hidden" id="apply-error-msg" role="alert"></p>
             </div>
             <div class="template-modal-footer"><button type="button" class="btn-cancel" id="apply-cancel-btn">Cancel</button><button type="button" class="btn-save" id="apply-submit-btn">Apply</button></div>
+        </div>
+    </div>
+
+    <!-- Limiting Schedule (advance booking limit) modal -->
+    <div class="template-modal-overlay is-hidden" id="booking-settings-overlay" aria-hidden="true"></div>
+    <div class="template-modal is-hidden" id="booking-settings-modal" role="dialog" aria-labelledby="booking-settings-title" aria-modal="true">
+        <div class="template-modal-card">
+            <div class="template-modal-header">
+                <h2 class="template-modal-title" id="booking-settings-title"><i class="fa fa-clock-o" aria-hidden="true"></i> Limiting Schedule</h2>
+                <button type="button" class="template-modal-close" id="booking-settings-close" aria-label="Close"><i class="fa fa-times" aria-hidden="true"></i></button>
+            </div>
+            <div class="template-modal-body">
+                <p class="limiting-schedule-caution" role="alert">
+                    <i class="fa fa-exclamation-circle" aria-hidden="true"></i>
+                    This setting controls how far in advance pet owners are allowed to book appointments. Bookings must be made at least this amount of time before the appointment start.
+                </p>
+                <div class="template-form-row">
+                    <div class="template-form-group">
+                        <label for="min-advance-value">Booking limit (minimum advance)</label>
+                        <div class="min-advance-input-row">
+                            <input type="number" id="min-advance-value" min="1" step="1" placeholder="e.g. 30" aria-label="Value" autocomplete="off">
+                            <select id="min-advance-unit" aria-label="Unit">
+                                <option value="minutes">Minutes</option>
+                                <option value="hours">Hours</option>
+                            </select>
+                        </div>
+                        <span class="template-panel-hint">Example: 2 hours = booking must be made at least 2 hours before the appointment time.</span>
+                    </div>
+                </div>
+                <p class="template-error-msg is-hidden" id="booking-settings-error" role="alert"></p>
+            </div>
+            <div class="template-modal-footer">
+                <button type="button" class="btn-cancel" id="booking-settings-cancel-btn">Cancel</button>
+                <button type="button" class="btn-save" id="booking-settings-save-btn">Save</button>
+            </div>
         </div>
     </div>
 

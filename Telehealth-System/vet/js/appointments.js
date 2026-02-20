@@ -3,44 +3,51 @@
  * Availability templates (week/day) & schedules management
  */
 import { auth, db } from '../../shared/js/firebase-config.js';
-import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
+import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 
 (function () {
     'use strict';
 
+    // === Constants ===
     const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
     const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
     const DAY_LABELS = { monday: 'Monday', tuesday: 'Tuesday', wednesday: 'Wednesday', thursday: 'Thursday', friday: 'Friday', saturday: 'Saturday', sunday: 'Sunday' };
-    const WEEK_START_HOUR = 7;
-    const WEEK_END_HOUR = 20;
-    const HOUR_HEIGHT = 55;
+    const WEEK_START_HOUR = 7, WEEK_END_HOUR = 20, HOUR_HEIGHT = 55;
     const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const DEFAULT_MIN_ADVANCE_MINUTES = 30, MIN_ADVANCE_MIN = 1, MIN_ADVANCE_MAX_MINUTES = 1440;
 
     const $ = (id) => document.getElementById(id);
     const templateCol = (uid) => collection(db, 'users', uid, 'template');
     const templateDoc = (uid, id) => doc(db, 'users', uid, 'template', id);
     const scheduleCol = (uid) => collection(db, 'users', uid, 'schedules');
     const scheduleDoc = (uid, dateStr) => doc(db, 'users', uid, 'schedules', dateStr);
+    const vetSettingsDoc = (uid) => doc(db, 'users', uid, 'vetSettings', 'scheduling');
     const typeLabel = (t) => (t?.type === 'week' ? 'Week template' : 'Day template');
 
-    let selectedDay = 'monday';
-    let editingTemplateId = null;
-    let cachedTemplates = [];
-    let weekSlots = {};
-    let daySlots = [];
-    let templateType = 'week';
-    let gridViewActive = false;
+    // === State ===
+    let selectedDay = 'monday', editingTemplateId = null, cachedTemplates = [], weekSlots = {}, daySlots = [];
+    let templateType = 'week', gridViewActive = false, cachedSchedules = null, nextCleanupTimerId = null;
+    let cachedVetSettings = { minAdvanceBookingMinutes: DEFAULT_MIN_ADVANCE_MINUTES };
+    let currentTemplateAction = null, schedulesUnsubscribe = null;
+    let blockCalendarMonth = null, blockSelectedDates = new Set(), blockPreviouslyBlocked = new Set();
+    let editDayDateStr = null, editDaySlots = [];
 
+    // === DOM & UI helpers ===
+    const invalidateSchedulesCache = () => { cachedSchedules = null; };
     const escapeHtml = (text) => { const d = document.createElement('div'); d.textContent = text == null ? '' : String(text); return d.innerHTML; };
-
     function setModalVisible(overlayId, modalId, visible) {
         const hidden = !visible;
         [$(overlayId), $(modalId)].forEach((el) => { if (el) { el.classList.toggle('is-hidden', hidden); el.setAttribute('aria-hidden', String(hidden)); } });
     }
-
     const onOverlayClick = (overlayId, closeFn) => $(overlayId)?.addEventListener('click', (e) => { if (e.target.id === overlayId) closeFn(); });
+    const setErrorEl = (id, msg, hidden) => { const el = $(id); if (el) { el.textContent = msg ?? ''; el.classList.toggle('is-hidden', !!hidden); } };
 
-    // --- Templates list ---
+    function formatMinutesForDisplay(mins) {
+        if (mins >= 60 && mins % 60 === 0) return `${mins / 60} hour${mins / 60 !== 1 ? 's' : ''}`;
+        return `${mins} minute${mins !== 1 ? 's' : ''}`;
+    }
+
+    // === Templates list ===
     function showEmpty(show) {
         $('appointments-templates-list')?.classList.toggle('is-hidden', show);
         $('appointments-empty')?.classList.toggle('is-hidden', !show);
@@ -94,15 +101,241 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
             });
     }
 
-    // --- Schedules ---
+    // === Schedules (slot expiry, load, filter) ===
     const getTodayDateString = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
     const getActiveSlotFilter = () => document.querySelector('.schedules-slot-btn.active')?.dataset?.slotFilter || 'all';
+    const getMinAdvanceMinutes = () => cachedVetSettings?.minAdvanceBookingMinutes ?? DEFAULT_MIN_ADVANCE_MINUTES;
+
+    /** Compute expiryTime (ms) for a slot: slot start time minus advance booking limit. */
+    function computeExpiryTimeMs(dateStr, slotStart, minAdvanceMinutes) {
+        const [h, m] = (slotStart || '').split(':').map(Number);
+        const slotMins = (h || 0) * 60 + (m || 0);
+        const d = new Date(dateStr + 'T00:00:00');
+        d.setMinutes(d.getMinutes() + slotMins - (minAdvanceMinutes ?? getMinAdvanceMinutes()));
+        return d.getTime();
+    }
+
+    /** Returns true if slot is expired (available and past expiryTime, or already marked expired). Booked slots are not considered expired for display.
+     *  Security: Pet owner booking must only allow slots where !isSlotExpired(slot, Date.now()) && (slot.status || 'available') === 'available'. */
+    function isSlotExpired(slot, nowMs) {
+        const status = slot.status || 'available';
+        if (status === 'booked') return false;
+        if (status === 'expired') return true;
+        const expiry = slot.expiryTime != null ? Number(slot.expiryTime) : null;
+        if (expiry == null) return false;
+        return nowMs >= expiry;
+    }
+
+    /** Update Firebase: set status to "expired" for slots that are available and past expiryTime. Makes expiry visible in DB. */
+    async function markExpiredSlotsInFirebase() {
+        const user = auth.currentUser;
+        if (!user) return;
+        const nowMs = Date.now();
+        const all = await loadAllSchedules();
+        for (const sch of all) {
+            if (sch.blocked === true) continue;
+            const dateStr = sch.date || sch.id || '';
+            const slots = sch.slots || [];
+            let scheduleHasChanges = false;
+            const updated = slots.map((s) => {
+                const status = s.status || 'available';
+                if (status === 'booked') return s;
+                if (status === 'expired') return s;
+                if (isSlotExpired(s, nowMs)) {
+                    scheduleHasChanges = true;
+                    return { ...s, status: 'expired' };
+                }
+                return s;
+            });
+            if (scheduleHasChanges) {
+                await setDoc(scheduleDoc(user.uid, dateStr), { date: dateStr, slots: updated });
+            }
+        }
+        if (cachedSchedules) {
+            cachedSchedules = await loadAllSchedules();
+        }
+    }
+
+    /** Returns true if slot is past cutoff (past date, or within min advance window today). Booked slots should always be shown. */
+    function isSlotPastCutoff(dateStr, slotStart, minAdvanceMinutes) {
+        const today = getTodayDateString();
+        if (dateStr < today) return true;
+        if (dateStr > today) return false;
+        const now = new Date();
+        const [h, m] = (slotStart || '').split(':').map(Number);
+        const slotMins = (h || 0) * 60 + (m || 0);
+        const nowMins = now.getHours() * 60 + now.getMinutes();
+        const diffMinutes = slotMins - nowMins;
+        return diffMinutes < (minAdvanceMinutes ?? getMinAdvanceMinutes());
+    }
+
+    /** Ensure slot has expiryTime (for legacy slots). Uses dateStr and slot.start. */
+    function ensureSlotExpiry(slot, dateStr, minAdvanceMinutes) {
+        const mins = minAdvanceMinutes ?? getMinAdvanceMinutes();
+        if (slot.expiryTime != null) return slot;
+        return { ...slot, expiryTime: computeExpiryTimeMs(dateStr, slot.start, mins) };
+    }
+
+    async function loadVetSettings() {
+        const user = auth.currentUser;
+        if (!user) return;
+        try {
+            const snap = await getDoc(vetSettingsDoc(user.uid));
+            if (snap.exists()) {
+                const data = snap.data();
+                cachedVetSettings = { minAdvanceBookingMinutes: data.minAdvanceBookingMinutes ?? DEFAULT_MIN_ADVANCE_MINUTES };
+            }
+        } catch (err) {
+            console.error('Load vet settings error:', err);
+        }
+    }
+
+    async function saveVetSettings(minAdvanceMinutes) {
+        const user = auth.currentUser;
+        if (!user) return;
+        try {
+            await setDoc(vetSettingsDoc(user.uid), { minAdvanceBookingMinutes: minAdvanceMinutes }, { merge: true });
+            cachedVetSettings = { minAdvanceBookingMinutes: minAdvanceMinutes };
+        } catch (err) {
+            console.error('Save vet settings error:', err);
+            throw err;
+        }
+    }
+
+    /** Recalculate expiryTime for all future unbooked slots and update Firestore. */
+    async function recalcExpiryForFutureSlots() {
+        const user = auth.currentUser;
+        if (!user) return;
+        const today = getTodayDateString();
+        const minAdvance = getMinAdvanceMinutes();
+        const all = await loadAllSchedules();
+        for (const sch of all) {
+            if (sch.blocked === true) continue;
+            const dateStr = sch.date || sch.id || '';
+            if (dateStr < today) continue;
+            const slots = sch.slots || [];
+            const updated = slots.map((s) => {
+                if ((s.status || 'available') === 'booked') return s;
+                return ensureSlotExpiry(s, dateStr, minAdvance);
+            });
+            if (updated.length === 0) continue;
+            const changed = slots.some((s, i) => (s.status || 'available') !== 'booked' && (s.expiryTime !== updated[i].expiryTime));
+            if (!changed) continue;
+            await setDoc(scheduleDoc(user.uid, dateStr), { date: dateStr, slots: updated });
+        }
+        cachedSchedules = await loadAllSchedules();
+    }
+
+    /** Permanently delete all expired (available, past expiryTime) slot records in bulk. */
+    async function deleteAllExpiredSlots() {
+        const user = auth.currentUser;
+        if (!user) return;
+        const nowMs = Date.now();
+        const today = getTodayDateString();
+        const all = await loadAllSchedules();
+        let deletedCount = 0;
+        for (const sch of all) {
+            if (sch.blocked === true) continue;
+            const dateStr = sch.date || sch.id || '';
+            const slots = sch.slots || [];
+            const kept = slots.filter((s) => {
+                if ((s.status || 'available') === 'booked') return true;
+                return !isSlotExpired(s, nowMs);
+            });
+            if (kept.length === slots.length) continue;
+            try {
+                if (kept.length === 0) {
+                    await deleteDoc(scheduleDoc(user.uid, dateStr));
+                    deletedCount += slots.length;
+                } else {
+                    await setDoc(scheduleDoc(user.uid, dateStr), { date: dateStr, slots: kept });
+                    deletedCount += slots.length - kept.length;
+                }
+            } catch (err) {
+                console.error('Delete expired slots error:', err);
+            }
+        }
+        invalidateSchedulesCache();
+        cachedSchedules = await loadAllSchedules();
+        if (gridViewActive) loadWeeklyScheduleView();
+        else loadSchedulesView();
+        loadBlockedDatesView();
+        return deletedCount;
+    }
 
     async function loadAllSchedules() {
         const user = auth.currentUser;
         if (!user) return [];
         const snap = await getDocs(scheduleCol(user.uid));
         return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    }
+
+    /** Returns ms until the next expiry (next available slot with expiryTime > now), or null if none. */
+    function getMsUntilNextExpiry(schedules, nowMs) {
+        nowMs = nowMs ?? Date.now();
+        let nextExpiryMs = null;
+        for (const sch of schedules || []) {
+            if (sch.blocked === true) continue;
+            for (const s of sch.slots || []) {
+                if ((s.status || 'available') === 'booked') continue;
+                const expiry = s.expiryTime != null ? Number(s.expiryTime) : null;
+                if (expiry == null || expiry <= nowMs) continue;
+                if (nextExpiryMs === null || expiry < nextExpiryMs) nextExpiryMs = expiry;
+            }
+        }
+        return nextExpiryMs != null ? Math.max(0, nextExpiryMs - nowMs) : null;
+    }
+
+    /** Schedules a single re-render at the next slot expiry. When expiry hits, marks expired slots in Firebase and updates UI. */
+    function scheduleNextExpiryRerender(schedules) {
+        if (nextCleanupTimerId) clearTimeout(nextCleanupTimerId);
+        nextCleanupTimerId = null;
+        const ms = getMsUntilNextExpiry(schedules);
+        if (ms === null) return;
+        nextCleanupTimerId = setTimeout(async () => {
+            nextCleanupTimerId = null;
+            await markExpiredSlotsInFirebase();
+            if (gridViewActive) loadWeeklyScheduleView();
+            else loadSchedulesView();
+            scheduleNextExpiryRerender(cachedSchedules);
+        }, ms);
+    }
+
+    /** Starts realtime listener on schedules; expired slots are marked in Firebase and filtered in UI. */
+    function startSchedulesRealtime() {
+        const user = auth.currentUser;
+        if (!user || schedulesUnsubscribe) return;
+        schedulesUnsubscribe = onSnapshot(scheduleCol(user.uid), (snapshot) => {
+            const schedules = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+            cachedSchedules = schedules;
+            scheduleNextExpiryRerender(schedules);
+            if (gridViewActive) loadWeeklyScheduleView();
+            else loadSchedulesView();
+            loadBlockedDatesView();
+        }, (err) => {
+            console.error('Schedules listener error:', err);
+            if (typeof showToast === 'function') showToast('Could not load schedules. Check your connection.');
+        });
+    }
+
+    function stopSchedulesRealtime() {
+        if (schedulesUnsubscribe) { schedulesUnsubscribe(); schedulesUnsubscribe = null; }
+    }
+
+    /** Returns schedules from cache. Realtime updates come from onSnapshot; call startSchedulesRealtime() once. */
+    async function ensureSchedulesLoaded() {
+        if (cachedSchedules !== null) return cachedSchedules;
+        try {
+            const all = await loadAllSchedules();
+            cachedSchedules = all;
+            startSchedulesRealtime();
+            scheduleNextExpiryRerender(all);
+            return all;
+        } catch (err) {
+            console.error('Load schedules error:', err);
+            if (typeof showToast === 'function') showToast('Could not load schedules. Check your connection and try again.');
+            return [];
+        }
     }
 
     function filterSchedules(schedules, filterMode, specificDate) {
@@ -140,7 +373,7 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
     }
 
     async function loadBlockedDatesView() {
-        const all = await loadAllSchedules();
+        const all = await ensureSchedulesLoaded();
         const blocked = all.filter((s) => s.blocked === true);
         renderBlockedDatesView(blocked);
     }
@@ -207,41 +440,53 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
         wrap.classList.remove('is-hidden');
         empty?.classList.add('is-hidden');
 
+        const nowMs = Date.now();
         const filter = slotFilter || 'all';
-        const renderSlot = (s, dateStr) => {
+        const showExpiredView = filter === 'expired';
+        const renderSlot = (s, dateStr, isExpired = false) => {
             const status = s.status || 'available';
-            return `<div class="schedules-slot-item" data-status="${status}" data-date="${escapeHtml(dateStr)}" data-start="${escapeHtml(s.start)}"><span class="schedules-slot-indicator ${status}" aria-hidden="true"></span><span class="schedules-slot-time">${escapeHtml(formatTime12h(s.start))} – ${escapeHtml(formatTime12h(s.end))}</span></div>`;
+            const extraClass = isExpired ? ' schedules-slot-item-expired' : '';
+            return `<div class="schedules-slot-item${extraClass}" data-status="${status}" data-date="${escapeHtml(dateStr)}" data-start="${escapeHtml(s.start)}" data-expired="${isExpired}"><span class="schedules-slot-indicator ${status}" aria-hidden="true"></span><span class="schedules-slot-time">${escapeHtml(formatTime12h(s.start))} – ${escapeHtml(formatTime12h(s.end))}</span></div>`;
         };
 
+        const minAdvance = getMinAdvanceMinutes();
         const blocks = nonBlocked.map((sch) => {
             const dateStr = sch.date || sch.id || '';
-            const slots = dedupeSlots(sch.slots || [], dateStr);
-            let filtered = filter === 'available' ? slots.filter((s) => (s.status || 'available') === 'available')
-                : filter === 'booked' ? slots.filter((s) => s.status === 'booked') : slots;
-            if (filter !== 'all' && !filtered.length) return '';
-            const slotHtml = filtered.length ? filtered.map((s) => renderSlot(s, dateStr)).join('') : '<p class="schedules-no-slots">None</p>';
+            const slots = dedupeSlots((sch.slots || []).map((s) => ensureSlotExpiry(s, dateStr, minAdvance)), dateStr);
+            const slotsFilteredByExpiry = slots.filter((s) => {
+                if (showExpiredView) return isSlotExpired(s, nowMs);
+                if ((s.status || 'available') === 'booked') return true;
+                return !isSlotExpired(s, nowMs);
+            });
+            const filtered = filter === 'available' ? slotsFilteredByExpiry.filter((s) => (s.status || 'available') === 'available')
+                : filter === 'booked' ? slotsFilteredByExpiry.filter((s) => s.status === 'booked') : slotsFilteredByExpiry;
+            if (!filtered.length) return '';
+            const slotHtml = filtered.map((s) => renderSlot(s, dateStr, filter === 'expired')).join('');
+            const showEditDay = filter !== 'booked' && filter !== 'expired';
+            const editDayBtn = showEditDay ? `<button type="button" class="schedules-edit-day-btn" data-date="${escapeHtml(dateStr)}" aria-label="Edit this day"><i class="fa fa-pencil" aria-hidden="true"></i> Edit day</button>` : '';
             return `<div class="schedules-date-block" data-date="${escapeHtml(dateStr)}">
                 <div class="schedules-schedule-header">
                     <h3 class="schedules-date-title">${escapeHtml(formatDisplayDate(dateStr))}</h3>
-                    <button type="button" class="schedules-edit-day-btn" data-date="${escapeHtml(dateStr)}" aria-label="Edit this day"><i class="fa fa-pencil" aria-hidden="true"></i> Edit day</button>
+                    ${editDayBtn}
                 </div>
                 <div class="schedules-slot-list">${slotHtml}</div>
             </div>`;
         }).filter(Boolean).join('');
 
         listEl.innerHTML = blocks || (filter !== 'all' ? '<p class="schedules-no-slots">No matching slots in this view.</p>' : '');
+        $('schedules-expired-actions')?.classList.toggle('is-hidden', filter !== 'expired');
     }
 
     async function loadSchedulesView() {
         const filterMode = $('schedules-filter')?.value || 'all';
         const specificDate = $('schedules-date-picker')?.value || '';
         const slotFilter = getActiveSlotFilter();
-        const all = await loadAllSchedules();
+        const all = await ensureSchedulesLoaded();
         const filtered = filterSchedules(all, filterMode, specificDate);
         renderSchedulesView(filtered, slotFilter);
     }
 
-    // --- Weekly Schedule Viewer (Booked only) ---
+    // === Weekly schedule grid ===
     function getStartOfWeek(date) {
         const d = new Date(date);
         d.setDate(d.getDate() - d.getDay());
@@ -386,8 +631,9 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
                 `;
                 eventEl.querySelector('.weekly-schedule-event-btn')?.addEventListener('click', () => openEditDayModal(dateStr));
             } else {
+                const slotLabel = status === 'expired' ? 'Expired' : 'Available';
                 eventEl.innerHTML = `
-                    <span class="weekly-schedule-event-name">Available</span>
+                    <span class="weekly-schedule-event-name">${escapeHtml(slotLabel)}</span>
                     <span class="weekly-schedule-event-pet weekly-schedule-event-time">${escapeHtml(formatTimeRangeCompact(slot.start, slot.end))}</span>
                     <button type="button" class="weekly-schedule-event-btn" data-date="${escapeHtml(dateStr)}" aria-label="Edit this day"><i class="fa fa-pencil" aria-hidden="true"></i> Edit</button>
                 `;
@@ -406,8 +652,11 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
         const weekRange = getWeekRangeForFilter(weekFilter, specificWeek);
         const slotFilter = getActiveSlotFilter();
 
-        const all = await loadAllSchedules();
+        const all = await ensureSchedulesLoaded();
         const weekSlots = [];
+        const nowMs = Date.now();
+        const showExpired = getActiveSlotFilter() === 'expired';
+        const minAdvance = getMinAdvanceMinutes();
 
         const current = new Date(weekRange.startDate);
         const endDay = new Date(weekRange.endDate);
@@ -415,8 +664,15 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
             const dateStr = toLocalDateString(current);
             const sch = all.find((s) => (s.date || s.id) === dateStr);
             if (sch && sch.blocked !== true && Array.isArray(sch.slots)) {
-                const daySlots = dedupeSlots(sch.slots, dateStr);
-                daySlots.forEach((slot) => weekSlots.push({ dateStr, slot }));
+                const daySlots = dedupeSlots((sch.slots || []).map((s) => ensureSlotExpiry(s, dateStr, minAdvance)), dateStr);
+                daySlots.forEach((slot) => {
+                    if (showExpired) {
+                        if ((slot.status || 'available') === 'available' && isSlotExpired(slot, nowMs)) weekSlots.push({ dateStr, slot, isExpired: true });
+                    } else {
+                        if ((slot.status || 'available') === 'booked') weekSlots.push({ dateStr, slot });
+                        else if (!isSlotExpired(slot, nowMs)) weekSlots.push({ dateStr, slot });
+                    }
+                });
             }
             current.setDate(current.getDate() + 1);
         }
@@ -424,7 +680,7 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
         renderWeeklyScheduleGridFixed(weekSlots, weekRange, slotFilter);
     }
 
-    // --- Template modal (create/edit) ---
+    // === Template modal (create/edit) ===
     function initWeekSlots() {
         weekSlots = { monday: [], tuesday: [], wednesday: [], thursday: [], friday: [], saturday: [], sunday: [] };
     }
@@ -464,12 +720,9 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
         setTimeout(() => $('template-name')?.focus(), 100);
     }
 
-    function closeModal() {
-        editingTemplateId = null;
-        setModalVisible('template-modal-overlay', 'template-modal', false);
-    }
+    function closeModal() { editingTemplateId = null; setModalVisible('template-modal-overlay', 'template-modal', false); }
 
-    // --- View modal ---
+    // === View modal ===
     function openViewModal(template) {
         const titleEl = $('template-view-title');
         const typeEl = $('template-view-type');
@@ -494,12 +747,9 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
         setModalVisible('template-view-overlay', 'template-view-modal', true);
     }
 
-    function closeViewModal() {
-        setModalVisible('template-view-overlay', 'template-view-modal', false);
-    }
+    function closeViewModal() { setModalVisible('template-view-overlay', 'template-view-modal', false); }
 
     // --- Template action modal (popup when clicking a template card) ---
-    let currentTemplateAction = null;
     function openTemplateActionModal(template) {
         if (!$('template-action-overlay') || !$('template-action-modal')) return;
         currentTemplateAction = template;
@@ -509,19 +759,19 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
         $('template-action-meta').textContent = typeLabel(template);
         setModalVisible('template-action-overlay', 'template-action-modal', true);
     }
-    function closeTemplateActionModal() {
-        currentTemplateAction = null;
-        setModalVisible('template-action-overlay', 'template-action-modal', false);
-    }
+    function closeTemplateActionModal() { currentTemplateAction = null; setModalVisible('template-action-overlay', 'template-action-modal', false); }
 
-    // --- Apply modal ---
+    // === Apply & conflict modals ===
     function openApplyModal(template) {
         const overlay = $('apply-modal-overlay');
         if (!overlay) return;
 
+        const today = getTodayDateString();
         $('apply-template-name').textContent = template.name || 'Unnamed';
         $('apply-start-date').value = '';
         $('apply-end-date').value = '';
+        $('apply-start-date').min = today;
+        $('apply-end-date').min = today;
         $('apply-error-msg').textContent = '';
         $('apply-error-msg').classList.add('is-hidden');
         overlay.dataset.templateId = template.id;
@@ -530,9 +780,7 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
         setTimeout(() => $('apply-start-date')?.focus(), 100);
     }
 
-    function closeApplyModal() {
-        setModalVisible('apply-modal-overlay', 'apply-modal', false);
-    }
+    function closeApplyModal() { setModalVisible('apply-modal-overlay', 'apply-modal', false); }
 
     function showConflictModal(analysis, template, startVal, endVal) {
         const count = analysis.case2.length;
@@ -563,6 +811,7 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
             closeApplyModal();
             closeConflictModal();
             showToast(`Schedule created for ${count} day(s).`);
+            invalidateSchedulesCache();
             loadSchedulesView();
             loadWeeklyScheduleView();
         } catch (e) {
@@ -582,6 +831,10 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
 
         if (!templateJson || !startVal || !endVal) {
             if (errEl) { errEl.textContent = 'Please select both start and end dates.'; errEl.classList.remove('is-hidden'); }
+            return;
+        }
+        if (startVal < getTodayDateString()) {
+            if (errEl) { errEl.textContent = 'Start date cannot be in the past.'; errEl.classList.remove('is-hidden'); }
             return;
         }
         if (saveBtn) saveBtn.disabled = true;
@@ -607,6 +860,7 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
             const count = await applyTemplateToDateRange(template, startVal, endVal);
             closeApplyModal();
             showToast(`Schedule created for ${count} day(s).`);
+            invalidateSchedulesCache();
             loadSchedulesView();
             loadWeeklyScheduleView();
         } catch (e) {
@@ -635,7 +889,7 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
         executeApplyWithOptions(d.template, d.startVal, d.endVal, [], d.case2);
     }
 
-    // --- Date/slot helpers ---
+    // === Date/slot helpers (parse, template slots, conflict) ===
     function parseLocalDate(dateStr) {
         const [y, m, d] = dateStr.split('-').map(Number);
         return new Date(y, m - 1, d);
@@ -649,19 +903,25 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
         return DAY_NAMES[date.getDay()];
     }
 
-    function getSlotsForDateFromTemplate(template, date) {
+    /** Get slots from template for a date, optionally filtering out slots that are past or within min-advance (for apply-template). */
+    function getSlotsForDateFromTemplate(template, date, minAdvanceMinutes, filterPastCutoff = false) {
+        const dateStr = toLocalDateString(date);
+        const mins = minAdvanceMinutes ?? getMinAdvanceMinutes();
+        let raw = [];
         const dayName = getWeekdayFromDate(date);
         if (template.type === 'week' && template.days) {
             const slots = template.days[dayName];
-            return Array.isArray(slots) ? slots.filter((s) => s.start && s.end && s.start < s.end).map((s) => ({ start: s.start, end: s.end, status: 'available' })) : [];
+            raw = Array.isArray(slots) ? slots.filter((s) => s.start && s.end && s.start < s.end).map((s) => ({ start: s.start, end: s.end, status: 'available' })) : [];
+        } else if (template.type === 'day' && template.slots) {
+            raw = template.slots.filter((s) => s.start && s.end && s.start < s.end).map((s) => ({ start: s.start, end: s.end, status: 'available' }));
         }
-        if (template.type === 'day' && template.slots) {
-            return template.slots.filter((s) => s.start && s.end && s.start < s.end).map((s) => ({ start: s.start, end: s.end, status: 'available' }));
+        let result = raw.map((s) => ({ ...s, expiryTime: computeExpiryTimeMs(dateStr, s.start, mins) }));
+        if (filterPastCutoff) {
+            result = result.filter((s) => !isSlotPastCutoff(dateStr, s.start, mins));
         }
-        return [];
+        return result;
     }
 
-    // --- Template conflict handling ---
     function slotsOverlap(slotA, slotB) {
         return slotA.start < slotB.end && slotB.start < slotA.end;
     }
@@ -721,14 +981,20 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
         const end = parseLocalDate(endDate);
         if (start > end) throw new Error('Start date must be before or equal to end date');
 
+        const today = getTodayDateString();
         const replaceDates = new Set(options.replaceDates || []);
         const skipDates = new Set(options.skipDates || []);
+        const minAdvance = getMinAdvanceMinutes();
         let created = 0;
         const current = new Date(start.getFullYear(), start.getMonth(), start.getDate());
         const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
 
         while (current <= endDay) {
             const dateStr = toLocalDateString(current);
+            if (dateStr < today) {
+                current.setDate(current.getDate() + 1);
+                continue;
+            }
             const existingDoc = await getDoc(scheduleDoc(user.uid, dateStr));
             if (existingDoc.exists() && existingDoc.data().blocked === true) {
                 current.setDate(current.getDate() + 1);
@@ -738,19 +1004,19 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
                 current.setDate(current.getDate() + 1);
                 continue;
             }
-            const newSlots = getSlotsForDateFromTemplate(template, current);
+            const newSlots = getSlotsForDateFromTemplate(template, current, minAdvance, true);
             if (newSlots.length === 0) {
                 current.setDate(current.getDate() + 1);
                 continue;
             }
-            const existingSlots = existingDoc.exists() ? (existingDoc.data().slots || []) : [];
+            const existingSlots = (existingDoc.exists() ? (existingDoc.data().slots || []) : []).map((s) => ensureSlotExpiry(s, dateStr));
             const conflict = getConflictCase(existingSlots, newSlots);
 
             let finalSlots;
             if (replaceDates.has(dateStr)) {
                 finalSlots = newSlots;
             } else if (conflict.case === 1 && existingSlots.length > 0) {
-                finalSlots = mergeSlots(existingSlots, newSlots);
+                finalSlots = mergeSlots(existingSlots, newSlots).map((s) => ensureSlotExpiry(s, dateStr));
             } else {
                 finalSlots = newSlots;
             }
@@ -761,7 +1027,7 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
         return created;
     }
 
-    // --- Slot rendering (unified for week & day) ---
+    // === Slot rendering (week & day) ===
     function createSlotRow(slotsArray, idx, onRemove, opts = {}) {
         const { isEditDay = false } = opts;
         const slot = slotsArray[idx];
@@ -826,7 +1092,7 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
         $(containerId)?.appendChild(createSlotRow(slotsArray, slotsArray.length - 1, onRemove));
     }
 
-    // --- Copy & sync ---
+    // === Copy & sync (template UI) ===
     function toggleWeekDaySections() {
         $('template-week-section')?.classList.toggle('is-hidden', templateType !== 'week');
         $('template-day-section')?.classList.toggle('is-hidden', templateType !== 'day');
@@ -932,7 +1198,7 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
         });
     }
 
-    // --- Validation & save ---
+    // === Validation & save (template) ===
     function validateSlots(slots, dayLabel) {
         const prefix = dayLabel ? dayLabel + ': ' : '';
         const withTimes = slots.filter((s) => s.start && s.end);
@@ -956,10 +1222,6 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
         return { type: 'day', slots };
     }
 
-    const setErrorEl = (id, msg, hidden) => {
-        const el = $(id);
-        if (el) { el.textContent = msg ?? ''; el.classList.toggle('is-hidden', !!hidden); }
-    };
     const showTemplateError = (msg) => setErrorEl('template-error-msg', msg, false);
     const hideTemplateError = () => setErrorEl('template-error-msg', '', true);
 
@@ -1021,11 +1283,7 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
             .catch((err) => { console.error('Delete template error:', err); showToast('Failed to delete template.'); });
     }
 
-    // --- Block dates (calendar) ---
-    let blockCalendarMonth = null;
-    let blockSelectedDates = new Set();
-    let blockPreviouslyBlocked = new Set();
-
+    // === Block dates (calendar) ===
     function getBlockCalendarMonthLabel(date) {
         return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
     }
@@ -1074,7 +1332,7 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
     async function openBlockModal() {
         const errEl = $('block-error-msg');
         if (errEl) { errEl.textContent = ''; errEl.classList.add('is-hidden'); }
-        const all = await loadAllSchedules();
+        const all = await ensureSchedulesLoaded();
         const blocked = all.filter((s) => s.blocked === true);
         blockSelectedDates = new Set(blocked.map((s) => s.date || s.id || '').filter(Boolean));
         blockPreviouslyBlocked = new Set(blockSelectedDates);
@@ -1121,6 +1379,7 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
             } else {
                 showToast('No changes to blocked dates.');
             }
+            invalidateSchedulesCache();
             loadBlockedDatesView();
             loadSchedulesView();
             loadWeeklyScheduleView();
@@ -1139,6 +1398,7 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
         try {
             await deleteDoc(scheduleDoc(user.uid, dateStr));
             showToast('Date unblocked.');
+            invalidateSchedulesCache();
             loadBlockedDatesView();
             loadSchedulesView();
             loadWeeklyScheduleView();
@@ -1148,10 +1408,7 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
         }
     }
 
-    // --- Edit day ---
-    let editDayDateStr = null;
-    let editDaySlots = [];
-
+    // === Edit day modal ===
     function renderEditDaySlots() {
         renderSlotsList('edit-day-slots-list', editDaySlots, renderEditDaySlots, true);
     }
@@ -1201,9 +1458,25 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
         if (!user || !editDayDateStr) return;
         const result = validateEditDaySlots();
         if (!result.valid) { showEditDayError(result.message); return; }
-        const slotsToSave = result.slots.map((s) => ({ start: s.start, end: s.end, status: s.status || 'available' }));
+        const minAdvance = getMinAdvanceMinutes();
+        let slotsToSave = result.slots.map((s) => {
+            const base = { start: s.start, end: s.end, status: s.status || 'available' };
+            return ensureSlotExpiry(base, editDayDateStr, minAdvance);
+        });
+        const beforeCount = slotsToSave.length;
+        slotsToSave = slotsToSave.filter((s) => {
+            if ((s.status || 'available') === 'booked') return true;
+            return !isSlotExpired(s, Date.now()) && !isSlotPastCutoff(editDayDateStr, s.start, minAdvance);
+        });
+        const removedCount = beforeCount - slotsToSave.length;
         if (slotsToSave.length === 0) {
+            if (removedCount > 0) {
+                showEditDayError(`All slots are within the minimum advance (${formatMinutesForDisplay(minAdvance)}) or in the past. Add slots that are at least ${formatMinutesForDisplay(minAdvance)} from now.`);
+                return;
+            }
             if (!confirm('Remove all slots for this date? The date will be removed from your schedule.')) return;
+        } else if (removedCount > 0) {
+            showToast(`${removedCount} slot(s) skipped (within minimum advance or in the past).`);
         }
         const saveBtn = $('edit-day-save-btn');
         if (saveBtn) saveBtn.disabled = true;
@@ -1212,11 +1485,13 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
                 await deleteDoc(scheduleDoc(user.uid, editDayDateStr));
                 closeEditDayModal();
                 showToast('Date removed from schedule.');
+                invalidateSchedulesCache();
             } else {
                 await setDoc(scheduleDoc(user.uid, editDayDateStr), { date: editDayDateStr, slots: slotsToSave });
                 closeEditDayModal();
                 showToast('Schedule updated for this date.');
             }
+            invalidateSchedulesCache();
             loadSchedulesView();
             loadWeeklyScheduleView();
         } catch (e) {
@@ -1227,7 +1502,7 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
         }
     }
 
-    // --- Event bindings ---
+    // === Event bindings ===
     document.addEventListener('DOMContentLoaded', () => {
         $('template-create-btn')?.addEventListener('click', () => openModal());
         $('template-modal-close')?.addEventListener('click', closeModal);
@@ -1258,6 +1533,7 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
             ['block-modal', closeBlockModal],
             ['template-view-modal', closeViewModal],
             ['apply-modal', closeApplyModal],
+            ['booking-settings-modal', () => closeBookingSettingsModal(true)],
             ['template-action-modal', closeTemplateActionModal],
             ['template-modal', closeModal],
         ];
@@ -1295,6 +1571,10 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
         $('template-action-edit')?.addEventListener('click', () => { const t = currentTemplateAction; if (t) { closeTemplateActionModal(); openModal(t); } });
         $('template-action-delete')?.addEventListener('click', () => { const t = currentTemplateAction; if (t) { closeTemplateActionModal(); deleteTemplate(t); } });
 
+        $('apply-start-date')?.addEventListener('change', () => {
+            const startVal = $('apply-start-date')?.value;
+            if (startVal) $('apply-end-date').min = startVal;
+        });
         $('apply-modal-close')?.addEventListener('click', closeApplyModal);
         $('apply-cancel-btn')?.addEventListener('click', closeApplyModal);
         onOverlayClick('apply-modal-overlay', closeApplyModal);
@@ -1323,6 +1603,7 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
             e.stopPropagation();
             const dd = $('schedules-view-dropdown');
             const isOpen = !dd?.classList.contains('is-hidden');
+            if (!isOpen) syncGridOptionVisibility();
             dd?.classList.toggle('is-hidden', isOpen);
             $('schedules-view-settings-btn')?.setAttribute('aria-expanded', !isOpen);
         });
@@ -1339,7 +1620,11 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
                 const view = opt.dataset.view;
                 $('schedules-view-dropdown')?.classList.add('is-hidden');
                 $('schedules-view-settings-btn')?.setAttribute('aria-expanded', 'false');
-                setScheduleViewMode(view === 'grid');
+                if (view === 'settings') {
+                    openBookingSettingsModal();
+                } else {
+                    setScheduleViewMode(view === 'grid');
+                }
             });
         });
 
@@ -1362,22 +1647,185 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc 
             if (gridViewActive) loadWeeklyScheduleView();
         });
 
+        function syncGridOptionVisibility() {
+            const isExpired = getActiveSlotFilter() === 'expired';
+            const gridOpt = $('schedules-view-option-grid');
+            if (gridOpt) gridOpt.classList.toggle('is-hidden', isExpired);
+        }
+
         document.querySelectorAll('.schedules-slot-btn').forEach((btn) => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.schedules-slot-btn').forEach((b) => b.classList.remove('active'));
                 btn.classList.add('active');
+                const isExpired = btn.dataset.slotFilter === 'expired';
+                if (isExpired && gridViewActive) {
+                    setScheduleViewMode(false);
+                }
+                syncGridOptionVisibility();
                 if (gridViewActive) loadWeeklyScheduleView();
                 else loadSchedulesView();
             });
         });
 
-        if (auth.currentUser) {
+        $('schedules-delete-all-expired-btn')?.addEventListener('click', async () => {
+            if (!confirm('Permanently delete all expired slot records? This cannot be undone.')) return;
+            const btn = $('schedules-delete-all-expired-btn');
+            if (btn) btn.disabled = true;
+            try {
+                const count = await deleteAllExpiredSlots();
+                showToast(count > 0 ? `${count} expired slot(s) deleted.` : 'No expired slots to delete.');
+                document.querySelector('.schedules-slot-btn[data-slot-filter="expired"]')?.classList.remove('active');
+                $('schedules-slot-all')?.classList.add('active');
+                $('schedules-expired-actions')?.classList.add('is-hidden');
+                if (gridViewActive) loadWeeklyScheduleView();
+                else loadSchedulesView();
+            } catch (e) {
+                showToast(e.message || 'Failed to delete expired slots.');
+            } finally {
+                if (btn) btn.disabled = false;
+            }
+        });
+
+        function updateMinAdvanceInputs() {
+            const mins = getMinAdvanceMinutes();
+            const valInp = $('min-advance-value');
+            const unitSel = $('min-advance-unit');
+            if (!valInp || !unitSel) return;
+            if (mins >= 60 && mins % 60 === 0) {
+                valInp.value = String(mins / 60);
+                unitSel.value = 'hours';
+            } else if (mins >= 60) {
+                valInp.value = String(Math.round(mins / 60 * 100) / 100);
+                unitSel.value = 'hours';
+            } else {
+                valInp.value = String(mins);
+                unitSel.value = 'minutes';
+            }
+            syncMinAdvanceInputAttrs();
+        }
+
+        function getMinAdvanceFromInputs() {
+            const valInp = $('min-advance-value');
+            const unitSel = $('min-advance-unit');
+            const val = parseFloat(valInp?.value, 10);
+            if (isNaN(val) || val <= 0) return null;
+            const unit = unitSel?.value || 'minutes';
+            if (unit === 'hours' && val > 24) return null;
+            if (unit === 'minutes' && val > MIN_ADVANCE_MAX_MINUTES) return null;
+            const mins = unit === 'hours' ? Math.round(val * 60) : Math.round(val);
+            if (mins < MIN_ADVANCE_MIN || mins > MIN_ADVANCE_MAX_MINUTES) return null;
+            return mins;
+        }
+
+        function updateCurrentAdvanceDisplay() {
+            const el = $('schedules-current-advance');
+            const mins = getMinAdvanceMinutes();
+            if (el) el.textContent = `Min advance: ${formatMinutesForDisplay(mins)}`;
+        }
+
+        function syncMinAdvanceInputAttrs() {
+            const valInp = $('min-advance-value');
+            const unitSel = $('min-advance-unit');
+            if (!valInp || !unitSel) return;
+            const isHours = unitSel.value === 'hours';
+            valInp.min = isHours ? '0.01' : '1';
+            valInp.max = isHours ? '24' : '1440';
+            valInp.step = isHours ? '0.01' : '1';
+            valInp.placeholder = isHours ? 'e.g. 1.5' : 'e.g. 30';
+        }
+
+        function openBookingSettingsModal() {
+            updateMinAdvanceInputs();
+            syncMinAdvanceInputAttrs();
+            $('booking-settings-error')?.classList.add('is-hidden');
+            setModalVisible('booking-settings-overlay', 'booking-settings-modal', true);
+            setTimeout(() => $('min-advance-value')?.focus(), 100);
+        }
+
+        function closeBookingSettingsModal(discardConfirm = false) {
+            const inputMins = getMinAdvanceFromInputs();
+            const savedMins = getMinAdvanceMinutes();
+            const hasChanges = inputMins !== null && inputMins !== savedMins;
+            if (discardConfirm && hasChanges && !confirm('Discard unsaved changes?')) return;
+            updateMinAdvanceInputs();
+            setModalVisible('booking-settings-overlay', 'booking-settings-modal', false);
+        }
+
+        async function doSaveBookingSettings() {
+            const val = getMinAdvanceFromInputs();
+            if (val === null) {
+                const errEl = $('booking-settings-error');
+                if (errEl) {
+                    errEl.textContent = `Enter a value between ${MIN_ADVANCE_MIN} and ${MIN_ADVANCE_MAX_MINUTES} minutes (or 0.01–24 hours).`;
+                    errEl.classList.remove('is-hidden');
+                }
+                return;
+            }
+            const currentVal = getMinAdvanceMinutes();
+            if (val === currentVal) {
+                closeBookingSettingsModal();
+                return;
+            }
+            const label = formatMinutesForDisplay(val);
+            if (!confirm(`Save booking setting to "${label}"? Slots within this window will be deleted from your schedule and cannot be booked.`)) return;
+            const saveBtn = $('booking-settings-save-btn');
+            const errEl = $('booking-settings-error');
+            if (saveBtn) saveBtn.disabled = true;
+            if (errEl) { errEl.textContent = ''; errEl.classList.add('is-hidden'); }
+            try {
+                await saveVetSettings(val);
+                closeBookingSettingsModal();
+                updateCurrentAdvanceDisplay();
+                invalidateSchedulesCache();
+                await recalcExpiryForFutureSlots();
+                scheduleNextExpiryRerender(cachedSchedules);
+                if (gridViewActive) loadWeeklyScheduleView();
+                else loadSchedulesView();
+                loadBlockedDatesView();
+                showToast(`Booking setting saved. Minimum advance is now ${label}.`);
+            } catch (err) {
+                if (errEl) { errEl.textContent = err.message || 'Failed to save. Please try again.'; errEl.classList.remove('is-hidden'); }
+            } finally {
+                if (saveBtn) saveBtn.disabled = false;
+            }
+        }
+
+        $('min-advance-unit')?.addEventListener('change', syncMinAdvanceInputAttrs);
+        $('booking-settings-close')?.addEventListener('click', () => closeBookingSettingsModal(true));
+        $('booking-settings-cancel-btn')?.addEventListener('click', () => closeBookingSettingsModal(true));
+        onOverlayClick('booking-settings-overlay', () => closeBookingSettingsModal(true));
+        $('booking-settings-save-btn')?.addEventListener('click', doSaveBookingSettings);
+
+        async function refreshSchedulesWithCleanup() {
+            invalidateSchedulesCache();
+            await ensureSchedulesLoaded();
+            await markExpiredSlotsInFirebase();
+            if (gridViewActive) await loadWeeklyScheduleView();
+            else await loadSchedulesView();
+            loadBlockedDatesView();
+        }
+
+        async function initAppointments() {
+            await loadVetSettings();
+            updateMinAdvanceInputs();
+            updateCurrentAdvanceDisplay();
             loadTemplates();
+            await ensureSchedulesLoaded();
+            await markExpiredSlotsInFirebase();
             loadBlockedDatesView();
             loadSchedulesView();
+            syncGridOptionVisibility();
+
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') refreshSchedulesWithCleanup();
+            });
+        }
+
+        if (auth.currentUser) {
+            initAppointments();
         } else {
             const unsub = auth.onAuthStateChanged((user) => {
-                if (user) { loadTemplates(); loadBlockedDatesView(); loadSchedulesView(); unsub(); }
+                if (user) { initAppointments(); unsub(); }
             });
         }
     });
