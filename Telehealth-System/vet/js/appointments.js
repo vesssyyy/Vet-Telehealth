@@ -1127,23 +1127,68 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
     }
 
     function populateCopySourceSelect() {
-        const sel = $('template-copy-source-select');
-        if (!sel) return;
+        const menu = $('template-copy-source-menu');
+        const triggerText = document.querySelector('#template-copy-source-trigger .vet-template-copy-trigger-text');
+        const hiddenInput = $('template-copy-source-select');
+        const dropdown = $('template-copy-source-dropdown');
+        if (!menu || !hiddenInput || !dropdown) return;
         const type = getCopySourceType();
+        let items = '';
         if (type === 'day') {
             const others = DAYS.filter((d) => d !== selectedDay);
-            sel.innerHTML = '<option value="">— Select day —</option>' + others.map((d) => `<option value="${d}">${DAY_LABELS[d]}</option>`).join('');
+            items = others.map((d) => `<button type="button" class="dropdown-item vet-template-copy-item" role="menuitem" data-value="${d}">${DAY_LABELS[d]}</button>`).join('');
         } else {
             const dayTemplates = cachedTemplates.filter((t) => t.type === 'day');
-            sel.innerHTML = '<option value="">— Select template —</option>' + dayTemplates.map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name || 'Unnamed')}</option>`).join('');
+            items = dayTemplates.map((t) => `<button type="button" class="dropdown-item vet-template-copy-item" role="menuitem" data-value="${escapeHtml(t.id)}">${escapeHtml(t.name || 'Unnamed')}</button>`).join('');
         }
+        menu.innerHTML = items || '<span class="vet-template-copy-empty">No options</span>';
+        hiddenInput.value = '';
+        if (triggerText) triggerText.textContent = 'Copy from';
+        menu.querySelectorAll('.vet-template-copy-item').forEach((btn) => {
+            btn.onclick = () => {
+                const val = btn.dataset.value;
+                hiddenInput.value = val;
+                triggerText.textContent = btn.textContent;
+                dropdown.classList.remove('is-open');
+            };
+        });
     }
 
     function populateCopyFromTemplateSelect() {
-        const sel = $('template-copy-from-template');
-        if (!sel) return;
+        const menu = $('template-copy-from-menu');
+        const triggerText = document.querySelector('#template-copy-from-trigger .vet-template-copy-trigger-text');
+        const hiddenInput = $('template-copy-from-template');
+        const dropdown = $('template-copy-from-dropdown');
+        if (!menu || !hiddenInput || !dropdown) return;
         const dayTemplates = cachedTemplates.filter((t) => t.type === 'day' && t.id !== editingTemplateId);
-        sel.innerHTML = '<option value="">— Select template —</option>' + dayTemplates.map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name || 'Unnamed')}</option>`).join('');
+        const items = dayTemplates.map((t) => `<button type="button" class="dropdown-item vet-template-copy-item" role="menuitem" data-value="${escapeHtml(t.id)}">${escapeHtml(t.name || 'Unnamed')}</button>`).join('');
+        menu.innerHTML = items || '<span class="vet-template-copy-empty">No templates</span>';
+        hiddenInput.value = '';
+        if (triggerText) triggerText.textContent = 'Copy from';
+        menu.querySelectorAll('.vet-template-copy-item').forEach((btn) => {
+            btn.onclick = () => {
+                const val = btn.dataset.value;
+                hiddenInput.value = val;
+                triggerText.textContent = btn.textContent;
+                dropdown.classList.remove('is-open');
+            };
+        });
+    }
+
+    function bindTemplateCopyDropdowns() {
+        const bind = (triggerId, dropdownId) => {
+            const trigger = $(triggerId);
+            const dropdown = $(dropdownId);
+            if (!trigger || !dropdown) return;
+            trigger.onclick = (e) => { e.stopPropagation(); dropdown.classList.toggle('is-open'); };
+            dropdown.onclick = (e) => e.stopPropagation();
+        };
+        bind('template-copy-source-trigger', 'template-copy-source-dropdown');
+        bind('template-copy-from-trigger', 'template-copy-from-dropdown');
+        document.addEventListener('click', () => {
+            $('template-copy-source-dropdown')?.classList.remove('is-open');
+            $('template-copy-from-dropdown')?.classList.remove('is-open');
+        });
     }
 
     function copyFromSourceWeek() {
@@ -1526,6 +1571,7 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
         $('template-copy-week-btn')?.addEventListener('click', copyFromSourceWeek);
         $('template-copy-from-template-btn')?.addEventListener('click', copyFromTemplate);
         document.querySelectorAll('input[name="template-copy-source"]').forEach((r) => r.addEventListener('change', populateCopySourceSelect));
+        bindTemplateCopyDropdowns();
 
         const escapeModals = [
             ['conflict-modal', () => closeConflictModal(true)],

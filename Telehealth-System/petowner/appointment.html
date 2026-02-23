@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Appointments - Televet Health</title>
+    <title>Online Consultations - Televet Health</title>
     
     <!-- Stylesheets -->
     <link rel="stylesheet" href="css/sidebar-layout.css">
     <link rel="stylesheet" href="css/appointment.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css?family=Lalezar" rel="stylesheet">
     
     <style>
@@ -49,8 +50,8 @@
             <a href="dashboard.html" class="nav-item">
                 <i class="fa fa-th-large"></i> Dashboard
             </a>
-            <a href="appointment.html" class="nav-item">
-                <i class="fa fa-calendar"></i> Appointments
+            <a href="appointment.html" class="nav-item active">
+                <i class="fa fa-calendar"></i> Online Consultations
             </a>
             <a href="messages.html" class="nav-item">
                 <i class="fa fa-envelope"></i> Messages
@@ -94,18 +95,502 @@
                 </button>
             </div>
         </header>
-        <div class="page-header">
-            <h1 class="page-title">Appointments</h1>
-            <p class="page-subtitle">Schedule and manage your pet's veterinary appointments</p>
-        </div>
+        
 
         <div class="content-wrapper">
-            <!-- Page content will go here -->
+            <div class="appointments-page-header">
+                <div>
+                    <h2 class="appointments-section-title">
+                        <i class="fa fa-calendar-check-o" aria-hidden="true"></i> My Online Consultations
+                    </h2>
+                    <p class="appointments-page-desc">Schedule video consultations with veterinarians from home—no clinic visit required.</p>
+                </div>
+                <button type="button" class="appointments-book-btn" id="book-appointment-btn" aria-label="Book new online consultation">
+                    <i class="fa fa-plus" aria-hidden="true"></i> Book Online Consultation
+                </button>
+            </div>
+
+            <div class="appointments-tabs" role="tablist" aria-label="Appointment filter">
+                <button type="button" class="appointments-tab active" role="tab" aria-selected="true" data-tab="upcoming">Upcoming</button>
+                <button type="button" class="appointments-tab" role="tab" aria-selected="false" data-tab="history">History</button>
+            </div>
+
+            <div class="appointments-list" id="appointments-list">
+                <div class="appointments-loading" id="appointments-loading" aria-hidden="false">
+                    <div class="appointments-loading-spinner"></div>
+                    <p>Loading online consultations…</p>
+                </div>
+                <div class="appointments-tab-panel" id="panel-upcoming" role="tabpanel" aria-hidden="false">
+                    <div id="upcoming-appointments-root"></div>
+                </div>
+                <div class="appointments-tab-panel is-hidden" id="panel-history" role="tabpanel">
+                    <div id="history-appointments-root"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Book Appointment Modal -->
+        <div class="booking-modal-overlay" id="booking-modal-overlay" aria-hidden="true">
+            <div class="booking-modal" id="booking-modal" role="dialog" aria-labelledby="booking-modal-title" aria-modal="true" tabindex="-1">
+                <div class="booking-modal-header">
+                    <h2 class="booking-modal-title" id="booking-modal-title">
+                        <i class="fa fa-calendar-plus-o" aria-hidden="true"></i> Book Online Consultation
+                    </h2>
+                    <button type="button" class="booking-modal-close" id="booking-modal-close" aria-label="Close">
+                        <i class="fa fa-times" aria-hidden="true"></i>
+                    </button>
+                </div>
+                <form class="booking-form" id="booking-form" novalidate>
+                    <div class="booking-form-body">
+                        <div class="booking-form-error is-hidden" id="booking-form-error" role="alert"></div>
+                        <div class="booking-form-section booking-form-section--main">
+                            <h3 class="booking-form-section-title"><i class="fa fa-pencil" aria-hidden="true"></i> Online consultation details</h3>
+                            <div class="booking-form-group">
+                                <label for="booking-title">Title <span class="booking-label-optional">(optional)</span></label>
+                                <input type="text" id="booking-title" name="title" maxlength="80"
+                                    placeholder="e.g. Skin concern, Diet advice, Follow-up"
+                                    aria-describedby="booking-title-hint">
+                                <p class="booking-form-hint" id="booking-title-hint">Short subject for this online consultation.</p>
+                            </div>
+                            <div class="booking-form-row booking-form-row--double">
+                                <div class="booking-form-group">
+                                    <label for="booking-pet">Pet <span class="required">*</span></label>
+                                    <div class="dropdown booking-pet-dropdown" id="booking-pet-dropdown">
+                                        <button type="button" class="booking-pet-trigger dropdown-trigger" id="booking-pet-trigger" aria-expanded="false" aria-haspopup="true" aria-label="Select pet">
+                                            <i class="fa fa-exchange booking-pet-trigger-icon" aria-hidden="true"></i>
+                                            <span class="booking-pet-trigger-text">Select Pet</span>
+                                            <i class="fa fa-chevron-down dropdown-caret" aria-hidden="true"></i>
+                                        </button>
+                                        <div class="dropdown-menu booking-pet-menu" role="menu" aria-label="Pet list" id="booking-pet-menu"></div>
+                                    </div>
+                                    <input type="hidden" id="booking-pet" name="pet" value="">
+                                    <p class="booking-form-hint is-hidden" id="booking-pet-hint">Add pets in Dashboard first.</p>
+                                </div>
+                                <div class="booking-form-group">
+                                    <label for="booking-vet">Veterinarian <span class="required">*</span></label>
+                                    <div class="dropdown booking-vet-dropdown" id="booking-vet-dropdown">
+                                        <button type="button" class="booking-vet-trigger dropdown-trigger" id="booking-vet-trigger" aria-expanded="false" aria-haspopup="true" aria-label="Select vet">
+                                            <i class="fa fa-exchange booking-vet-trigger-icon" aria-hidden="true"></i>
+                                            <span class="booking-vet-trigger-text">Select Vet</span>
+                                            <i class="fa fa-chevron-down dropdown-caret" aria-hidden="true"></i>
+                                        </button>
+                                        <div class="dropdown-menu booking-vet-menu" role="menu" aria-label="Vet list" id="booking-vet-menu"></div>
+                                    </div>
+                                    <input type="hidden" id="booking-vet" name="vet" value="">
+                                </div>
+                            </div>
+                            <div class="booking-form-row booking-form-row--double">
+                                <div class="booking-form-group">
+                                    <label for="booking-date">Date <span class="required">*</span></label>
+                                    <select id="booking-date" name="date" aria-describedby="booking-date-hint" disabled>
+                                        <option value="">Select a vet first</option>
+                                    </select>
+                                    <p class="booking-form-hint" id="booking-date-hint">Dates when the vet is available for online video consultations.</p>
+                                </div>
+                                <div class="booking-form-group">
+                                    <label for="booking-time">Time <span class="required">*</span></label>
+                                    <select id="booking-time" name="time" aria-describedby="booking-time-hint" disabled>
+                                        <option value="">Select a date first</option>
+                                    </select>
+                                    <p class="booking-form-hint" id="booking-time-hint">Consultation time slots for your video call.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="booking-form-section">
+                            <h3 class="booking-form-section-title"><i class="fa fa-comment-o" aria-hidden="true"></i> Reason & attachments</h3>
+                            <div class="booking-form-group">
+                                <label for="booking-reason">Reason for consultation <span class="required">*</span></label>
+                                <textarea id="booking-reason" name="reason" rows="4" required></textarea>
+                            </div>
+                            <div class="booking-form-group">
+                                <label class="booking-upload-label">Photos or documents <span class="booking-label-optional">(optional)</span></label>
+                                <div class="booking-upload-zone booking-upload-zone--coming-soon" id="booking-upload-zone" aria-label="Coming soon">
+                                    <div class="booking-upload-zone-inner">
+                                        <i class="fa fa-clock-o booking-upload-icon" aria-hidden="true"></i>
+                                        <p class="booking-upload-text">Coming soon</p>
+                                        <p class="booking-upload-specs">Photo and document upload will be available in a future update.</p>
+                                    </div>
+                                </div>
+                                <input type="file" id="booking-media" name="media" accept="image/*,.pdf" multiple hidden>
+                                <ul class="booking-file-list is-hidden" id="booking-file-list" aria-live="polite"></ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="booking-form-footer">
+                        <button type="button" class="booking-btn booking-btn-cancel" id="booking-cancel-btn">Cancel</button>
+                        <button type="submit" class="booking-btn booking-btn-confirm" id="booking-confirm-btn" disabled>
+                            <i class="fa fa-check" aria-hidden="true"></i> <span class="booking-confirm-text">Confirm Online Consultation</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </main>
 
     <script src="js/sidebar.js"></script>
     <script type="module" src="js/dashboard-auth.js"></script>
     <script type="module" src="js/profile.js"></script>
+    <script type="module">
+        import {
+            loadPets,
+            loadVets,
+            populatePetSelect,
+            populateVetSelect,
+            createAppointment,
+            subscribeAppointments,
+            renderUpcomingPanel,
+            renderHistoryPanel,
+            getVetOption,
+            getAvailableDatesAndSlots,
+            CLINIC_HOURS_PLACEHOLDER,
+        } from './js/appointment-manager.js';
+        import { auth } from '../shared/js/firebase-config.js';
+
+        (function tabs() {
+            var tabs = document.querySelectorAll('.appointments-tab');
+            var panels = document.querySelectorAll('.appointments-tab-panel');
+            tabs.forEach(function (tab) {
+                tab.addEventListener('click', function () {
+                    var t = this.getAttribute('data-tab');
+                    tabs.forEach(function (tb) {
+                        tb.classList.toggle('active', tb === tab);
+                        tb.setAttribute('aria-selected', tb === tab ? 'true' : 'false');
+                    });
+                    panels.forEach(function (p) {
+                        var show = p.id === 'panel-' + t;
+                        p.classList.toggle('is-hidden', !show);
+                    });
+                });
+            });
+        })();
+
+        var overlay = document.getElementById('booking-modal-overlay');
+        var modal = document.getElementById('booking-modal');
+        var openBtn = document.getElementById('book-appointment-btn');
+        var closeBtn = document.getElementById('booking-modal-close');
+        var cancelBtn = document.getElementById('booking-cancel-btn');
+        var form = document.getElementById('booking-form');
+        var confirmBtn = document.getElementById('booking-confirm-btn');
+        var formError = document.getElementById('booking-form-error');
+        var appointmentsLoading = document.getElementById('appointments-loading');
+        var upcomingRoot = document.getElementById('upcoming-appointments-root');
+        var historyRoot = document.getElementById('history-appointments-root');
+
+        function openModal() {
+            clearFieldErrors();
+            showFormError('');
+            overlay.classList.add('is-open');
+            overlay.setAttribute('aria-hidden', 'false');
+            modal.focus();
+            document.body.style.overflow = 'hidden';
+        }
+        function closeModal() {
+            overlay.classList.remove('is-open');
+            overlay.setAttribute('aria-hidden', 'true');
+            document.body.style.overflow = '';
+        }
+        function showFormError(msg) {
+            if (!formError) return;
+            formError.textContent = msg || '';
+            formError.classList.toggle('is-hidden', !msg);
+        }
+
+        function clearFieldErrors() {
+            form.querySelectorAll('.booking-form-group.has-error').forEach(function (g) { g.classList.remove('has-error'); });
+        }
+
+        function setFieldError(el) {
+            var group = el && el.closest('.booking-form-group');
+            if (group) group.classList.add('has-error');
+        }
+
+        function validateAndHighlightFields() {
+            clearFieldErrors();
+            var petInput = document.getElementById('booking-pet');
+            var vetInput = document.getElementById('booking-vet');
+            var reasonInput = document.getElementById('booking-reason');
+            var dateEl = document.getElementById('booking-date');
+            var timeEl = document.getElementById('booking-time');
+            var petVal = petInput && petInput.value;
+            var petNameVal = petInput && petInput.dataset && petInput.dataset.petName;
+            var vetVal = vetInput && vetInput.value;
+            var vetNameVal = vetInput && vetInput.dataset && vetInput.dataset.vetName;
+            var reasonVal = reasonInput && reasonInput.value.trim();
+            var dateVal = dateEl && dateEl.value;
+            var timeVal = timeEl && timeEl.value;
+            var hasError = false;
+            if (!petVal || !petNameVal) { setFieldError(document.getElementById('booking-pet-dropdown')); hasError = true; }
+            if (!vetVal || !vetNameVal) { setFieldError(document.getElementById('booking-vet-dropdown')); hasError = true; }
+            if (!reasonVal) { setFieldError(reasonInput); hasError = true; }
+            if (!dateVal || !timeVal) {
+                if (!dateVal) setFieldError(dateEl);
+                if (!timeVal) setFieldError(timeEl);
+                hasError = true;
+            }
+            return !hasError;
+        }
+
+        openBtn.addEventListener('click', openModal);
+        closeBtn.addEventListener('click', closeModal);
+        cancelBtn.addEventListener('click', closeModal);
+        overlay.addEventListener('click', function (e) {
+            if (e.target === overlay) closeModal();
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && overlay.classList.contains('is-open')) closeModal();
+        });
+
+        function getTodayDateString() {
+            var d = new Date();
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        }
+        var bookingDate = document.getElementById('booking-date');
+        var bookingTime = document.getElementById('booking-time');
+        var bookingVet = document.getElementById('booking-vet');
+        var bookingVetDropdown = document.getElementById('booking-vet-dropdown');
+        var cachedAvailability = { dates: [], slotsByDate: {} };
+
+        function formatDisplayDate(dateStr) {
+            if (!dateStr) return '—';
+            try {
+                var d = new Date(dateStr + 'T12:00:00');
+                return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+            } catch (_) { return dateStr; }
+        }
+
+        async function onVetChange() {
+            var vetId = bookingVet && bookingVet.value;
+            bookingDate.disabled = !vetId;
+            bookingTime.disabled = true;
+            bookingDate.innerHTML = '<option value="">Select a date</option>';
+            bookingTime.innerHTML = '<option value="">Select a date first</option>';
+            if (!vetId) return;
+            bookingDate.innerHTML = '<option value="">Loading availability…</option>';
+            try {
+                var avail = await getAvailableDatesAndSlots(vetId);
+                cachedAvailability = avail;
+                bookingDate.innerHTML = '<option value="">Select a date</option>';
+                if (avail.dates && avail.dates.length > 0) {
+                    avail.dates.forEach(function (d) {
+                        var opt = document.createElement('option');
+                        opt.value = d;
+                        opt.textContent = formatDisplayDate(d);
+                        bookingDate.appendChild(opt);
+                    });
+                } else {
+                    bookingDate.innerHTML = '<option value="">No available dates</option>';
+                }
+            } catch (err) {
+                console.error('Load availability error:', err);
+                var isPerm = (err && (err.code === 'permission-denied' || err.message && err.message.indexOf('permission') !== -1));
+                bookingDate.innerHTML = '<option value="">' + (isPerm ? 'Permission denied. Add Firestore rules for vet schedules.' : 'Failed to load. Try again.') + '</option>';
+                showFormError(isPerm ? 'Firestore rules needed: allow read on users/{userId}/schedules for vets. See firestore.rules.' : '');
+            }
+        }
+
+        function onDateChange() {
+            var dateStr = bookingDate && bookingDate.value;
+            bookingTime.disabled = !dateStr;
+            bookingTime.innerHTML = '<option value="">Select a time</option>';
+            if (!dateStr || !cachedAvailability.slotsByDate) return;
+            var slots = cachedAvailability.slotsByDate[dateStr];
+            if (slots && slots.length > 0) {
+                slots.forEach(function (s) {
+                    var opt = document.createElement('option');
+                    opt.value = s.start;
+                    opt.textContent = s.display;
+                    bookingTime.appendChild(opt);
+                });
+            } else {
+                bookingTime.innerHTML = '<option value="">No available times</option>';
+            }
+        }
+
+        if (bookingVetDropdown) window._onVetChange = onVetChange;
+        if (bookingDate) bookingDate.addEventListener('change', onDateChange);
+
+        function onFieldInteraction(e) {
+            var group = e.target && e.target.closest('.booking-form-group');
+            if (group) group.classList.remove('has-error');
+        }
+        form.querySelectorAll('#booking-pet-dropdown, #booking-vet-dropdown, #booking-reason, #booking-date, #booking-time').forEach(function (el) {
+            if (el) {
+                el.addEventListener('change', onFieldInteraction);
+                el.addEventListener('input', onFieldInteraction);
+                el.addEventListener('click', onFieldInteraction);
+            }
+        });
+
+        var uploadZone = document.getElementById('booking-upload-zone');
+        var fileInput = document.getElementById('booking-media');
+        var fileListEl = document.getElementById('booking-file-list');
+        function updateFileList() {
+            var files = fileInput && fileInput.files ? Array.from(fileInput.files) : [];
+            if (!fileListEl) return;
+            fileListEl.innerHTML = '';
+            fileListEl.classList.toggle('has-files', files.length > 0);
+            files.forEach(function (file, i) {
+                var li = document.createElement('li');
+                li.className = 'booking-file-item';
+                var name = file.name || ('File ' + (i + 1));
+                var sizeStr = '';
+                if (file.size) {
+                    if (file.size < 1024) sizeStr = file.size + ' B';
+                    else if (file.size < 1024 * 1024) sizeStr = (file.size / 1024).toFixed(1) + ' KB';
+                    else sizeStr = (file.size / (1024 * 1024)).toFixed(1) + ' MB';
+                }
+                var icon = (file.type || '').indexOf('image') !== -1 ? 'fa-file-image-o' : 'fa-file-pdf-o';
+                li.innerHTML = '<i class="fa ' + icon + '" aria-hidden="true"></i><span class="booking-file-name" title="' + name.replace(/"/g, '&quot;') + '">' + name + '</span><span class="booking-file-size">' + sizeStr + '</span><button type="button" class="booking-file-remove" data-index="' + i + '" aria-label="Remove file"><i class="fa fa-times" aria-hidden="true"></i></button>';
+                fileListEl.appendChild(li);
+            });
+        }
+        function removeFile(index) {
+            if (!fileInput || !fileInput.files || !fileInput.files.length) return;
+            var dt = new DataTransfer();
+            for (var i = 0; i < fileInput.files.length; i++) {
+                if (i !== index) dt.items.add(fileInput.files[i]);
+            }
+            fileInput.files = dt.files;
+            updateFileList();
+        }
+        if (uploadZone && fileInput && !uploadZone.classList.contains('booking-upload-zone--coming-soon')) {
+            uploadZone.addEventListener('click', function (e) { if (!e.target.closest('.booking-file-remove')) fileInput.click(); });
+            uploadZone.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
+            uploadZone.addEventListener('dragover', function (e) { e.preventDefault(); uploadZone.classList.add('is-dragover'); });
+            uploadZone.addEventListener('dragleave', function () { uploadZone.classList.remove('is-dragover'); });
+            uploadZone.addEventListener('drop', function (e) {
+                e.preventDefault();
+                uploadZone.classList.remove('is-dragover');
+                if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+                    var dt = new DataTransfer();
+                    var existing = fileInput.files ? Array.from(fileInput.files) : [];
+                    existing.forEach(function (f) { dt.items.add(f); });
+                    for (var i = 0; i < e.dataTransfer.files.length; i++) {
+                        var f = e.dataTransfer.files[i];
+                        if ((f.type && f.type.indexOf('image') !== -1) || (f.name && f.name.toLowerCase().endsWith('.pdf'))) dt.items.add(f);
+                    }
+                    fileInput.files = dt.files;
+                    updateFileList();
+                }
+            });
+        }
+        if (fileInput && !uploadZone?.classList.contains('booking-upload-zone--coming-soon')) fileInput.addEventListener('change', updateFileList);
+        if (fileListEl) fileListEl.addEventListener('click', function (e) {
+            var btn = e.target.closest('.booking-file-remove');
+            if (btn && btn.dataset.index != null) removeFile(parseInt(btn.dataset.index, 10));
+        });
+
+        auth.onAuthStateChanged(async function (user) {
+            if (!user) return;
+            var vets = await loadVets();
+            var pets = await loadPets(user.uid);
+            populateVetSelect(document.getElementById('booking-vet-dropdown'), vets);
+            populatePetSelect(document.getElementById('booking-pet-dropdown'), pets);
+            var petHint = document.getElementById('booking-pet-hint');
+            if (petHint) petHint.classList.toggle('is-hidden', pets.length > 0);
+            if (confirmBtn) confirmBtn.disabled = pets.length === 0;
+
+            var unsub = subscribeAppointments(user.uid, function (appointments) {
+                if (appointmentsLoading) appointmentsLoading.setAttribute('aria-hidden', 'true');
+                if (appointmentsLoading) appointmentsLoading.classList.add('is-hidden');
+                renderUpcomingPanel(upcomingRoot, appointments);
+                renderHistoryPanel(historyRoot, appointments);
+            });
+            window._appointmentsUnsub = unsub;
+        });
+
+        form.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            var petSelect = document.getElementById('booking-pet');
+            var vetSelect = document.getElementById('booking-vet');
+            var reasonEl = document.getElementById('booking-reason');
+            var titleEl = document.getElementById('booking-title');
+            var petId = petSelect && petSelect.value;
+            var petName = (petSelect && petSelect.dataset && petSelect.dataset.petName) || '';
+            var vetId = vetSelect && vetSelect.value;
+            var reason = reasonEl && reasonEl.value.trim();
+            var title = titleEl && titleEl.value.trim();
+            var vetOpt = vetId ? getVetOption(vetId) : null;
+            var vetName = vetOpt ? vetOpt.name : (vetSelect && vetSelect.dataset && vetSelect.dataset.vetName) || '';
+            var clinicName = vetOpt ? vetOpt.clinic : (vetSelect && vetSelect.dataset && vetSelect.dataset.clinic) || '';
+
+            var dateStr = bookingDate && bookingDate.value ? bookingDate.value : '';
+            var timeVal = bookingTime && bookingTime.value ? bookingTime.value : '';
+            var timeDisplay = CLINIC_HOURS_PLACEHOLDER;
+            if (timeVal) {
+                var parts = timeVal.split(':');
+                var h = parseInt(parts[0], 10);
+                var m = parts[1] ? parseInt(parts[1], 10) : 0;
+                var ampm = h >= 12 ? 'PM' : 'AM';
+                var h12 = h % 12 || 12;
+                timeDisplay = h12 + ':' + String(m).padStart(2, '0') + ' ' + ampm;
+                if (dateStr) {
+                    try {
+                        var d = new Date(dateStr + 'T' + timeVal);
+                        timeDisplay = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) + ' at ' + timeDisplay;
+                    } catch (_) {}
+                }
+            } else if (dateStr) {
+                try {
+                    var d = new Date(dateStr + 'T12:00:00');
+                    timeDisplay = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) + ' (consultation)';
+                } catch (_) {}
+            }
+
+            if (!validateAndHighlightFields()) {
+                showFormError('');
+                return;
+            }
+            clearFieldErrors();
+            showFormError('');
+            if (confirmBtn) {
+                confirmBtn.disabled = true;
+                confirmBtn.querySelector('.booking-confirm-text').textContent = 'Booking consultation…';
+            }
+            try {
+                var mediaInput = document.getElementById('booking-media');
+                var mediaFiles = mediaInput && mediaInput.files && mediaInput.files.length ? Array.from(mediaInput.files) : [];
+                var petSpecies = (petSelect && petSelect.dataset && petSelect.dataset.species) || '';
+                var res = await createAppointment({
+                    title: title || null,
+                    petId,
+                    petName,
+                    petSpecies: petSpecies || '',
+                    vetId,
+                    vetName,
+                    clinicName,
+                    reason,
+                    dateStr,
+                    timeDisplay,
+                    mediaFiles,
+                    slotStart: timeVal || null,
+                });
+                closeModal();
+                form.reset();
+                var petTriggerText = document.querySelector('.booking-pet-trigger-text');
+                if (petTriggerText) petTriggerText.textContent = 'Select Pet';
+                var vetTriggerText = document.querySelector('.booking-vet-trigger-text');
+                if (vetTriggerText) vetTriggerText.textContent = 'Select Vet';
+                if (bookingDate) {
+                    bookingDate.innerHTML = '<option value="">Select a vet first</option>';
+                    bookingDate.disabled = true;
+                }
+                if (bookingTime) {
+                    bookingTime.innerHTML = '<option value="">Select a date first</option>';
+                    bookingTime.disabled = true;
+                }
+                cachedAvailability = { dates: [], slotsByDate: {} };
+                if (fileListEl && typeof updateFileList === 'function') updateFileList();
+                window.location.href = 'payment.html?booking=1&id=' + encodeURIComponent(res.id);
+            } catch (err) {
+                showFormError(err.message || 'Failed to book. Please try again.');
+            } finally {
+                if (confirmBtn) {
+                    confirmBtn.disabled = false;
+                    confirmBtn.querySelector('.booking-confirm-text').textContent = 'Confirm Online Consultation';
+                }
+            }
+        });
+    </script>
 </body>
 </html>

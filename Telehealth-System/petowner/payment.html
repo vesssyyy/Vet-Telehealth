@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment</title>
+    <link rel="stylesheet" href="css/sidebar-layout.css">
+    <link rel="stylesheet" href="css/appointment.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link href="https://fonts.googleapis.com/css?family=Lalezar" rel="stylesheet">
+    <style>
+        body { visibility: hidden; }
+        .payment-page { max-width: 560px; margin: 48px auto 64px; }
+        .payment-card {
+            background: var(--bg-card, #fff);
+            border: 1px solid var(--border-color, #e2e8f0);
+            border-radius: 12px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+            overflow: hidden;
+        }
+        .payment-card-header {
+            padding: 28px 28px 20px;
+            text-align: center;
+            border-bottom: 1px solid var(--border-color, #e2e8f0);
+            background: linear-gradient(180deg, var(--bg-light, #f7fafc) 0%, var(--bg-card, #fff) 100%);
+        }
+        .payment-card-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 16px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-color, #2c5f7d) 0%, #3d7a94 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+        }
+        .payment-card-title { font-size: 1.375rem; font-weight: 600; color: var(--text-dark, #2d3748); margin: 0 0 6px 0; letter-spacing: -0.02em; }
+        .payment-card-subtitle { font-size: 0.9375rem; color: var(--text-light, #718096); margin: 0; }
+        .payment-card-body { padding: 24px 28px 28px; }
+        .payment-card-body p { font-size: 0.9375rem; color: var(--text-light, #718096); margin: 0 0 20px 0; line-height: 1.6; }
+        .payment-success-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            background: #f0fff4;
+            color: #276749;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-bottom: 20px;
+        }
+        .payment-actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 24px; }
+        .payment-actions .btn-back {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 22px;
+            background: var(--primary-color, #2c5f7d);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            transition: background 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+        .payment-actions .btn-back:hover { background: var(--primary-dark, #1e4159); box-shadow: 0 4px 12px rgba(44, 95, 125, 0.2); }
+        .payment-actions .btn-secondary {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 22px;
+            background: transparent;
+            color: var(--primary-color, #2c5f7d);
+            border: 1px solid var(--primary-color, #2c5f7d);
+            border-radius: 10px;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background 0.2s ease, color 0.2s ease;
+        }
+        .payment-actions .btn-secondary:hover { background: var(--primary-color, #2c5f7d); color: white; }
+    </style>
+</head>
+<body>
+    <div class="sidebar-overlay"></div>
+
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <a href="dashboard.html" class="sidebar-brand">Telehealth</a>
+            <div class="sidebar-tagline">Pet Owner Portal</div>
+        </div>
+        <div class="user-profile">
+            <a href="profile.html" class="user-profile-link">
+                <div class="user-info">
+                    <div class="user-avatar">
+                        <img id="sidebar-avatar-img" class="user-avatar-img is-hidden" alt="Profile photo">
+                        <span class="user-avatar-initials" id="sidebar-avatar">PO</span>
+                    </div>
+                    <div class="user-text">
+                        <div class="user-name" id="sidebar-name">Pet Owner</div>
+                        <div class="user-email"><i class="fa fa-envelope"></i> <span id="sidebar-email">owner@example.com</span></div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item"><i class="fa fa-th-large"></i> Dashboard</a>
+            <a href="appointment.html" class="nav-item active"><i class="fa fa-calendar"></i> Appointments</a>
+            <a href="messages.html" class="nav-item"><i class="fa fa-envelope"></i> Messages</a>
+            <a href="skinDisease.html" class="nav-item"><i class="fa fa-stethoscope"></i> Skin Health</a>
+        </nav>
+        <nav class="footer-nav">
+            <a href="aboutUs.html" class="nav-item"><i class="fa fa-info-circle"></i> About Us</a>
+            <a href="feedback.html" class="nav-item"><i class="fa fa-comment"></i> Feedback</a>
+        </nav>
+        <div class="logout-section">
+            <button id="logout-btn" class="logout-btn"><i class="fa fa-sign-out"></i> Logout</button>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="app-top-header">
+            <div class="header-left">
+                <button class="mobile-menu-toggle" aria-label="Toggle Menu"><i class="fa fa-bars"></i></button>
+                <span class="role-badge"><i class="fa fa-id-badge" aria-hidden="true"></i> Pet Owner</span>
+            </div>
+            <div class="header-right">
+                <button type="button" class="dark-mode-toggle" aria-label="Toggle dark mode"><i class="fa fa-moon-o" aria-hidden="true"></i></button>
+                <button type="button" class="profile-header-btn" aria-label="Profile"><i class="fa fa-user-circle" aria-hidden="true"></i></button>
+            </div>
+        </header>
+
+        <div class="content-wrapper payment-page">
+            <div class="payment-card">
+                <div class="payment-card-header">
+                    <div class="payment-card-icon" aria-hidden="true"><i class="fa fa-credit-card"></i></div>
+                    <h2 class="payment-card-title">Payment</h2>
+                    <p class="payment-card-subtitle">Complete your visit</p>
+                </div>
+                <div class="payment-card-body">
+                    <div class="payment-success-badge" id="payment-success-badge" style="display: none;">
+                        <i class="fa fa-check-circle" aria-hidden="true"></i> Appointment requested successfully
+                    </div>
+                    <p>This is a placeholder for the payment flow. In the full version you would enter payment details and complete the transaction here after confirming your appointment.</p>
+                    <div class="payment-actions">
+                        <a href="appointment.html" class="btn-back"><i class="fa fa-arrow-left" aria-hidden="true"></i> Back to Appointments</a>
+                        <a href="dashboard.html" class="btn-secondary"><i class="fa fa-th-large" aria-hidden="true"></i> Dashboard</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/sidebar.js"></script>
+    <script type="module" src="js/dashboard-auth.js"></script>
+    <script type="module" src="js/profile.js"></script>
+    <script type="module">
+        import { auth } from '../shared/js/firebase-config.js';
+        import { markAppointmentPaid } from './js/appointment-manager.js';
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('booking') === '1' && params.get('id')) {
+            var badge = document.getElementById('payment-success-badge');
+            if (badge) badge.style.display = 'inline-flex';
+            auth.onAuthStateChanged(async function (user) {
+                if (user) {
+                    try { await markAppointmentPaid(params.get('id')); } catch (e) { console.warn('Mark paid:', e); }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
