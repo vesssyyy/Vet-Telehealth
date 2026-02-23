@@ -56,7 +56,7 @@
 
     <aside class="sidebar">
         <div class="sidebar-header">
-            <a href="dashboard.html" class="sidebar-brand">Televet Health</a>
+            <a href="dashboard.html" class="sidebar-brand">Telehealth</a>
             <div class="sidebar-tagline">Veterinarian Portal</div>
         </div>
         <div class="user-profile">
@@ -157,10 +157,18 @@
                         </h3>
                         <div class="appointment-filters">
                             <label for="appointment-date-select" class="filter-label">View:</label>
-                            <select id="appointment-date-select" class="filter-select" aria-label="Choose date filter">
-                                <option value="today">Today</option>
-                                <option value="custom">Choose date…</option>
-                            </select>
+                            <div class="dropdown vet-view-dropdown" id="vet-view-dropdown">
+                                <button type="button" class="vet-view-trigger dropdown-trigger" id="vet-view-trigger" aria-expanded="false" aria-haspopup="true" aria-label="Choose date filter">
+                                    <i class="fa fa-exchange vet-view-trigger-icon" aria-hidden="true"></i>
+                                    <span class="vet-view-trigger-text">Today</span>
+                                    <i class="fa fa-chevron-down dropdown-caret" aria-hidden="true"></i>
+                                </button>
+                                <div class="dropdown-menu vet-view-menu" role="menu" aria-label="View options" id="vet-view-menu">
+                                    <button type="button" class="dropdown-item vet-view-item" role="menuitem" data-value="today">Today</button>
+                                    <button type="button" class="dropdown-item vet-view-item" role="menuitem" data-value="custom">Choose date…</button>
+                                </div>
+                            </div>
+                            <input type="hidden" id="appointment-date-select" value="today">
                             <input
                                 type="date"
                                 id="appointment-date-input"

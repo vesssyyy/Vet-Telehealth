@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Appointments - Televet Health (Vet)</title>
+    <title>Online Consultations - Televet Health (Vet)</title>
     <link rel="stylesheet" href="css/sidebar-layout.css">
     <link rel="stylesheet" href="css/profile-loading.css">
     <link rel="stylesheet" href="css/appointments.css">
@@ -53,7 +53,7 @@
     <div class="sidebar-overlay"></div>
     <aside class="sidebar">
         <div class="sidebar-header">
-            <a href="dashboard.html" class="sidebar-brand">Televet Health</a>
+            <a href="dashboard.html" class="sidebar-brand">Telehealth</a>
             <div class="sidebar-tagline">Veterinarian Portal</div>
         </div>
         <div class="user-profile">
@@ -72,7 +72,7 @@
         </div>
         <nav class="sidebar-nav">
             <a href="dashboard.html" class="nav-item"><i class="fa fa-th-large"></i> Dashboard</a>
-            <a href="appointments.html" class="nav-item active"><i class="fa fa-calendar"></i> Appointments</a>
+            <a href="appointments.html" class="nav-item active"><i class="fa fa-calendar"></i> Online Consultations</a>
             <a href="messages.html" class="nav-item"><i class="fa fa-envelope"></i> Messages</a>
             <a href="patients.html" class="nav-item"><i class="fa fa-paw"></i> Patients</a>
         </nav>
@@ -96,15 +96,14 @@
             </div>
         </header>
         <div class="page-header">
-            <h1 class="page-title">Appointments</h1>
-            <p class="page-subtitle">Manage availability templates and view your schedules</p>
+            <h1 class="page-title">Online Consultation Schedules</h1>
         </div>
         <div class="content-wrapper">
             <div class="appointments-top-row">
                 <section class="appointments-section appointments-templates-section" aria-labelledby="templates-heading">
                     <div class="appointments-section-header">
-                        <h2 id="templates-heading" class="appointments-section-title"><i class="fa fa-file-text-o" aria-hidden="true"></i> Availability Templates</h2>
-                        <p class="appointments-section-desc">Define weekly or daily availability. Apply to date ranges to generate schedules.</p>
+                        <h2 id="templates-heading" class="appointments-section-title"><i class="fa fa-file-text-o" aria-hidden="true"></i> Online Consultation Availability</h2>
+                        <p class="appointments-section-desc">Define when you're available for video consultations. Apply templates to date ranges to create bookable slots.</p>
                         <button type="button" class="appointments-create-btn" id="template-create-btn" aria-label="Create template"><i class="fa fa-plus" aria-hidden="true"></i> Create template</button>
                     </div>
                     <div id="appointments-templates-list-wrap" class="appointments-templates-wrap">
@@ -112,7 +111,7 @@
                         <div class="appointments-empty is-hidden" id="appointments-empty" aria-live="polite">
                             <i class="fa fa-calendar-plus-o" aria-hidden="true"></i>
                             <p>No templates yet</p>
-                            <span class="appointments-empty-hint">Create a week or day template to define your availability.</span>
+                            <span class="appointments-empty-hint">Create a week or day template to define when you're available for online consultations.</span>
                         </div>
                     </div>
                 </section>
@@ -120,7 +119,7 @@
                 <section class="appointments-section appointments-blocked-section" aria-labelledby="blocked-heading">
                     <div class="appointments-section-header">
                         <h2 id="blocked-heading" class="appointments-section-title"><i class="fa fa-ban" aria-hidden="true"></i> Blocked dates</h2>
-                        <p class="appointments-section-desc">Block dates for holidays or leave. Blocked dates are skipped when applying templates.</p>
+                        <p class="appointments-section-desc">Block dates for holidays or leave. Pet owners cannot book online consultations on blocked dates.</p>
                         <button type="button" class="appointments-create-btn btn-block-dates" id="block-dates-btn" aria-label="Block dates"><i class="fa fa-ban" aria-hidden="true"></i> Block dates</button>
                     </div>
                     <div id="blocked-dates-list-wrap" class="blocked-dates-wrap">
@@ -128,7 +127,7 @@
                         <div class="blocked-dates-empty is-hidden" id="blocked-dates-empty" aria-live="polite">
                             <i class="fa fa-calendar-o" aria-hidden="true"></i>
                             <p>No blocked dates</p>
-                            <span class="blocked-dates-empty-hint">Block dates for holidays or leave.</span>
+                            <span class="blocked-dates-empty-hint">Block dates when you're unavailable for online consultations.</span>
                         </div>
                     </div>
                 </section>
@@ -136,7 +135,7 @@
             <div class="appointments-partition-horizontal" aria-hidden="true"></div>
             <section class="appointments-schedules-section" aria-labelledby="schedules-heading">
                 <div class="schedules-section-header">
-                    <h2 id="schedules-heading" class="appointments-section-title"><i class="fa fa-calendar-o" aria-hidden="true"></i> Schedules</h2>
+                    <h2 id="schedules-heading" class="appointments-section-title"><i class="fa fa-calendar-o" aria-hidden="true"></i> Consultation Schedules</h2>
                     <div class="schedules-view-controls">
                         <div id="schedules-list-filter-row" class="schedules-filter-row">
                             <label for="schedules-filter">Date</label>
@@ -176,7 +175,7 @@
                 <div id="schedules-view-empty" class="schedules-view-empty">
                     <i class="fa fa-calendar-o" aria-hidden="true"></i>
                     <p>No schedules to display</p>
-                    <span class="schedules-view-empty-hint">Apply a template to a date range first to generate schedules.</span>
+                    <span class="schedules-view-empty-hint">Apply an availability template to a date range to create bookable online consultation slots.</span>
                 </div>
                 <div id="schedules-view-wrap" class="schedules-view-wrap is-hidden">
                     <div id="schedules-expired-actions" class="schedules-expired-actions is-hidden">
@@ -268,13 +267,21 @@
                         <div id="template-days-list"></div>
                     </div>
                     <div class="template-availability-panel">
-                        <p class="template-panel-hint">Add exact meeting times for the selected day.</p>
+                        <p class="template-panel-hint">Add consultation time slots for the selected day.</p>
                         <div class="template-copy-row template-copy-unified">
                             <div class="template-copy-radio-wrap">
                                 <label class="template-copy-radio"><input type="radio" name="template-copy-source" value="day" checked> Day</label>
                                 <label class="template-copy-radio"><input type="radio" name="template-copy-source" value="template"> Template</label>
                             </div>
-                            <select id="template-copy-source-select" aria-label="Copy from"></select>
+                            <div class="dropdown vet-template-copy-dropdown" id="template-copy-source-dropdown">
+                                <button type="button" class="vet-template-copy-trigger dropdown-trigger" id="template-copy-source-trigger" aria-expanded="false" aria-haspopup="true" aria-label="Copy from">
+                                    <i class="fa fa-exchange vet-template-copy-trigger-icon" aria-hidden="true"></i>
+                                    <span class="vet-template-copy-trigger-text">Copy from</span>
+                                    <i class="fa fa-chevron-down dropdown-caret" aria-hidden="true"></i>
+                                </button>
+                                <div class="dropdown-menu vet-template-copy-menu" role="menu" id="template-copy-source-menu"></div>
+                            </div>
+                            <input type="hidden" id="template-copy-source-select" value="">
                             <button type="button" class="template-copy-btn" id="template-copy-week-btn"><i class="fa fa-copy" aria-hidden="true"></i> Copy</button>
                         </div>
                         <button type="button" class="template-add-slot-btn" id="template-add-slot-btn"><i class="fa fa-plus" aria-hidden="true"></i> Add time slot</button>
@@ -288,10 +295,18 @@
                 </div>
                 <div id="template-day-section" class="template-day-layout is-hidden">
                     <div class="template-availability-panel">
-                        <p class="template-panel-hint">Add exact meeting times for this template.</p>
+                        <p class="template-panel-hint">Add consultation time slots for this template.</p>
                         <div class="template-copy-row">
-                            <label for="template-copy-from-template">Copy from template</label>
-                            <select id="template-copy-from-template" aria-label="Copy from day template"><option value="">— Select template —</option></select>
+                            <label for="template-copy-from-trigger">Copy from template</label>
+                            <div class="dropdown vet-template-copy-dropdown" id="template-copy-from-dropdown">
+                                <button type="button" class="vet-template-copy-trigger dropdown-trigger" id="template-copy-from-trigger" aria-expanded="false" aria-haspopup="true" aria-label="Copy from day template">
+                                    <i class="fa fa-exchange vet-template-copy-trigger-icon" aria-hidden="true"></i>
+                                    <span class="vet-template-copy-trigger-text">Copy from</span>
+                                    <i class="fa fa-chevron-down dropdown-caret" aria-hidden="true"></i>
+                                </button>
+                                <div class="dropdown-menu vet-template-copy-menu" role="menu" id="template-copy-from-menu"></div>
+                            </div>
+                            <input type="hidden" id="template-copy-from-template" value="">
                             <button type="button" class="template-copy-btn" id="template-copy-from-template-btn"><i class="fa fa-copy" aria-hidden="true"></i> Copy</button>
                         </div>
                         <button type="button" class="template-add-slot-btn" id="template-day-add-slot-btn"><i class="fa fa-plus" aria-hidden="true"></i> Add time slot</button>
@@ -362,7 +377,7 @@
                 <button type="button" class="template-modal-close" id="block-modal-close" aria-label="Close"><i class="fa fa-times" aria-hidden="true"></i></button>
             </div>
             <div class="template-modal-body">
-                <p class="template-panel-hint">Click dates on the calendar to block or unblock them. Blocked dates will not be affected when applying templates and prevent booking on those days.</p>
+                <p class="template-panel-hint">Click dates on the calendar to block or unblock them. Blocked dates prevent pet owners from booking online consultations on those days.</p>
                 <div class="block-calendar-wrap">
                     <div class="block-calendar-header">
                         <button type="button" class="block-calendar-nav" id="block-calendar-prev" aria-label="Previous month"><i class="fa fa-chevron-left" aria-hidden="true"></i></button>
@@ -388,7 +403,7 @@
             </div>
             <div class="template-modal-body">
                 <p class="apply-template-name-wrap">Template: <strong id="apply-template-name">—</strong></p>
-                <p class="template-panel-hint">Select a date range (start date must be today or later). Schedules are created only for future dates; slots within your limiting schedule (minimum advance) are skipped. Blocked dates are skipped.</p>
+                <p class="template-panel-hint">Select a date range (start date must be today or later). Online consultation slots are created for future dates only. Slots within the minimum advance window are skipped. Blocked dates are skipped.</p>
                 <div class="template-form-row">
                     <div class="template-form-group">
                         <label for="apply-start-date">Start date</label>
@@ -416,7 +431,7 @@
             <div class="template-modal-body">
                 <p class="limiting-schedule-caution" role="alert">
                     <i class="fa fa-exclamation-circle" aria-hidden="true"></i>
-                    This setting controls how far in advance pet owners are allowed to book appointments. Bookings must be made at least this amount of time before the appointment start.
+                    This setting controls how far in advance pet owners can book online consultations. Bookings must be made at least this amount of time before the consultation start.
                 </p>
                 <div class="template-form-row">
                     <div class="template-form-group">
@@ -428,7 +443,7 @@
                                 <option value="hours">Hours</option>
                             </select>
                         </div>
-                        <span class="template-panel-hint">Example: 2 hours = booking must be made at least 2 hours before the appointment time.</span>
+                        <span class="template-panel-hint">Example: 2 hours = pet owners must book at least 2 hours before the consultation time.</span>
                     </div>
                 </div>
                 <p class="template-error-msg is-hidden" id="booking-settings-error" role="alert"></p>
