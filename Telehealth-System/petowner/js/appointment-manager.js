@@ -87,6 +87,25 @@ function formatTime12h(timeStr) {
     return `${hour}:${min} ${h < 12 ? 'AM' : 'PM'}`;
 }
 
+/** Default consultation duration in minutes when slotEnd is missing */
+const DEFAULT_SLOT_DURATION_MINUTES = 30;
+
+/** Given "HH:mm" start, return "HH:mm" start + duration minutes. */
+function addMinutesToTime(timeStr, durationMinutes) {
+    if (!timeStr || typeof timeStr !== 'string') return null;
+    const parts = String(timeStr).trim().split(':');
+    const h = parseInt(parts[0], 10);
+    const m = parts[1] != null ? parseInt(parts[1], 10) : 0;
+    if (isNaN(h)) return null;
+    let totalMins = h * 60 + m + (durationMinutes || DEFAULT_SLOT_DURATION_MINUTES);
+    const dayOverflow = Math.floor(totalMins / (24 * 60));
+    totalMins = totalMins % (24 * 60);
+    if (totalMins < 0) totalMins += 24 * 60;
+    const nh = Math.floor(totalMins / 60);
+    const nm = totalMins % 60;
+    return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
+}
+
 function vetDisplayName(data) {
     const name = (data.displayName || '').trim()
         || [data.firstName, data.lastName].filter(Boolean).join(' ').trim()
@@ -117,13 +136,37 @@ function formatTimeDisplay(timeStr) {
     return timeStr;
 }
 
+/** Extract time range from timeDisplay string (e.g. "Feb 25, 2026 at 8:15 AM" → "8:15 AM", "Feb 25, 2026 at 8:15 AM – 9:15 AM" → "8:15 AM - 9:15 AM"). */
+function extractTimeRangeFromDisplay(timeDisplay) {
+    if (!timeDisplay || typeof timeDisplay !== 'string') return null;
+    const s = timeDisplay.trim();
+    const atIdx = s.lastIndexOf(' at ');
+    if (atIdx === -1) return s; // no " at " – might already be time-only
+    const timePart = s.slice(atIdx + 4).trim();
+    if (!timePart) return null;
+    // Normalize en-dash/em-dash to hyphen for consistency
+    return timePart.replace(/\s*[–—]\s*/g, ' - ');
+}
+
+/** Build time range only for card display (e.g. "8:00 AM - 9:00 AM"). Uses slotEnd or default duration when start is known. */
+function getAppointmentTimeDisplay(apt) {
+    const slotStart = apt.slotStart;
+    const slotEnd = apt.slotEnd || (slotStart ? addMinutesToTime(slotStart, DEFAULT_SLOT_DURATION_MINUTES) : null);
+    if (slotStart) {
+        const endPart = slotEnd ? ` - ${formatTime12h(slotEnd)}` : '';
+        return `${formatTime12h(slotStart)}${endPart}`;
+    }
+    const parsed = extractTimeRangeFromDisplay(apt.timeDisplay);
+    return parsed || apt.timeDisplay || CLINIC_HOURS_PLACEHOLDER;
+}
+
 function getTodayDateString() {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function isUpcoming(appointment) {
-    const status = (appointment.status || 'pending').toLowerCase();
+    const status = (appointment.status || 'booked').toLowerCase();
     if (status === 'cancelled' || status === 'completed') return false;
     const dateStr = appointment.date || appointment.dateStr || '';
     return !dateStr || dateStr >= getTodayDateString();
@@ -200,6 +243,24 @@ export function populatePetSelect(containerEl, pets) {
                 d.querySelector('.dropdown-trigger')?.setAttribute('aria-expanded', 'false');
             });
         });
+    }
+}
+
+/** Load a single vet's profile (photoURL, displayName) by vetId */
+export async function loadVetProfile(vetId) {
+    if (!vetId) return null;
+    try {
+        const snap = await getDoc(doc(db, 'users', vetId));
+        if (!snap.exists()) return null;
+        const data = snap.data();
+        return {
+            id: vetId,
+            name: vetDisplayName(data),
+            photoURL: data.photoURL || data.photoUrl || null,
+        };
+    } catch (err) {
+        console.warn('Load vet profile error:', err);
+        return null;
     }
 }
 
@@ -372,9 +433,9 @@ export async function createAppointment(data) {
     const user = auth.currentUser;
     if (!user) throw new Error('You must be signed in to book an appointment.');
 
-    const { title, petId, petName, petSpecies, vetId, vetName, clinicName, reason, dateStr, timeDisplay, mediaFiles, slotStart } = data;
+    const { title, petId, petName, petSpecies, vetId, vetName, clinicName, reason, dateStr, timeDisplay, mediaFiles, slotStart, slotEnd } = data;
     if (!petId || !petName || !vetId || !vetName || !reason?.trim()) {
-        throw new Error('Please provide pet, vet, and reason.');
+        throw new Error('Please provide pet, vet, and concern.');
     }
 
     const appointmentData = {
@@ -391,9 +452,11 @@ export async function createAppointment(data) {
         date: dateStr || getTodayDateString(),
         dateStr: dateStr || getTodayDateString(),
         timeDisplay: timeDisplay || CLINIC_HOURS_PLACEHOLDER,
+        slotStart: slotStart || null,
+        slotEnd: slotEnd || null,
         reason: reason.trim(),
         mediaUrls: [],
-        status: 'pending',
+        status: 'booked',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
     };
@@ -425,6 +488,8 @@ export async function createAppointment(data) {
                 const slots = scheduleData.slots || [];
                 const updated = slots.map((s) => {
                     if ((s.start || '') === slotStart && (s.status || 'available') === 'available') {
+                        const titleVal = (data.title && String(data.title).trim()) || null;
+                        const reasonVal = (data.reason && String(data.reason).trim()) || '';
                         return {
                             ...s,
                             status: 'booked',
@@ -432,6 +497,8 @@ export async function createAppointment(data) {
                             ownerId: user.uid,
                             ownerName: (user.displayName || '').trim() || 'Pet Owner',
                             petName: petName || '',
+                            title: titleVal,
+                            reason: reasonVal ? reasonVal.slice(0, 120) : null,
                         };
                     }
                     return s;
@@ -454,7 +521,7 @@ export async function markAppointmentPaid(appointmentId) {
     const snap = await getDoc(aptRef);
     if (!snap.exists()) throw new Error('Appointment not found.');
     if (snap.data().ownerId !== user.uid) throw new Error('Not your appointment.');
-    await updateDoc(aptRef, { paid: true, status: 'confirmed', updatedAt: serverTimestamp() });
+    await updateDoc(aptRef, { paid: true, updatedAt: serverTimestamp() });
 }
 
 /** Subscribe to appointments for current user */
@@ -513,10 +580,9 @@ export function renderUpcomingPanel(panelEl, appointments) {
                         <div class="appointment-card-pet-img ${(apt.petSpecies || '').toLowerCase() === 'cat' ? 'appointment-card-pet-img--cat' : ''}" aria-hidden="true"><i class="fa fa-paw" aria-hidden="true"></i></div>
                     </div>
                     <div class="appointment-card-body">
-                        <h4 class="appointment-card-title">${escapeHtml(apt.title && apt.title.trim() ? apt.title.trim() : (apt.petName || 'Pet') + "'s Online Consultation")}</h4>
-                        <p class="appointment-card-meta">${escapeHtml(apt.vetName || '')} | ${escapeHtml(apt.clinicName || '')}</p>
-                        <p class="appointment-card-time"><i class="fa fa-clock-o" aria-hidden="true"></i> ${escapeHtml(apt.timeDisplay || CLINIC_HOURS_PLACEHOLDER)}</p>
-                        ${(apt.status === 'pending' && !apt.paid) ? '<p class="appointment-card-status appointment-card-status--pending"><i class="fa fa-hourglass-half" aria-hidden="true"></i> Pending confirmation</p>' : apt.paid ? '<p class="appointment-card-status appointment-card-status--confirmed"><i class="fa fa-check-circle" aria-hidden="true"></i> Confirmed</p>' : ''}
+                        <p class="appointment-card-title">${escapeHtml(apt.petName || 'Pet')} | ${escapeHtml(apt.title && apt.title.trim() ? apt.title.trim() : '—')}</p>
+                        <p class="appointment-card-meta">${escapeHtml(apt.vetName || '')}${apt.clinicName ? ' · ' + escapeHtml(apt.clinicName) : ''}</p>
+                        <p class="appointment-card-time"><span class="appointment-card-time-text">${escapeHtml(getAppointmentTimeDisplay(apt))}</span></p>
                     </div>
                     <div class="appointment-card-actions">
                         <button type="button" class="appointment-view-btn" data-id="${escapeHtml(apt.id)}">View Details <i class="fa fa-chevron-right" aria-hidden="true"></i></button>
@@ -567,10 +633,10 @@ export function renderHistoryPanel(panelEl, appointments) {
                         <div class="appointment-card-pet-img ${(apt.petSpecies || '').toLowerCase() === 'cat' ? 'appointment-card-pet-img--cat' : ''}" aria-hidden="true"><i class="fa fa-paw" aria-hidden="true"></i></div>
                     </div>
                     <div class="appointment-card-body">
-                        <h4 class="appointment-card-title">${escapeHtml(apt.title && apt.title.trim() ? apt.title.trim() : (apt.petName || 'Pet'))}</h4>
-                        <p class="appointment-card-meta">${escapeHtml(apt.vetName || '')} | ${escapeHtml(apt.clinicName || '')}</p>
-                        <p class="appointment-card-time"><i class="fa fa-clock-o" aria-hidden="true"></i> ${escapeHtml(apt.timeDisplay || '—')}</p>
-                        <p class="appointment-card-status appointment-card-status--${escapeHtml((apt.status || '').toLowerCase())}"><i class="fa fa-check-circle" aria-hidden="true"></i> ${escapeHtml((apt.status || 'completed').toLowerCase())}</p>
+                        <p class="appointment-card-title">${escapeHtml(apt.petName || 'Pet')} | ${escapeHtml(apt.title && apt.title.trim() ? apt.title.trim() : '—')}</p>
+                        <p class="appointment-card-meta">${escapeHtml(apt.vetName || '')}${apt.clinicName ? ' · ' + escapeHtml(apt.clinicName) : ''}</p>
+                        <p class="appointment-card-time"><span class="appointment-card-time-text">${escapeHtml(getAppointmentTimeDisplay(apt))}</span></p>
+                        <p class="appointment-card-status appointment-card-status--${escapeHtml((apt.status || 'completed').toLowerCase())}"><i class="fa fa-check-circle" aria-hidden="true"></i> ${escapeHtml((apt.status === 'confirmed' ? 'completed' : (apt.status || 'completed')).toLowerCase())}</p>
                     </div>
                     <div class="appointment-card-actions">
                         <button type="button" class="appointment-view-btn" data-id="${escapeHtml(apt.id)}">View Details <i class="fa fa-chevron-right" aria-hidden="true"></i></button>
@@ -595,4 +661,4 @@ export function getVetOption(vetId, vetsList) {
     return list.find((v) => v.id === vetId) || null;
 }
 
-export { VET_OPTIONS_FALLBACK, CLINIC_HOURS_PLACEHOLDER };
+export { VET_OPTIONS_FALLBACK, CLINIC_HOURS_PLACEHOLDER, formatAppointmentDate, getAppointmentTimeDisplay, isUpcoming };

@@ -22,6 +22,7 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
     const scheduleCol = (uid) => collection(db, 'users', uid, 'schedules');
     const scheduleDoc = (uid, dateStr) => doc(db, 'users', uid, 'schedules', dateStr);
     const vetSettingsDoc = (uid) => doc(db, 'users', uid, 'vetSettings', 'scheduling');
+    const appointmentDoc = (appointmentId) => doc(db, 'appointments', appointmentId);
     const typeLabel = (t) => (t?.type === 'week' ? 'Week template' : 'Day template');
 
     // === State ===
@@ -446,6 +447,18 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
         const renderSlot = (s, dateStr, isExpired = false) => {
             const status = s.status || 'available';
             const extraClass = isExpired ? ' schedules-slot-item-expired' : '';
+            if (status === 'booked') {
+                const aptId = (s.appointmentId || '').trim();
+                const timeRange = `${escapeHtml(formatTime12h(s.start))} – ${escapeHtml(formatTime12h(s.end))}`;
+                const ownerName = escapeHtml((s.ownerName || s.owner || '').slice(0, 80));
+                const petName = escapeHtml((s.petName || s.pet || '').slice(0, 80));
+                const reason = escapeHtml((s.reason || '').slice(0, 400));
+                return `<div class="schedules-slot-item schedules-slot-item--booked${extraClass}" data-status="${status}" data-date="${escapeHtml(dateStr)}" data-start="${escapeHtml(s.start)}" data-appointment-id="${escapeHtml(aptId)}" data-owner-name="${ownerName}" data-pet-name="${petName}" data-reason="${reason}" data-time-start="${escapeHtml(s.start || '')}" data-time-end="${escapeHtml(s.end || '')}" data-expired="${isExpired}">
+                    <span class="schedules-slot-indicator ${status}" aria-hidden="true"></span>
+                    <span class="schedules-slot-time schedules-slot-time--left">${timeRange}</span>
+                    <button type="button" class="slot-details-view-btn" data-appointment-id="${escapeHtml(aptId)}" aria-label="View appointment details"><i class="fa fa-eye" aria-hidden="true"></i> View Details</button>
+                </div>`;
+            }
             return `<div class="schedules-slot-item${extraClass}" data-status="${status}" data-date="${escapeHtml(dateStr)}" data-start="${escapeHtml(s.start)}" data-expired="${isExpired}"><span class="schedules-slot-indicator ${status}" aria-hidden="true"></span><span class="schedules-slot-time">${escapeHtml(formatTime12h(s.start))} – ${escapeHtml(formatTime12h(s.end))}</span></div>`;
         };
 
@@ -475,6 +488,172 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
 
         listEl.innerHTML = blocks || (filter !== 'all' ? '<p class="schedules-no-slots">No matching slots in this view.</p>' : '');
         $('schedules-expired-actions')?.classList.toggle('is-hidden', filter !== 'expired');
+    }
+
+    // === Appointment details modal (same format as pet owner; Owner instead of Vet) ===
+    const detailsOverlay = () => $('details-modal-overlay');
+    const detailsModalEl = () => $('details-modal');
+
+    function setDetailsModalVisible(visible) {
+        const overlay = detailsOverlay();
+        const modal = detailsModalEl();
+        if (overlay) {
+            overlay.classList.toggle('is-open', visible);
+            overlay.setAttribute('aria-hidden', String(!visible));
+        }
+        document.body.style.overflow = visible ? 'hidden' : '';
+        if (visible && modal) modal.focus();
+    }
+
+    function closeSlotDetailsModal() {
+        setDetailsModalVisible(false);
+    }
+
+    function formatPetAge(age) {
+        if (age == null || age === '') return '—';
+        const n = Number(age);
+        return isNaN(n) ? String(age) : n === 1 ? '1 Year' : n + ' Years';
+    }
+    function formatPetWeight(weight) {
+        if (weight == null || weight === '') return '—';
+        const n = Number(weight);
+        return isNaN(n) ? String(weight) : n + ' kg';
+    }
+
+    function fillDetailsModalFromApt(apt) {
+        const titleEl = $('details-title');
+        const ownerNameEl = $('details-owner-name');
+        const ownerImg = $('details-owner-img');
+        const ownerFallback = $('details-owner-avatar-fallback');
+        const petNameEl = $('details-pet-name');
+        const petAgeEl = $('details-pet-age');
+        const petWeightEl = $('details-pet-weight');
+        const petSpeciesEl = $('details-pet-species');
+        const petImg = $('details-pet-img');
+        const petFallback = $('details-pet-avatar-fallback');
+        const petWrap = $('details-pet-avatar-wrap');
+        const dateEl = $('details-date');
+        const timeEl = $('details-time');
+        const concernEl = $('details-concern');
+        const idEl = $('details-appointment-id');
+
+        if (titleEl) {
+            titleEl.textContent = (apt.title && apt.title.trim()) ? apt.title.trim() : '—';
+            titleEl.classList.toggle('is-empty', !(apt.title && apt.title.trim()));
+        }
+        if (ownerNameEl) ownerNameEl.textContent = apt.ownerName || apt.owner || '—';
+        if (ownerImg) { ownerImg.style.display = 'none'; ownerImg.src = ''; ownerImg.alt = apt.ownerName || 'Owner'; }
+        if (ownerFallback) ownerFallback.classList.add('visible');
+        if (apt.ownerId) {
+            getDoc(doc(db, 'users', apt.ownerId)).then((ownerSnap) => {
+                if (ownerSnap.exists() && ownerSnap.data()?.photoURL && ownerImg) {
+                    ownerImg.src = ownerSnap.data().photoURL;
+                    ownerImg.style.display = '';
+                    if (ownerFallback) ownerFallback.classList.remove('visible');
+                }
+            }).catch(() => {});
+        }
+
+        const sp = (apt.petSpecies || '').trim();
+        const petName = apt.petName || '—';
+        const speciesDisplay = sp ? sp.charAt(0).toUpperCase() + sp.slice(1).toLowerCase() : '—';
+        if (petNameEl) petNameEl.textContent = petName;
+        if (petSpeciesEl) petSpeciesEl.textContent = speciesDisplay;
+        if (petAgeEl) petAgeEl.textContent = '—';
+        if (petWeightEl) petWeightEl.textContent = '—';
+        if (petImg) {
+            petImg.style.display = 'none';
+            petImg.src = '';
+            petImg.alt = petName !== '—' ? String(petName) : 'Pet';
+        }
+        if (petFallback) {
+            petFallback.classList.add('visible');
+            petFallback.setAttribute('aria-hidden', 'false');
+            petFallback.innerHTML = (sp || '').toLowerCase() === 'cat' ? '<i class="fa-solid fa-cat" aria-hidden="true"></i>' : '<i class="fa fa-paw" aria-hidden="true"></i>';
+        }
+        if (petWrap) petWrap.classList.toggle('details-pet-avatar-wrap--cat', (sp || '').toLowerCase() === 'cat');
+        if (apt.ownerId && apt.petId) {
+            getDoc(doc(db, 'users', apt.ownerId, 'pets', apt.petId)).then((petSnap) => {
+                if (petSnap.exists()) {
+                    const pet = petSnap.data();
+                    if (petAgeEl) petAgeEl.textContent = formatPetAge(pet.age);
+                    if (petWeightEl) petWeightEl.textContent = formatPetWeight(pet.weight);
+                    const pSp = (pet.species || apt.petSpecies || '').trim();
+                    if (petSpeciesEl) petSpeciesEl.textContent = pSp ? pSp.charAt(0).toUpperCase() + pSp.slice(1).toLowerCase() : '—';
+                    if (pet.imageUrl && petImg) {
+                        petImg.src = pet.imageUrl;
+                        petImg.style.display = '';
+                        if (petFallback) petFallback.classList.remove('visible');
+                    }
+                    if (petFallback && (pet.species || '').toLowerCase() === 'cat') petFallback.innerHTML = '<i class="fa-solid fa-cat" aria-hidden="true"></i>';
+                }
+            }).catch(() => {});
+        }
+
+        if (dateEl) dateEl.textContent = apt.dateStr ? formatDisplayDate(apt.dateStr) : (apt.date ? formatDisplayDate(apt.date) : '—');
+        if (timeEl) {
+            let timeOnly = '—';
+            if (apt.slotStart && apt.slotEnd) {
+                timeOnly = `${formatTime12h(apt.slotStart)} – ${formatTime12h(apt.slotEnd)}`;
+            } else if (apt.slotStart) {
+                timeOnly = formatTime12h(apt.slotStart);
+            } else if (apt.timeDisplay) {
+                const s = String(apt.timeDisplay).trim();
+                const atIdx = s.lastIndexOf(' at ');
+                timeOnly = atIdx !== -1 ? s.slice(atIdx + 4).replace(/\s*[–—]\s*/g, ' – ') : s;
+            }
+            timeEl.textContent = timeOnly;
+        }
+        if (concernEl) concernEl.textContent = (apt.reason && apt.reason.trim()) ? apt.reason.trim() : '—';
+        if (idEl) idEl.textContent = apt.id || '—';
+    }
+
+    function fillDetailsModalFromSlotData(appointmentId, slotData) {
+        const timeDisplay = (slotData.timeStart && slotData.timeEnd)
+            ? `${formatTime12h(slotData.timeStart)} – ${formatTime12h(slotData.timeEnd)}`
+            : '—';
+        fillDetailsModalFromApt({
+            id: appointmentId,
+            title: null,
+            ownerName: slotData.ownerName || '—',
+            owner: slotData.ownerName || '—',
+            petName: slotData.petName || '—',
+            petSpecies: '',
+            reason: slotData.reason || '—',
+            dateStr: slotData.dateStr,
+            date: slotData.dateStr,
+            timeDisplay,
+        });
+    }
+
+    async function openSlotDetailsModal(appointmentId, slotDataFromRow) {
+        if (!appointmentId?.trim()) return;
+        const overlay = detailsOverlay();
+        const modal = detailsModalEl();
+        if (!overlay || !modal) return;
+        try {
+            const snap = await getDoc(appointmentDoc(appointmentId));
+            if (!snap.exists()) {
+                if (slotDataFromRow) {
+                    fillDetailsModalFromSlotData(appointmentId, slotDataFromRow);
+                    setDetailsModalVisible(true);
+                } else {
+                    alert('Appointment not found.');
+                }
+                return;
+            }
+            const apt = { id: snap.id, ...snap.data() };
+            fillDetailsModalFromApt(apt);
+            setDetailsModalVisible(true);
+        } catch (err) {
+            console.error('Load appointment error:', err);
+            if (slotDataFromRow) {
+                fillDetailsModalFromSlotData(appointmentId, slotDataFromRow);
+                setDetailsModalVisible(true);
+            } else {
+                alert('Could not load appointment details. Please try again.');
+            }
+        }
     }
 
     async function loadSchedulesView() {
@@ -624,12 +803,44 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
             eventEl.style.top = `${top}px`;
             eventEl.style.height = `${Math.max(0, height - 2)}px`;
             if (status === 'booked') {
+                const aptId = (slot.appointmentId || '').trim();
+                eventEl.dataset.dateStr = dateStr;
+                eventEl.dataset.ownerName = (slot.ownerName || slot.owner || '').slice(0, 80);
+                eventEl.dataset.petName = (slot.petName || slot.pet || '').slice(0, 80);
+                eventEl.dataset.reason = (slot.reason || '').slice(0, 400);
+                eventEl.dataset.timeStart = slot.start || '';
+                eventEl.dataset.timeEnd = slot.end || '';
+                eventEl.setAttribute('role', 'button');
+                eventEl.setAttribute('tabindex', '0');
+                eventEl.setAttribute('aria-label', `View appointment: ${escapeHtml(petName)} with ${escapeHtml(ownerName)}`);
                 eventEl.innerHTML = `
                     <span class="weekly-schedule-event-name ${isPlaceholder ? 'weekly-schedule-event-placeholder' : ''}">${escapeHtml(ownerName)}</span>
                     <span class="weekly-schedule-event-pet ${isPlaceholder ? 'weekly-schedule-event-placeholder' : ''}">${escapeHtml(petName)}</span>
-                    <button type="button" class="weekly-schedule-event-btn" data-date="${escapeHtml(dateStr)}" data-start="${escapeHtml(slot.start)}" aria-label="View appointment"><i class="fa fa-eye" aria-hidden="true"></i> View</button>
+                    <span class="weekly-schedule-event-btn slot-details-view-btn"><i class="fa fa-eye" aria-hidden="true"></i> View details</span>
                 `;
-                eventEl.querySelector('.weekly-schedule-event-btn')?.addEventListener('click', () => openEditDayModal(dateStr));
+                const openDetails = () => {
+                    if (!aptId) return;
+                    const slotData = {
+                        dateStr: eventEl.dataset.dateStr || '',
+                        ownerName: eventEl.dataset.ownerName || '',
+                        petName: eventEl.dataset.petName || '',
+                        reason: eventEl.dataset.reason || '',
+                        timeStart: eventEl.dataset.timeStart || '',
+                        timeEnd: eventEl.dataset.timeEnd || '',
+                    };
+                    openSlotDetailsModal(aptId, slotData);
+                };
+                eventEl.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openDetails();
+                });
+                eventEl.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        openDetails();
+                    }
+                });
             } else {
                 const slotLabel = status === 'expired' ? 'Expired' : 'Available';
                 eventEl.innerHTML = `
@@ -1595,7 +1806,28 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
         onOverlayClick('block-modal-overlay', closeBlockModal);
         $('block-submit-btn')?.addEventListener('click', doBlockDates);
 
+        $('details-modal-close')?.addEventListener('click', closeSlotDetailsModal);
+        onOverlayClick('details-modal-overlay', closeSlotDetailsModal);
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && detailsOverlay()?.classList.contains('is-open')) closeSlotDetailsModal();
+        });
+        $('details-join-btn')?.addEventListener('click', () => alert('Video call integration coming soon. You will be able to join the consultation here.'));
+
         $('schedules-list')?.addEventListener('click', (e) => {
+            const viewDetailsBtn = e.target.closest('.slot-details-view-btn');
+            if (viewDetailsBtn?.dataset?.appointmentId) {
+                const row = viewDetailsBtn.closest('.schedules-slot-item--booked');
+                const slotData = row ? {
+                    dateStr: row.dataset.date || '',
+                    ownerName: row.dataset.ownerName || '',
+                    petName: row.dataset.petName || '',
+                    reason: row.dataset.reason || '',
+                    timeStart: row.dataset.timeStart || '',
+                    timeEnd: row.dataset.timeEnd || '',
+                } : null;
+                openSlotDetailsModal(viewDetailsBtn.dataset.appointmentId, slotData);
+                return;
+            }
             const editBtn = e.target.closest('.schedules-edit-day-btn');
             if (editBtn?.dataset?.date) openEditDayModal(editBtn.dataset.date);
         });

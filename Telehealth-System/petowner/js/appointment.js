@@ -13,7 +13,7 @@ import {
     getAvailableDatesAndSlots,
     CLINIC_HOURS_PLACEHOLDER,
 } from './appointment-manager.js';
-import { auth } from '../shared/js/firebase-config.js';
+import { auth } from '../../shared/js/firebase-config.js';
 
 const $ = (id) => document.getElementById(id);
 
