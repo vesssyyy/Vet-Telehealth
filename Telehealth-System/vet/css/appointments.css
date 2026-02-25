@@ -460,6 +460,9 @@
     background: var(--bg-light);
     border: 1px solid var(--border-color);
     border-radius: 8px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
 }
 .schedules-slot-indicator {
     width: 8px;
@@ -475,6 +478,43 @@
     font-weight: 500;
     color: var(--text-dark);
 }
+
+/* Booked slot card (list view) — time (left) + View Details (right) */
+.schedules-slot-item--booked {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+.schedules-slot-item--booked .schedules-slot-time--left {
+    flex-shrink: 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-dark);
+}
+.slot-details-view-btn {
+    flex-shrink: 0;
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--primary-color);
+    background: rgba(44, 95, 125, 0.1);
+    border: 1px solid var(--primary-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.slot-details-view-btn:hover {
+    background: var(--primary-color);
+    color: white;
+}
+
 .schedules-no-slots {
     font-size: 13px;
     color: var(--text-light);
@@ -643,6 +683,152 @@
 /* Modals */
 .template-modal-overlay, .template-view-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); z-index: 1200; }
 .template-modal-overlay.is-hidden, .template-view-overlay.is-hidden, .template-modal.is-hidden, .template-view-modal.is-hidden { display: none !important; }
+
+/* Appointment details modal (same format as pet owner; Owner instead of Vet) */
+.details-modal-overlay {
+    position: fixed; inset: 0; background: rgba(45,55,72,.55); backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center; z-index: 1000;
+    padding: clamp(12px, 3vw, 24px);
+    opacity: 0; visibility: hidden; transition: opacity .3s ease, visibility .3s ease;
+    overflow-y: auto;
+}
+.details-modal-overlay.is-open { opacity: 1; visibility: visible; }
+.details-modal-overlay.is-open .details-modal {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+}
+.details-modal {
+    background: var(--bg-card, var(--bg-white));
+    border-radius: clamp(14px, 3vw, 20px);
+    box-shadow: 0 32px 64px -12px rgba(0,0,0,.22), 0 0 0 1px rgba(0,0,0,.06);
+    max-width: min(520px, calc(100vw - 24px)); width: 100%;
+    max-height: min(90vh, 100%); margin: auto;
+    display: flex; flex-direction: column; overflow: hidden;
+    transform: scale(0.95) translateY(12px); opacity: 0;
+    transition: transform .35s cubic-bezier(0.34, 1.56, 0.64, 1), opacity .3s ease;
+}
+.details-modal-header {
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+    padding: clamp(12px, 2.5vw, 16px) clamp(48px, 12vw, 56px) clamp(12px, 2.5vw, 16px) clamp(16px, 3vw, 24px);
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+.details-modal-title { margin: 0; font-size: clamp(1.1rem, 2.2vw, 1.3rem); font-weight: 600; color: var(--text-dark); letter-spacing: -0.02em; text-align: center; }
+.details-modal-title i { color: var(--primary-color); font-size: clamp(1rem, 2vw, 1.1rem); opacity: .9; }
+.details-modal-close {
+    position: absolute; top: 50%; right: clamp(12px, 2.5vw, 16px); transform: translateY(-50%);
+    width: clamp(40px, 8vw, 44px); height: clamp(40px, 8vw, 44px);
+    min-width: 44px; min-height: 44px;
+    border: none; background: transparent;
+    color: var(--text-light); border-radius: 12px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all .2s ease;
+}
+.details-modal-close:hover { background: var(--bg-light); color: var(--text-dark); }
+.details-modal-body {
+    flex: 1; overflow-y: auto;
+    padding: 0 clamp(16px, 3vw, 24px) clamp(16px, 3vw, 24px) clamp(16px, 3vw, 24px);
+}
+.details-title-block {
+    font-size: clamp(0.9375rem, 1.8vw, 1.08rem);
+    font-weight: 600; color: var(--text-dark);
+    padding: clamp(14px, 2.5vw, 19px) clamp(16px, 3vw, 24px) clamp(14px, 2.5vw, 19px) clamp(16px, 3vw, 24px);
+    margin: 0 -24px 20px 0; border-radius: 0; text-align: left;
+    position: sticky; top: 0; z-index: 5;
+    background: linear-gradient(135deg, #f8f9fa 0%, #eef0f2 100%);
+    box-shadow: 0 2px 8px rgba(44, 95, 125, 0.08);
+}
+.details-title-block.is-empty { color: var(--text-light); font-style: italic; font-weight: 500; }
+.details-section-header {
+    margin: 0 0 6px; font-size: 0.75rem; font-weight: 600;
+    color: var(--primary-color); text-transform: uppercase; letter-spacing: .1em;
+    display: flex; align-items: center; gap: 8px;
+}
+.details-section-header i { font-size: 12px; opacity: .9; }
+.details-section-header + .details-doctor-section,
+.details-section-header + .details-owner-section,
+.details-section-header + .details-pet-card { margin-top: 6px; }
+.details-doctor-section, .details-owner-section {
+    display: flex; align-items: center;
+    gap: clamp(12px, 2.5vw, 20px);
+    padding: clamp(14px, 3vw, 20px) clamp(16px, 3vw, 24px);
+    margin: 20px 0 0 0;
+    background: var(--bg-light);
+    border-radius: clamp(10px, 2vw, 14px);
+    border: 1px solid var(--border-color);
+}
+.details-doctor-section .details-doctor-name, .details-owner-section .details-doctor-name { line-height: 1; margin: 0; }
+.details-doctor-section .details-doctor-avatar-wrap {
+    flex-shrink: 0;
+    width: clamp(40px, 8vw, 44px); height: clamp(40px, 8vw, 44px);
+    border-radius: 50%;
+    overflow: hidden; background: linear-gradient(135deg, #5a6b7d, #7d8fa3);
+    display: flex; align-items: center; justify-content: center; color: white;
+    font-size: clamp(16px, 3vw, 18px);
+    box-shadow: 0 2px 8px rgba(90,107,125,.2);
+}
+.details-doctor-avatar-img { width: 100%; height: 100%; object-fit: cover; }
+.details-doctor-avatar-fallback { display: none; }
+.details-doctor-avatar-fallback.visible { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+.details-doctor-name { margin: 0; font-size: clamp(0.9375rem, 1.8vw, 1.05rem); font-weight: 600; color: var(--text-dark); }
+.details-separator { border: none; border-top: 1px solid var(--border-color); margin: 0 0 20px; }
+.details-pet-card {
+    display: flex; align-items: center;
+    gap: clamp(12px, 2.5vw, 20px);
+    padding: clamp(14px, 3vw, 20px) clamp(16px, 3vw, 24px);
+    background: var(--bg-light);
+    border-radius: clamp(10px, 2vw, 14px);
+    border: 1px solid var(--border-color);
+}
+.details-pet-card .details-pet-avatar-wrap {
+    flex-shrink: 0;
+    width: clamp(48px, 12vw, 64px); height: clamp(48px, 12vw, 64px);
+    border-radius: 50%;
+    overflow: hidden; background: linear-gradient(135deg, var(--primary-color), #4a90a4);
+    display: flex; align-items: center; justify-content: center; color: white;
+    font-size: clamp(20px, 5vw, 28px);
+    box-shadow: 0 4px 12px rgba(44,95,125,.25);
+}
+.details-pet-card .details-pet-avatar-wrap.details-pet-avatar-wrap--cat {
+    background: linear-gradient(135deg, #6b7280, #9ca3af);
+    box-shadow: 0 4px 12px rgba(107,114,128,.25);
+}
+.details-pet-card .details-pet-avatar-img, .details-pet-avatar-img { width: 100%; height: 100%; object-fit: cover; }
+.details-pet-card .details-pet-avatar-fallback, .details-pet-avatar-fallback { display: none; }
+.details-pet-card .details-pet-avatar-fallback.visible, .details-pet-avatar-fallback.visible { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+.details-pet-card .details-pet-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+.details-pet-card .details-pet-name { margin: 0 0 8px; font-size: clamp(1.0625rem, 2vw, 1.25rem); font-weight: 600; color: var(--text-dark); line-height: 1.2; }
+.details-pet-card .details-pet-meta { display: flex; flex-wrap: wrap; gap: clamp(10px, 2vw, 16px) clamp(16px, 3vw, 24px); align-items: center; }
+.details-pet-card .details-pet-meta-item { display: inline-flex; align-items: center; gap: 6px; font-size: clamp(0.8125rem, 1.5vw, 0.9rem); color: var(--text-light); font-weight: 500; }
+.details-pet-card .details-pet-meta-item i { color: var(--primary-color); font-size: clamp(12px, 2vw, 14px); opacity: .9; }
+.details-card { background: #fff; border: 1px solid var(--border-color); border-radius: 14px; padding: 22px; margin-bottom: 18px; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
+.details-card:last-child { margin-bottom: 0; }
+.details-card-title { margin: 0 0 18px; font-size: 0.8125rem; font-weight: 600; color: var(--primary-color); text-transform: uppercase; letter-spacing: .08em; display: flex; align-items: center; gap: 8px; }
+.details-card-title i { opacity: .9; font-size: 14px; }
+.details-appointment-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; border-bottom: 1px solid rgba(226,232,240,.8); }
+.details-appointment-row:first-of-type { padding-top: 0; }
+.details-appointment-row:last-child { border-bottom: none; padding-bottom: 0; }
+.details-appointment-label { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-light); font-weight: 500; }
+.details-appointment-label i { color: var(--primary-color); font-size: 14px; width: 18px; text-align: center; }
+.details-appointment-value { font-size: 15px; font-weight: 600; color: var(--text-dark); }
+.details-appointment-row--concern { flex-direction: column; align-items: flex-start; gap: 8px; padding: 18px 20px; margin-top: 12px; background: var(--bg-light); border-radius: 10px; border: 1px solid var(--border-color); min-height: 100px; }
+.details-appointment-row--concern .details-appointment-label { margin-bottom: 10px; }
+.details-appointment-value--concern { white-space: pre-wrap; word-break: break-word; font-size: 15px; line-height: 1.6; color: var(--text-dark); width: 100%; min-height: 72px; }
+.details-appointment-row--id { margin-top: 12px; padding-top: 14px; border-top: 1px solid rgba(226,232,240,.8); }
+.details-appointment-row--id .details-appointment-label, .details-appointment-row--id .details-appointment-label i, .details-appointment-row--id .details-appointment-value--id { color: var(--text-light); }
+.details-appointment-value--id { font-family: ui-monospace, monospace; font-size: 13px; color: var(--text-light); text-align: right; }
+.details-shared-images { margin-top: 24px; }
+.details-shared-images-title { margin: 0 0 12px; font-size: 0.8125rem; font-weight: 600; color: var(--primary-color); text-transform: uppercase; letter-spacing: .08em; display: flex; align-items: center; gap: 8px; }
+.details-shared-images-title i { opacity: .9; }
+.details-shared-images-placeholder { padding: clamp(20px, 5vw, 32px) clamp(16px, 3vw, 24px); text-align: center; background: var(--bg-light); border: 2px dashed var(--border-color); border-radius: clamp(8px, 2vw, 12px); color: var(--text-light); }
+.details-shared-images-icon { font-size: clamp(28px, 6vw, 36px); color: var(--border-color); margin-bottom: 12px; display: block; }
+.details-shared-images-text { margin: 0 0 4px; font-size: clamp(0.875rem, 1.6vw, 0.95rem); font-weight: 500; color: var(--text-dark); }
+.details-shared-images-hint { margin: 0; font-size: clamp(0.75rem, 1.3vw, 0.8125rem); color: var(--text-light); }
+.details-modal-footer { flex-shrink: 0; padding: clamp(16px, 3vw, 24px); background: linear-gradient(180deg, #fafbfc 0%, #f7fafc 100%); border-top: 1px solid var(--border-color); }
+.details-join-btn { width: 100%; padding: clamp(14px, 2.5vw, 18px) clamp(16px, 3vw, 24px); min-height: 48px; font-size: clamp(0.9375rem, 1.8vw, 1.05rem); font-weight: 600; background: linear-gradient(135deg, var(--primary-color) 0%, #4a90a4 100%); color: white; border: none; border-radius: clamp(10px, 2vw, 14px); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 12px; transition: all .25s ease; box-shadow: 0 4px 16px rgba(44, 95, 125, 0.3); }
+.details-join-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(44,95,125,.35); }
+.details-join-btn i { transition: transform .2s; font-size: clamp(16px, 3vw, 18px); }
 
 .template-modal, .template-view-modal { position: fixed; inset: 0; z-index: 1201; display: flex; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; }
 .template-modal-card {
@@ -1319,6 +1505,28 @@
 .weekly-schedule-event-placeholder {
     color: var(--text-light);
     font-style: italic;
+}
+/* Booked slots: entire cell clickable to view details */
+.weekly-schedule-event.status-booked {
+    cursor: pointer;
+    transition: background 0.2s, box-shadow 0.2s;
+}
+.weekly-schedule-event.status-booked:hover {
+    background: rgba(44, 95, 125, 0.14);
+    box-shadow: 0 2px 8px rgba(44, 95, 125, 0.15);
+}
+.weekly-schedule-event.status-booked .slot-details-view-btn {
+    margin-top: 10px;
+    padding: 10px 16px;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--primary-color);
+    background: rgba(44, 95, 125, 0.12);
+    border: 1px solid var(--primary-color);
+    border-radius: 6px;
+    display: inline-block;
+    align-self: flex-start;
+    pointer-events: none;
 }
 
 /* Responsive */

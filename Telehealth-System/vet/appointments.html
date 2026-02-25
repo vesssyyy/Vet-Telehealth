@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="css/sidebar-layout.css">
     <link rel="stylesheet" href="css/profile-loading.css">
     <link rel="stylesheet" href="css/appointments.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     <link href="https://fonts.googleapis.com/css?family=Lalezar" rel="stylesheet">
     <style>body{visibility:hidden}</style>
@@ -72,7 +73,7 @@
         </div>
         <nav class="sidebar-nav">
             <a href="dashboard.html" class="nav-item"><i class="fa fa-th-large"></i> Dashboard</a>
-            <a href="appointments.html" class="nav-item active"><i class="fa fa-calendar"></i> Online Consultations</a>
+            <a href="appointments.html" class="nav-item active"><i class="fa fa-calendar"></i> Appointments</a>
             <a href="messages.html" class="nav-item"><i class="fa fa-envelope"></i> Messages</a>
             <a href="patients.html" class="nav-item"><i class="fa fa-paw"></i> Patients</a>
         </nav>
@@ -451,6 +452,74 @@
             <div class="template-modal-footer">
                 <button type="button" class="btn-cancel" id="booking-settings-cancel-btn">Cancel</button>
                 <button type="button" class="btn-save" id="booking-settings-save-btn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Appointment details modal (same format as pet owner, Owner instead of Vet) -->
+    <div class="details-modal-overlay" id="details-modal-overlay" aria-hidden="true">
+        <div class="details-modal" id="details-modal" role="dialog" aria-labelledby="details-modal-title" aria-modal="true" tabindex="-1">
+            <div class="details-modal-header">
+                <h2 class="details-modal-title" id="details-modal-title"><i class="fa fa-calendar" aria-hidden="true"></i> Appointment Details</h2>
+                <button type="button" class="details-modal-close" id="details-modal-close" aria-label="Close"><i class="fa fa-times" aria-hidden="true"></i></button>
+            </div>
+            <div class="details-modal-body">
+                <h3 class="details-title-block" id="details-title">—</h3>
+                <h4 class="details-section-header"><i class="fa fa-user" aria-hidden="true"></i> Pet Owner</h4>
+                <div class="details-doctor-section details-owner-section">
+                    <div class="details-doctor-avatar-wrap">
+                        <img class="details-doctor-avatar-img" id="details-owner-img" src="" alt="" onerror="this.style.display='none';this.nextElementSibling.classList.add('visible')">
+                        <span class="details-doctor-avatar-fallback" id="details-owner-avatar-fallback" aria-hidden="true"><i class="fa fa-user" aria-hidden="true"></i></span>
+                    </div>
+                    <p class="details-doctor-name" id="details-owner-name">—</p>
+                </div>
+                <hr class="details-separator" aria-hidden="true">
+                <h4 class="details-section-header"><i class="fa fa-paw" aria-hidden="true"></i> Pet Info</h4>
+                <div class="details-pet-card">
+                    <div class="details-pet-avatar-wrap" id="details-pet-avatar-wrap">
+                        <img class="details-pet-avatar-img" id="details-pet-img" src="" alt="" onerror="this.style.display='none';this.nextElementSibling.classList.add('visible')">
+                        <span class="details-pet-avatar-fallback" id="details-pet-avatar-fallback" aria-hidden="true"><i class="fa fa-paw" aria-hidden="true"></i></span>
+                    </div>
+                    <div class="details-pet-info">
+                        <h3 class="details-pet-name" id="details-pet-name">—</h3>
+                        <div class="details-pet-meta">
+                            <span class="details-pet-meta-item"><i class="fa fa-birthday-cake" aria-hidden="true"></i> <span id="details-pet-age">—</span></span>
+                            <span class="details-pet-meta-item"><i class="fa fa-balance-scale" aria-hidden="true"></i> <span id="details-pet-weight">—</span></span>
+                            <span class="details-pet-meta-item"><i class="fa fa-paw" aria-hidden="true"></i> <span id="details-pet-species">—</span></span>
+                        </div>
+                    </div>
+                </div>
+                <hr class="details-separator" aria-hidden="true">
+                <div class="details-card details-card--appointment">
+                    <h3 class="details-card-title">Appointment Info</h3>
+                    <div class="details-appointment-row">
+                        <span class="details-appointment-label"><i class="fa fa-calendar" aria-hidden="true"></i> Date</span>
+                        <span class="details-appointment-value" id="details-date">—</span>
+                    </div>
+                    <div class="details-appointment-row">
+                        <span class="details-appointment-label"><i class="fa fa-clock-o" aria-hidden="true"></i> Time</span>
+                        <span class="details-appointment-value" id="details-time">—</span>
+                    </div>
+                    <div class="details-appointment-row details-appointment-row--concern">
+                        <span class="details-appointment-label"><i class="fa fa-comment-o" aria-hidden="true"></i> Concern</span>
+                        <span class="details-appointment-value details-appointment-value--concern" id="details-concern">—</span>
+                    </div>
+                    <div class="details-appointment-row details-appointment-row--id">
+                        <span class="details-appointment-label"><i class="fa fa-id-badge" aria-hidden="true"></i> Appointment ID:</span>
+                        <span class="details-appointment-value details-appointment-value--id" id="details-appointment-id">—</span>
+                    </div>
+                </div>
+                <div class="details-shared-images">
+                    <h3 class="details-shared-images-title"><i class="fa fa-picture-o" aria-hidden="true"></i> Shared Images</h3>
+                    <div class="details-shared-images-placeholder" id="details-shared-images-placeholder">
+                        <i class="fa fa-image details-shared-images-icon" aria-hidden="true"></i>
+                        <p class="details-shared-images-text">No images shared yet</p>
+                        <p class="details-shared-images-hint">Photos or documents from this consultation will appear here.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="details-modal-footer">
+                <button type="button" class="details-join-btn" id="details-join-btn"><i class="fa fa-video-camera" aria-hidden="true"></i> Join Video Call</button>
             </div>
         </div>
     </div>

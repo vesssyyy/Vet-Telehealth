@@ -6,6 +6,7 @@
     <title>Payment</title>
     <link rel="stylesheet" href="css/sidebar-layout.css">
     <link rel="stylesheet" href="css/appointment.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     <link href="https://fonts.googleapis.com/css?family=Lalezar" rel="stylesheet">
     <style>
@@ -85,6 +86,44 @@
             transition: background 0.2s ease, color 0.2s ease;
         }
         .payment-actions .btn-secondary:hover { background: var(--primary-color, #2c5f7d); color: white; }
+        .payment-confirmation-notice {
+            padding: 14px 16px;
+            background: var(--bg-light, #f0f4f8);
+            border-left: 4px solid var(--primary-color, #2c5f7d);
+            border-radius: 8px;
+            font-size: 0.9375rem;
+            color: var(--text-dark, #2d3748);
+            margin: 0 0 20px 0;
+            line-height: 1.5;
+        }
+        .payment-confirmation-notice i { margin-right: 8px; color: var(--primary-color, #2c5f7d); }
+        .payment-booking-summary {
+            padding: 16px;
+            background: var(--bg-light, #f7fafc);
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.9375rem;
+            color: var(--text-dark, #2d3748);
+        }
+        .payment-booking-summary p { margin: 0 0 8px 0; }
+        .payment-booking-summary p:last-child { margin-bottom: 0; }
+        .btn-confirm-pay {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 22px;
+            background: #276749;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        .btn-confirm-pay:hover { background: #22543d; }
+        .btn-confirm-pay:disabled { opacity: 0.7; cursor: not-allowed; }
+        .payment-placeholder-text { margin-bottom: 20px; }
     </style>
 </head>
 <body>
@@ -144,11 +183,17 @@
                     <p class="payment-card-subtitle">Complete your visit</p>
                 </div>
                 <div class="payment-card-body">
+                    <p class="payment-confirmation-notice">
+                        <i class="fa fa-info-circle" aria-hidden="true"></i>
+                        <strong>Confirmation &amp; payment.</strong> This page is where you confirm your consultation and pay. Nothing is added or booked on either side until you complete payment here. If you leave without paying, no appointment is created and the time slot stays available.
+                    </p>
+                    <div class="payment-booking-summary" id="payment-booking-summary" style="display: none;"></div>
                     <div class="payment-success-badge" id="payment-success-badge" style="display: none;">
-                        <i class="fa fa-check-circle" aria-hidden="true"></i> Appointment requested successfully
+                        <i class="fa fa-check-circle" aria-hidden="true"></i> Booked and paid successfully
                     </div>
-                    <p>This is a placeholder for the payment flow. In the full version you would enter payment details and complete the transaction here after confirming your appointment.</p>
-                    <div class="payment-actions">
+                    <p class="payment-placeholder-text" id="payment-placeholder-text">This is a placeholder for the payment flow. In the full version you would enter payment details here. Click <strong>Confirm &amp; Pay</strong> below to confirm your consultation and complete the booking.</p>
+                    <div class="payment-actions" id="payment-actions">
+                        <button type="button" class="btn-confirm-pay" id="btn-confirm-pay" style="display: none;"><i class="fa fa-check" aria-hidden="true"></i> Confirm &amp; Pay</button>
                         <a href="appointment.html" class="btn-back"><i class="fa fa-arrow-left" aria-hidden="true"></i> Back to Appointments</a>
                         <a href="dashboard.html" class="btn-secondary"><i class="fa fa-th-large" aria-hidden="true"></i> Dashboard</a>
                     </div>
@@ -162,16 +207,72 @@
     <script type="module" src="js/profile.js"></script>
     <script type="module">
         import { auth } from '../shared/js/firebase-config.js';
-        import { markAppointmentPaid } from './js/appointment-manager.js';
+        import { createAppointment, markAppointmentPaid } from './js/appointment-manager.js';
+
         var params = new URLSearchParams(window.location.search);
-        if (params.get('booking') === '1' && params.get('id')) {
-            var badge = document.getElementById('payment-success-badge');
-            if (badge) badge.style.display = 'inline-flex';
-            auth.onAuthStateChanged(async function (user) {
-                if (user) {
-                    try { await markAppointmentPaid(params.get('id')); } catch (e) { console.warn('Mark paid:', e); }
+        var summaryEl = document.getElementById('payment-booking-summary');
+        var successBadge = document.getElementById('payment-success-badge');
+        var placeholderText = document.getElementById('payment-placeholder-text');
+        var btnConfirmPay = document.getElementById('btn-confirm-pay');
+        var paymentActions = document.getElementById('payment-actions');
+
+        function showBookingSummary(booking) {
+            if (!summaryEl || !booking) return;
+            summaryEl.innerHTML =
+                '<p><strong>Vet:</strong> ' + (booking.vetName || '—') + (booking.clinicName ? ' · ' + booking.clinicName : '') + '</p>' +
+                '<p><strong>Pet:</strong> ' + (booking.petName || '—') + '</p>' +
+                '<p><strong>Date &amp; time:</strong> ' + (booking.timeDisplay || booking.dateStr || '—') + '</p>' +
+                '<p><strong>Concern:</strong> ' + (booking.reason || '—') + '</p>';
+            summaryEl.style.display = 'block';
+        }
+
+        if (params.get('booking') === '1') {
+            var stored = sessionStorage.getItem('televet_booking');
+            if (stored) {
+                try {
+                    var booking = JSON.parse(stored);
+                    showBookingSummary(booking);
+                    if (btnConfirmPay) btnConfirmPay.style.display = 'inline-flex';
+
+                    btnConfirmPay.addEventListener('click', async function () {
+                        var user = auth.currentUser;
+                        if (!user) return;
+                        btnConfirmPay.disabled = true;
+                        btnConfirmPay.textContent = 'Processing…';
+                        try {
+                            var data = {
+                                title: booking.title || null,
+                                petId: booking.petId,
+                                petName: booking.petName,
+                                petSpecies: booking.petSpecies || '',
+                                vetId: booking.vetId,
+                                vetName: booking.vetName,
+                                clinicName: booking.clinicName || '',
+                                reason: booking.reason,
+                                dateStr: booking.dateStr,
+                                timeDisplay: booking.timeDisplay,
+                                mediaFiles: [],
+                                slotStart: booking.slotStart || null,
+                                slotEnd: booking.slotEnd || null,
+                            };
+                            var res = await createAppointment(data);
+                            await markAppointmentPaid(res.id);
+                            sessionStorage.removeItem('televet_booking');
+                            if (summaryEl) summaryEl.style.display = 'none';
+                            if (btnConfirmPay) btnConfirmPay.style.display = 'none';
+                            if (placeholderText) placeholderText.style.display = 'none';
+                            if (successBadge) successBadge.style.display = 'inline-flex';
+                        } catch (e) {
+                            console.error(e);
+                            btnConfirmPay.disabled = false;
+                            btnConfirmPay.innerHTML = '<i class="fa fa-check" aria-hidden="true"></i> Confirm &amp; Pay';
+                            alert(e.message || 'Booking failed. Please try again.');
+                        }
+                    });
+                } catch (e) {
+                    console.warn('Invalid booking data:', e);
                 }
-            });
+            }
         }
     </script>
 </body>
