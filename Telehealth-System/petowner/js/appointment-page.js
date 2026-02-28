@@ -12,6 +12,7 @@ import {
     renderHistoryPanel,
     getVetOption,
     getAvailableDatesAndSlots,
+    checkSlotAvailability,
     formatAppointmentDate,
     getAppointmentTimeDisplay,
     CLINIC_HOURS_PLACEHOLDER,
@@ -414,9 +415,21 @@ form?.addEventListener('submit', async (e) => {
     showFormError('');
     if (confirmBtn) {
         confirmBtn.disabled = true;
-        confirmBtn.querySelector('.booking-confirm-text').textContent = 'Booking consultation…';
+        confirmBtn.querySelector('.booking-confirm-text').textContent = 'Checking availability…';
     }
     try {
+        if (vetId && dateStr && timeVal) {
+            const check = await checkSlotAvailability(vetId, dateStr, timeVal);
+            if (!check.available) {
+                showFormError("I'm sorry, this slot is no longer available. It's either deleted or already booked.");
+                if (confirmBtn) {
+                    confirmBtn.disabled = false;
+                    confirmBtn.querySelector('.booking-confirm-text').textContent = 'Book Online Consultation';
+                }
+                return;
+            }
+        }
+        if (confirmBtn) confirmBtn.querySelector('.booking-confirm-text').textContent = 'Booking consultation…';
         const petSpecies = petSelect?.dataset?.species || '';
         const booking = {
             title: title || null,

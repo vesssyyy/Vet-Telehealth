@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Messages - Televet Health</title>
+    <title>Messages - Televet Health (Vet)</title>
     <link rel="stylesheet" href="css/sidebar-layout.css">
     <link rel="stylesheet" href="css/messages.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -15,32 +15,31 @@
     <div class="sidebar-overlay"></div>
     <aside class="sidebar">
         <div class="sidebar-header">
-            <a href="dashboard.html" class="sidebar-brand"><i class="fa fa-paw" aria-hidden="true"></i> Televet Health</a>
-            <div class="sidebar-tagline">Pet Owner Portal</div>
+            <a href="dashboard.html" class="sidebar-brand">Telehealth</a>
+            <div class="sidebar-tagline">Veterinarian Portal</div>
         </div>
         <div class="user-profile">
             <a href="profile.html" class="user-profile-link">
                 <div class="user-info">
                     <div class="user-avatar">
                         <img id="sidebar-avatar-img" class="user-avatar-img is-hidden" alt="Profile photo">
-                        <span class="user-avatar-initials" id="sidebar-avatar">PO</span>
+                        <span class="user-avatar-initials" id="sidebar-avatar">V</span>
                     </div>
                     <div class="user-text">
-                        <div class="user-name" id="sidebar-name">Pet Owner</div>
-                        <div class="user-email"><i class="fa fa-envelope"></i> <span id="sidebar-email">owner@example.com</span></div>
+                        <div class="user-name" id="sidebar-name">Veterinarian</div>
+                        <div class="user-email"><i class="fa fa-envelope"></i> <span id="sidebar-email">vet@example.com</span></div>
                     </div>
                 </div>
             </a>
         </div>
         <nav class="sidebar-nav">
             <a href="dashboard.html" class="nav-item"><i class="fa fa-th-large"></i> Dashboard</a>
-            <a href="appointment.html" class="nav-item"><i class="fa fa-calendar"></i> Appointments</a>
+            <a href="appointments.html" class="nav-item"><i class="fa fa-calendar"></i> Appointments</a>
             <a href="messages.html" class="nav-item active"><i class="fa fa-comment"></i> Messages</a>
-            <a href="skinDisease.html" class="nav-item"><i class="fa fa-stethoscope"></i> Skin Health</a>
+            <a href="patients.html" class="nav-item"><i class="fa fa-paw"></i> Patients</a>
         </nav>
         <nav class="footer-nav">
-            <a href="aboutUs.html" class="nav-item"><i class="fa fa-info-circle"></i> About Us</a>
-            <a href="feedback.html" class="nav-item"><i class="fa fa-comment"></i> Feedback</a>
+            <a href="admin.html" class="nav-item"><i class="fa fa-users"></i> Administration</a>
         </nav>
         <div class="logout-section">
             <button id="logout-btn" class="logout-btn"><i class="fa fa-sign-out"></i> Logout</button>
@@ -51,7 +50,7 @@
         <header class="app-top-header">
             <div class="header-left">
                 <button class="mobile-menu-toggle" aria-label="Toggle Menu"><i class="fa fa-bars"></i></button>
-                <span class="role-badge"><i class="fa fa-paw" aria-hidden="true"></i> Pet Owner</span>
+                <span class="role-badge"><i class="fa fa-stethoscope" aria-hidden="true"></i> Veterinarian</span>
             </div>
             <div class="header-right">
                 <button type="button" class="dark-mode-toggle" aria-label="Toggle dark mode"><i class="fa fa-moon-o" aria-hidden="true"></i></button>
@@ -68,7 +67,7 @@
                     <span class="messages-empty-single-illus-icon messages-empty-single-illus-plus"><i class="fa fa-plus" aria-hidden="true"></i></span>
                 </div>
                 <h2 class="messages-empty-single-title">No Messages</h2>
-                <p class="messages-empty-single-sub">Start a conversation with your vet about your pet's health.</p>
+                <p class="messages-empty-single-sub">Start a conversation with a pet owner about their pet's health.</p>
                 <button type="button" class="messages-empty-new-btn" id="messages-empty-new-icon" aria-label="Start new conversation"><i class="fa fa-plus" aria-hidden="true"></i> New Message</button>
             </div>
         </div>
@@ -96,19 +95,19 @@
             <section class="messages-chat-panel">
                 <div class="messages-chat-welcome" id="messages-chat-welcome">
                     <div class="messages-chat-welcome-icon" aria-hidden="true"><i class="fa fa-comments-o"></i></div>
-                    <p class="messages-chat-welcome-text">Nothing's here, chat now with your vet!</p>
+                    <p class="messages-chat-welcome-text">Nothing's here, chat now with a pet owner!</p>
                 </div>
                 <div class="messages-chat-active is-hidden" id="messages-chat-active">
                     <header class="messages-chat-header">
                         <button type="button" class="messages-chat-back" id="messages-chat-back" aria-label="Back to list"><i class="fa fa-arrow-left" aria-hidden="true"></i></button>
                         <div class="messages-chat-header-info">
                             <div class="messages-chat-avatar">
-                                <img id="messages-chat-vet-img" class="messages-chat-avatar-img is-hidden" alt="" src="">
-                                <span class="messages-chat-avatar-fallback" id="messages-chat-vet-fallback"><i class="fa fa-user-md" aria-hidden="true"></i></span>
+                                <img id="messages-chat-owner-img" class="messages-chat-avatar-img is-hidden" alt="" src="">
+                                <span class="messages-chat-avatar-fallback" id="messages-chat-owner-fallback"><i class="fa fa-user" aria-hidden="true"></i></span>
                             </div>
                             <div class="messages-chat-header-text">
-                                <span class="messages-chat-vet-name" id="messages-chat-vet-name"></span>
-                                <span class="messages-chat-specialty" id="messages-chat-specialty"></span>
+                                <span class="messages-chat-owner-name" id="messages-chat-owner-name"></span>
+                                <span class="messages-chat-owner-sub" id="messages-chat-owner-sub"></span>
                                 <span class="messages-chat-pet-badge" id="messages-chat-pet-badge"></span>
                             </div>
                         </div>
@@ -131,14 +130,6 @@
         </div>
     </main>
 
-    <nav class="bottom-nav" aria-label="Main navigation">
-        <a href="dashboard.html" class="bottom-nav-item" aria-label="Dashboard"><i class="fa fa-th-large"></i></a>
-        <a href="appointment.html" class="bottom-nav-item" aria-label="Appointments"><i class="fa fa-calendar"></i></a>
-        <a href="messages.html" class="bottom-nav-item" aria-label="Messages"><i class="fa fa-comment"></i></a>
-        <a href="skinDisease.html" class="bottom-nav-item" aria-label="Skin Health"><i class="fa fa-stethoscope"></i></a>
-        <a href="profile.html" class="bottom-nav-item" aria-label="Profile"><i class="fa fa-user"></i></a>
-    </nav>
-
     <div class="new-conversation-overlay" id="new-conversation-overlay" aria-hidden="true"></div>
     <div class="new-conversation-modal" id="new-conversation-modal" role="dialog" aria-labelledby="new-conversation-title" aria-modal="true" tabindex="-1">
         <div class="new-conversation-header">
@@ -148,6 +139,18 @@
         <form class="new-conversation-form" id="new-conversation-form" novalidate>
             <div class="new-conversation-body">
                 <div class="new-conversation-error is-hidden" id="new-conversation-error" role="alert"></div>
+                <div class="new-conversation-group">
+                    <label for="new-conv-owner">Pet Owner <span class="required">*</span></label>
+                    <div class="dropdown new-conv-owner-dropdown" id="new-conv-owner-dropdown">
+                        <button type="button" class="new-conv-trigger dropdown-trigger" id="new-conv-owner-trigger" aria-expanded="false" aria-haspopup="true" aria-label="Select pet owner">
+                            <i class="fa fa-user new-conv-trigger-icon" aria-hidden="true"></i>
+                            <span class="new-conv-trigger-text">Select Pet Owner</span>
+                            <i class="fa fa-chevron-down dropdown-caret" aria-hidden="true"></i>
+                        </button>
+                        <div class="dropdown-menu new-conv-owner-menu" role="menu" aria-label="Pet owner list" id="new-conv-owner-menu"></div>
+                    </div>
+                    <input type="hidden" id="new-conv-owner" name="owner" value="">
+                </div>
                 <div class="new-conversation-group">
                     <label for="new-conv-pet">Pet <span class="required">*</span></label>
                     <div class="dropdown new-conv-pet-dropdown" id="new-conv-pet-dropdown">
@@ -160,22 +163,10 @@
                     </div>
                     <input type="hidden" id="new-conv-pet" name="pet" value="">
                 </div>
-                <div class="new-conversation-group">
-                    <label for="new-conv-vet">Veterinarian <span class="required">*</span></label>
-                    <div class="dropdown new-conv-vet-dropdown" id="new-conv-vet-dropdown">
-                        <button type="button" class="new-conv-trigger dropdown-trigger" id="new-conv-vet-trigger" aria-expanded="false" aria-haspopup="true" aria-label="Select vet">
-                            <i class="fa fa-user-md new-conv-trigger-icon" aria-hidden="true"></i>
-                            <span class="new-conv-trigger-text">Select Vet</span>
-                            <i class="fa fa-chevron-down dropdown-caret" aria-hidden="true"></i>
-                        </button>
-                        <div class="dropdown-menu new-conv-vet-menu" role="menu" aria-label="Vet list" id="new-conv-vet-menu"></div>
-                    </div>
-                    <input type="hidden" id="new-conv-vet" name="vet" value="">
-                </div>
                 <div class="new-conversation-group new-conversation-group--message">
                     <label for="new-conv-message">Message</label>
-                    <textarea id="new-conv-message" name="message" class="new-conv-message-input" placeholder="Hi, I'd like to discuss my pet's health. For example: symptoms, concerns, or questions about their care..." rows="4" maxlength="2000" aria-label="Initial message"></textarea>
-                    <span class="new-conv-message-hint">Optional — start the conversation with a message for your vet.</span>
+                    <textarea id="new-conv-message" name="message" class="new-conv-message-input" placeholder="Hi, I'd like to reach out about your pet's health. For example: follow-up on a recent visit, treatment updates, or questions about their care..." rows="4" maxlength="2000" aria-label="Initial message"></textarea>
+                    <span class="new-conv-message-hint">Optional — start the conversation with a message for the pet owner.</span>
                 </div>
             </div>
             <div class="new-conversation-footer">

@@ -15,6 +15,7 @@ import {
     query,
     where,
     serverTimestamp,
+    runTransaction,
 } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 import {
     ref as storageRef,
@@ -350,6 +351,34 @@ export async function getAvailableDatesAndSlots(vetId) {
     return { dates, slotsByDate };
 }
 
+/** Check if a specific slot is still available (for pre-confirmation check). Returns { available: boolean }. Handles vet deleted date, blocked date, already booked by another user (race condition). */
+export async function checkSlotAvailability(vetId, dateStr, slotStart) {
+    if (!vetId || !dateStr || !slotStart) return { available: false };
+    try {
+        const [scheduleSnap, settings] = await Promise.all([
+            getDoc(scheduleDoc(vetId, dateStr)),
+            loadVetSettings(vetId),
+        ]);
+        if (!scheduleSnap.exists()) return { available: false };
+        const scheduleData = scheduleSnap.data();
+        if (scheduleData.blocked === true) return { available: false };
+        const slots = scheduleData.slots || [];
+        const targetSlot = slots.find((s) => (s.start || '') === slotStart);
+        if (!targetSlot) return { available: false };
+        const status = targetSlot.status || 'available';
+        if (status !== 'available') return { available: false };
+        const minAdvance = settings.minAdvanceBookingMinutes ?? DEFAULT_MIN_ADVANCE_MINUTES;
+        const slotWithExpiry = ensureSlotExpiry(targetSlot, dateStr, minAdvance);
+        const nowMs = Date.now();
+        if (isSlotExpired(slotWithExpiry, nowMs)) return { available: false };
+        if (isSlotPastCutoff(dateStr, slotStart, minAdvance)) return { available: false };
+        return { available: true };
+    } catch (err) {
+        console.warn('checkSlotAvailability error:', err);
+        return { available: false };
+    }
+}
+
 /** Populate vet dropdown (Switch Pet style): no placeholder, only vet names with icon */
 export function populateVetSelect(containerEl, vets) {
     if (!containerEl) return;
@@ -428,7 +457,7 @@ async function uploadMediaFiles(appointmentId, ownerId, files) {
     return urls;
 }
 
-/** Create appointment in Firestore; optionally upload media and add URLs. If slotStart is provided, marks the vet's schedule slot as booked. */
+/** Create appointment in Firestore; optionally upload media and add URLs. If slotStart is provided, validates slot is still available and atomically marks it as booked. Prevents booking when vet has deleted/blocked the date. */
 export async function createAppointment(data) {
     const user = auth.currentUser;
     if (!user) throw new Error('You must be signed in to book an appointment.');
@@ -461,6 +490,73 @@ export async function createAppointment(data) {
         updatedAt: serverTimestamp(),
     };
 
+    const SLOT_UNAVAILABLE_MSG = "I'm sorry, this slot is no longer available. It's either deleted or already booked.";
+
+    if (slotStart && vetId && dateStr) {
+        const appointmentId = await runTransaction(db, async (transaction) => {
+            const scheduleSnap = await transaction.get(scheduleDoc(vetId, dateStr));
+            if (!scheduleSnap.exists()) {
+                throw new Error(SLOT_UNAVAILABLE_MSG);
+            }
+            const scheduleData = scheduleSnap.data();
+            if (scheduleData.blocked === true) {
+                throw new Error(SLOT_UNAVAILABLE_MSG);
+            }
+            const slots = scheduleData.slots || [];
+            const minAdvance = (await loadVetSettings(vetId)).minAdvanceBookingMinutes ?? DEFAULT_MIN_ADVANCE_MINUTES;
+            const nowMs = Date.now();
+            const targetSlot = slots.find((s) => (s.start || '') === slotStart);
+            if (!targetSlot) {
+                throw new Error(SLOT_UNAVAILABLE_MSG);
+            }
+            const status = targetSlot.status || 'available';
+            if (status !== 'available') {
+                throw new Error(SLOT_UNAVAILABLE_MSG);
+            }
+            const slotWithExpiry = ensureSlotExpiry(targetSlot, dateStr, minAdvance);
+            if (isSlotExpired(slotWithExpiry, nowMs)) {
+                throw new Error(SLOT_UNAVAILABLE_MSG);
+            }
+            if (isSlotPastCutoff(dateStr, slotStart, minAdvance)) {
+                throw new Error(SLOT_UNAVAILABLE_MSG);
+            }
+
+            const aptRef = doc(collection(db, APPOINTMENTS_COLLECTION));
+            const titleVal = (data.title && String(data.title).trim()) || null;
+            const reasonVal = (data.reason && String(data.reason).trim()) || '';
+            const bookedSlot = {
+                ...targetSlot,
+                status: 'booked',
+                appointmentId: aptRef.id,
+                ownerId: user.uid,
+                ownerName: (user.displayName || '').trim() || 'Pet Owner',
+                petName: petName || '',
+                title: titleVal,
+                reason: reasonVal ? reasonVal.slice(0, 120) : null,
+            };
+            const updated = slots.map((s) => ((s.start || '') === slotStart ? bookedSlot : s));
+
+            transaction.set(aptRef, appointmentData);
+            transaction.set(scheduleDoc(vetId, dateStr), { date: dateStr, slots: updated });
+            return aptRef.id;
+        });
+
+        if (mediaFiles?.length) {
+            try {
+                const urls = await uploadMediaFiles(appointmentId, user.uid, mediaFiles);
+                if (urls.length) {
+                    await updateDoc(doc(db, APPOINTMENTS_COLLECTION, appointmentId), {
+                        mediaUrls: urls,
+                        updatedAt: serverTimestamp(),
+                    });
+                }
+            } catch (err) {
+                console.warn('Media upload failed:', err);
+            }
+        }
+        return { id: appointmentId, ...appointmentData };
+    }
+
     const docRef = await addDoc(appointmentsRef(), appointmentData);
     const appointmentId = docRef.id;
 
@@ -468,7 +564,6 @@ export async function createAppointment(data) {
         try {
             const urls = await uploadMediaFiles(appointmentId, user.uid, mediaFiles);
             if (urls.length) {
-                const { updateDoc } = await import('https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js');
                 await updateDoc(doc(db, APPOINTMENTS_COLLECTION, appointmentId), {
                     mediaUrls: urls,
                     updatedAt: serverTimestamp(),
@@ -476,37 +571,6 @@ export async function createAppointment(data) {
             }
         } catch (err) {
             console.warn('Media upload failed:', err);
-        }
-    }
-
-    if (slotStart && vetId && dateStr) {
-        try {
-            const { updateDoc } = await import('https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js');
-            const scheduleSnap = await getDoc(scheduleDoc(vetId, dateStr));
-            if (scheduleSnap.exists()) {
-                const scheduleData = scheduleSnap.data();
-                const slots = scheduleData.slots || [];
-                const updated = slots.map((s) => {
-                    if ((s.start || '') === slotStart && (s.status || 'available') === 'available') {
-                        const titleVal = (data.title && String(data.title).trim()) || null;
-                        const reasonVal = (data.reason && String(data.reason).trim()) || '';
-                        return {
-                            ...s,
-                            status: 'booked',
-                            appointmentId,
-                            ownerId: user.uid,
-                            ownerName: (user.displayName || '').trim() || 'Pet Owner',
-                            petName: petName || '',
-                            title: titleVal,
-                            reason: reasonVal ? reasonVal.slice(0, 120) : null,
-                        };
-                    }
-                    return s;
-                });
-                await setDoc(scheduleDoc(vetId, dateStr), { date: dateStr, slots: updated });
-            }
-        } catch (err) {
-            console.warn('Mark slot booked failed:', err);
         }
     }
 
