@@ -1,6 +1,21 @@
-/** Sidebar: mobile menu, active nav, profile button */
+/** Sidebar: mobile menu, active nav, profile button. Sets --vh for viewport (keyboard-aware on mobile). */
 (function () {
     'use strict';
+
+    function setVisualViewportHeight() {
+        var vh = (window.visualViewport && window.visualViewport.height > 0)
+            ? window.visualViewport.height
+            : window.innerHeight;
+        document.documentElement.style.setProperty('--vh', vh + 'px');
+    }
+    setVisualViewportHeight();
+    window.addEventListener('resize', setVisualViewportHeight);
+    window.addEventListener('orientationchange', setVisualViewportHeight);
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', setVisualViewportHeight);
+    }
+    window.addEventListener('load', function () { setTimeout(setVisualViewportHeight, 100); });
+
     const getInits = n => !n ? 'V' : (p => p.length >= 2 ? (p[0][0]+p[p.length-1][0]).toUpperCase() : (n[0]||'V').toUpperCase())(n.trim().split(' '));
 
     document.addEventListener('DOMContentLoaded', () => {

@@ -1,6 +1,6 @@
 /**
- * Televet Health — Pet Owner Messages UI
- * Firestore integration for real-time conversations.
+ * Televet Health — Veterinarian Messages UI
+ * Firestore integration: vet sees conversations with pet owners.
  */
 import { auth, db } from '../../shared/js/firebase-config.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js';
@@ -17,7 +17,6 @@ import {
     onSnapshot,
     serverTimestamp,
 } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
-import { loadPets, loadVets } from './appointment-manager.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -65,62 +64,114 @@ function closeModal() {
     if (overlay) overlay.setAttribute('aria-hidden', 'true');
     if (modal) modal.setAttribute('aria-hidden', 'true');
     document.body.style.overflow = '';
+    const ownerInput = $('new-conv-owner');
     const petInput = $('new-conv-pet');
-    const vetInput = $('new-conv-vet');
     const messageInput = $('new-conv-message');
+    if (ownerInput) ownerInput.value = '';
     if (petInput) petInput.value = '';
-    if (vetInput) vetInput.value = '';
     if (messageInput) messageInput.value = '';
+    const ownerTriggerText = $('new-conv-owner-trigger')?.querySelector('.new-conv-trigger-text');
     const petTriggerText = $('new-conv-pet-trigger')?.querySelector('.new-conv-trigger-text');
-    const vetTriggerText = $('new-conv-vet-trigger')?.querySelector('.new-conv-trigger-text');
+    if (ownerTriggerText) ownerTriggerText.textContent = 'Select Pet Owner';
     if (petTriggerText) petTriggerText.textContent = 'Select Pet';
-    if (vetTriggerText) vetTriggerText.textContent = 'Select Vet';
+}
+
+function ownerDisplayName(data) {
+    return (data?.displayName || '').trim()
+        || [data?.firstName, data?.lastName].filter(Boolean).join(' ').trim()
+        || (data?.email || '').split('@')[0]
+        || 'Pet Owner';
+}
+
+async function ensureOwnerNames(convs) {
+    const toFetch = convs.filter((c) => !c.ownerName && c.ownerId);
+    await Promise.all(toFetch.map(async (conv) => {
+        try {
+            const snap = await getDoc(doc(db, 'users', conv.ownerId));
+            if (snap.exists()) {
+                const name = ownerDisplayName(snap.data());
+                conv.ownerName = name;
+                try {
+                    await updateDoc(doc(db, 'conversations', conv.id), { ownerName: name });
+                } catch (_) { /* ignore update errors */ }
+            }
+        } catch (e) {
+            console.warn('Fetch owner name error:', e);
+        }
+    }));
+}
+
+async function loadPetOwners() {
+    const snap = await getDocs(query(
+        collection(db, 'users'),
+        where('role', '==', 'petOwner')
+    ));
+    return snap.docs
+        .filter((d) => !d.data().disabled)
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (ownerDisplayName(a) || '').localeCompare(ownerDisplayName(b) || ''));
+}
+
+async function loadPetsForOwner(ownerId) {
+    if (!ownerId) return [];
+    const snap = await getDocs(collection(db, 'users', ownerId, 'pets'));
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
 async function loadModalData() {
-    const user = auth.currentUser;
-    if (!user) return;
+    const ownerMenu = $('new-conv-owner-menu');
     const petMenu = $('new-conv-pet-menu');
-    const vetMenu = $('new-conv-vet-menu');
-    if (!petMenu || !vetMenu) return;
+    if (!ownerMenu || !petMenu) return;
 
     try {
-        const [pets, vets] = await Promise.all([loadPets(user.uid), loadVets()]);
+        const owners = await loadPetOwners();
 
-        petMenu.innerHTML = pets.length === 0
-            ? '<div class="new-conv-empty">Add a pet in your profile first.</div>'
-            : pets.map((p) => `<button type="button" class="new-conv-item" role="menuitem" data-pet-id="${escapeHtml(p.id)}" data-pet-name="${escapeHtml(p.name || 'Unnamed')}"><i class="fa fa-paw dropdown-item-icon"></i><span>${escapeHtml(p.name || 'Unnamed')}</span></button>`).join('');
+        ownerMenu.innerHTML = owners.length === 0
+            ? '<div class="new-conv-empty">No pet owners registered.</div>'
+            : owners.map((o) => {
+                const name = ownerDisplayName(o);
+                return `<button type="button" class="new-conv-item" role="menuitem" data-owner-id="${escapeHtml(o.id)}" data-owner-name="${escapeHtml(name)}"><i class="fa fa-user dropdown-item-icon"></i><span>${escapeHtml(name)}</span></button>`;
+            }).join('');
 
-        vetMenu.innerHTML = vets.length === 0
-            ? '<div class="new-conv-empty">No veterinarians available.</div>'
-            : vets.map((v) => `<button type="button" class="new-conv-item" role="menuitem" data-vet-id="${escapeHtml(v.id)}" data-vet-name="${escapeHtml(v.name)}" data-vet-clinic="${escapeHtml(v.clinic || '')}"><i class="fa fa-user-md dropdown-item-icon"></i><span>${escapeHtml(v.name)}${v.clinic ? ' – ' + escapeHtml(v.clinic) : ''}</span></button>`).join('');
+        petMenu.innerHTML = '<div class="new-conv-empty">Select a pet owner first.</div>';
 
-        petMenu.querySelectorAll('.new-conv-item').forEach((btn) => {
-            btn.addEventListener('click', () => {
+        ownerMenu.querySelectorAll('.new-conv-item').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                const ownerInput = $('new-conv-owner');
+                const ownerTriggerText = $('new-conv-owner-trigger')?.querySelector('.new-conv-trigger-text');
+                const ownerDropdownEl = $('new-conv-owner-dropdown');
+                const ownerId = btn.dataset.ownerId;
+                if (ownerInput) ownerInput.value = ownerId;
+                if (ownerTriggerText) ownerTriggerText.textContent = btn.dataset.ownerName || 'Select Pet Owner';
+                if (ownerDropdownEl) ownerDropdownEl.classList.remove('is-open');
+
                 const petInput = $('new-conv-pet');
                 const petTriggerText = $('new-conv-pet-trigger')?.querySelector('.new-conv-trigger-text');
-                const petDropdownEl = $('new-conv-pet-dropdown');
-                if (petInput) petInput.value = btn.dataset.petId;
-                if (petTriggerText) petTriggerText.textContent = btn.dataset.petName || 'Select Pet';
-                if (petDropdownEl) petDropdownEl.classList.remove('is-open');
-            });
-        });
-        vetMenu.querySelectorAll('.new-conv-item').forEach((btn) => {
-            btn.addEventListener('click', () => {
-                const vetInput = $('new-conv-vet');
-                const vetTriggerText = $('new-conv-vet-trigger')?.querySelector('.new-conv-trigger-text');
-                const vetDropdownEl = $('new-conv-vet-dropdown');
-                const text = (btn.dataset.vetName || '') + (btn.dataset.vetClinic ? ' – ' + btn.dataset.vetClinic : '');
-                if (vetInput) vetInput.value = btn.dataset.vetId;
-                if (vetTriggerText) vetTriggerText.textContent = text || 'Select Vet';
-                if (vetDropdownEl) vetDropdownEl.classList.remove('is-open');
+                if (petInput) petInput.value = '';
+                if (petTriggerText) petTriggerText.textContent = 'Select Pet';
+
+                const pets = await loadPetsForOwner(ownerId);
+                petMenu.innerHTML = pets.length === 0
+                    ? '<div class="new-conv-empty">No pets for this owner.</div>'
+                    : pets.map((p) => `<button type="button" class="new-conv-item" role="menuitem" data-pet-id="${escapeHtml(p.id)}" data-pet-name="${escapeHtml(p.name || 'Unnamed')}"><i class="fa fa-paw dropdown-item-icon"></i><span>${escapeHtml(p.name || 'Unnamed')}</span></button>`).join('');
+
+                petMenu.querySelectorAll('.new-conv-item').forEach((pBtn) => {
+                    pBtn.addEventListener('click', () => {
+                        const pInput = $('new-conv-pet');
+                        const pTriggerText = $('new-conv-pet-trigger')?.querySelector('.new-conv-trigger-text');
+                        const pDropdownEl = $('new-conv-pet-dropdown');
+                        if (pInput) pInput.value = pBtn.dataset.petId;
+                        if (pTriggerText) pTriggerText.textContent = pBtn.dataset.petName || 'Select Pet';
+                        if (pDropdownEl) pDropdownEl.classList.remove('is-open');
+                    });
+                });
             });
         });
     } catch (err) {
-        console.error('Load pets/vets for messages:', err);
+        console.error('Load pet owners for messages:', err);
         const errEl = $('new-conversation-error');
         if (errEl) {
-            errEl.textContent = 'Failed to load pets and vets. Please try again.';
+            errEl.textContent = 'Failed to load pet owners. Please try again.';
             errEl.classList.remove('is-hidden');
         }
     }
@@ -179,14 +230,15 @@ function renderConversationList() {
     listRoot.innerHTML = '';
     const uniqueConvs = [...new Map(conversations.map((c) => [c.id, c])).values()];
     uniqueConvs.forEach((conv) => {
+        const ownerName = conv.ownerName || 'Pet Owner';
         const item = document.createElement('li');
         item.className = 'messages-conversation-item' + (conv.id === currentConvId ? ' is-active' : '');
         item.setAttribute('role', 'listitem');
         item.dataset.convId = conv.id;
         item.innerHTML = `
-            <div class="messages-conv-avatar"><i class="fa fa-user-md" aria-hidden="true"></i></div>
+            <div class="messages-conv-avatar"><i class="fa fa-user" aria-hidden="true"></i></div>
             <div class="messages-conv-body">
-                <div class="messages-conv-title"><span class="conv-pet">${escapeHtml(conv.petName)}</span><span class="conv-plus"> + </span><span class="conv-vet">${escapeHtml(conv.vetName)}</span></div>
+                <div class="messages-conv-title"><span class="conv-pet">${escapeHtml(conv.petName)}</span><span class="conv-plus"> + </span><span class="conv-owner">${escapeHtml(ownerName)}</span></div>
                 <div class="messages-conv-preview">${escapeHtml(conv.lastMessage || 'No messages yet')}</div>
                 <div class="messages-conv-meta">${formatConversationMeta(conv.lastMessageAt)}</div>
             </div>
@@ -205,7 +257,7 @@ function renderChatMessages(messages) {
         const isSent = msg.senderId === uid;
         const row = document.createElement('div');
         row.className = `message-row message-row--${isSent ? 'sent' : 'received'}`;
-        const avatarIcon = isSent ? 'fa-user' : 'fa-user-md';
+        const avatarIcon = isSent ? 'fa-user-md' : 'fa-user';
         const timeStr = formatMessageTime(msg.sentAt);
         row.innerHTML = `
             <div class="message-row-avatar"><i class="fa ${avatarIcon}" aria-hidden="true"></i></div>
@@ -219,15 +271,21 @@ function renderChatMessages(messages) {
     body.scrollTop = body.scrollHeight;
 }
 
-function openConversation(conv) {
+async function openConversation(conv) {
     currentConvId = conv.id;
     if (isMobileView()) history.pushState({ conv: conv.id }, '', location.href);
-    const vetNameEl = $('messages-chat-vet-name');
-    const specialtyEl = $('messages-chat-specialty');
+    if (!conv.ownerName && conv.ownerId) {
+        await ensureOwnerNames([conv]);
+    }
+    const ownerNameEl = $('messages-chat-owner-name');
+    const ownerSubEl = $('messages-chat-owner-sub');
     const petBadgeEl = $('messages-chat-pet-badge');
-    if (vetNameEl) vetNameEl.textContent = conv.vetName || '';
-    if (specialtyEl) specialtyEl.textContent = conv.vetSpecialty || conv.clinic || 'Veterinarian';
-    if (petBadgeEl) petBadgeEl.textContent = conv.petName || '';
+    if (ownerNameEl) ownerNameEl.textContent = conv.ownerName || 'Pet Owner';
+    if (ownerSubEl) ownerSubEl.textContent = 'Pet Owner';
+    if (petBadgeEl) {
+        petBadgeEl.textContent = conv.petName || '';
+        petBadgeEl.style.display = conv.petName ? '' : 'none';
+    }
 
     if (messagesUnsubscribe) messagesUnsubscribe();
     const messagesRef = collection(db, 'conversations', conv.id, 'messages');
@@ -255,20 +313,24 @@ function subscribeToConversations() {
         orderBy('lastMessageAt', 'desc')
     );
 
-    return onSnapshot(q, (snap) => {
+    return onSnapshot(q, async (snap) => {
         const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         conversations = [...new Map(docs.map((c) => [c.id, c])).values()];
+        await ensureOwnerNames(conversations);
         setListState(false, conversations.length === 0, conversations.length > 0);
         renderConversationList();
         if (currentConvId) {
             const conv = conversations.find((c) => c.id === currentConvId);
             if (conv) {
-                const vetNameEl = $('messages-chat-vet-name');
-                const specialtyEl = $('messages-chat-specialty');
+                const ownerNameEl = $('messages-chat-owner-name');
+                const ownerSubEl = $('messages-chat-owner-sub');
                 const petBadgeEl = $('messages-chat-pet-badge');
-                if (vetNameEl) vetNameEl.textContent = conv.vetName || '';
-                if (specialtyEl) specialtyEl.textContent = conv.vetSpecialty || conv.clinic || 'Veterinarian';
-                if (petBadgeEl) petBadgeEl.textContent = conv.petName || '';
+                if (ownerNameEl) ownerNameEl.textContent = conv.ownerName || 'Pet Owner';
+                if (ownerSubEl) ownerSubEl.textContent = 'Pet Owner';
+                if (petBadgeEl) {
+                    petBadgeEl.textContent = conv.petName || '';
+                    petBadgeEl.style.display = conv.petName ? '' : 'none';
+                }
             }
         }
     }, (err) => {
@@ -338,15 +400,15 @@ function init() {
 
     form?.addEventListener('submit', async (e) => {
         e.preventDefault();
+        const ownerId = $('new-conv-owner')?.value;
         const petId = $('new-conv-pet')?.value;
-        const vetId = $('new-conv-vet')?.value;
+        const ownerTriggerText = $('new-conv-owner-trigger')?.querySelector('.new-conv-trigger-text')?.textContent;
         const petTriggerText = $('new-conv-pet-trigger')?.querySelector('.new-conv-trigger-text')?.textContent;
-        const vetTriggerText = $('new-conv-vet-trigger')?.querySelector('.new-conv-trigger-text')?.textContent;
 
-        if (!petId || !vetId) {
+        if (!ownerId || !petId) {
             const errEl = $('new-conversation-error');
             if (errEl) {
-                errEl.textContent = 'Please select both a pet and a veterinarian.';
+                errEl.textContent = 'Please select both a pet owner and a pet.';
                 errEl.classList.remove('is-hidden');
             }
             return;
@@ -372,7 +434,7 @@ function init() {
             const existingSnap = await getDocs(existingQ);
             const existingDoc = existingSnap.docs.find((d) => {
                 const data = d.data();
-                return data.vetId === vetId && data.petId === petId;
+                return data.ownerId === ownerId && data.petId === petId;
             });
             if (existingDoc) {
                 closeModal();
@@ -386,22 +448,27 @@ function init() {
                 return;
             }
 
-            const initialMessage = ($('new-conv-message')?.value || '').trim();
-            const ownerDoc = await getDoc(doc(db, 'users', user.uid));
+            const ownerDoc = await getDoc(doc(db, 'users', ownerId));
             const ownerData = ownerDoc.exists() ? ownerDoc.data() : {};
-            const ownerName = (ownerData.displayName || '').trim()
-                || [ownerData.firstName, ownerData.lastName].filter(Boolean).join(' ').trim()
-                || (ownerData.email || '').split('@')[0]
-                || 'Pet Owner';
+            const ownerName = ownerDisplayName(ownerData);
+            const vetDoc = await getDoc(doc(db, 'users', user.uid));
+            const vetData = vetDoc.exists() ? vetDoc.data() : {};
+            const vetName = (vetData.displayName || '').trim()
+                || [vetData.firstName, vetData.lastName].filter(Boolean).join(' ').trim()
+                || (vetData.email || '').split('@')[0]
+                || 'Veterinarian';
+            const vetNameFormatted = /^dr\.?\s/i.test(vetName) ? vetName : `Dr. ${vetName}`;
+            const initialMessage = ($('new-conv-message')?.value || '').trim();
+
             const convRef = await addDoc(collection(db, 'conversations'), {
-                ownerId: user.uid,
+                ownerId,
                 ownerName,
-                vetId,
+                vetId: user.uid,
                 petId,
                 petName: petTriggerText || 'Pet',
-                vetName: vetTriggerText || 'Vet',
+                vetName: vetNameFormatted,
                 vetSpecialty: '',
-                participants: [user.uid, vetId],
+                participants: [ownerId, user.uid],
                 lastMessage: initialMessage || '',
                 lastMessageAt: serverTimestamp(),
                 createdAt: serverTimestamp(),
@@ -416,21 +483,19 @@ function init() {
             closeModal();
             const newConv = {
                 id: convRef.id,
-                ownerId: user.uid,
+                ownerId,
                 ownerName,
-                vetId,
+                vetId: user.uid,
                 petId,
                 petName: petTriggerText || 'Pet',
-                vetName: vetTriggerText || 'Vet',
+                vetName: vetNameFormatted,
                 vetSpecialty: '',
-                participants: [user.uid, vetId],
+                participants: [ownerId, user.uid],
                 lastMessage: initialMessage || '',
                 lastMessageAt: new Date(),
                 createdAt: new Date(),
             };
-            if (!conversations.find((c) => c.id === newConv.id)) {
-                conversations = [newConv, ...conversations];
-            }
+            conversations = [newConv, ...conversations];
             setListState(false, false, true);
             renderConversationList();
             openConversation(newConv);
@@ -469,26 +534,6 @@ function init() {
     });
     composeInput?.addEventListener('blur', () => {
         document.body.classList.remove('messages-input-focused');
-    });
-
-    /* Android back button dismisses keyboard without firing blur. Use visualViewport to detect keyboard close
-       and remove messages-input-focused so the compose area doesn't overlay the bottom nav. */
-    function syncInputFocusedState() {
-        if (!isMobileView()) return;
-        const vv = window.visualViewport;
-        if (!vv) return;
-        const keyboardLikelyClosed = vv.height > window.innerHeight * 0.75;
-        if (keyboardLikelyClosed) {
-            document.body.classList.remove('messages-input-focused');
-            composeInput?.blur();
-        }
-    }
-    if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', syncInputFocusedState);
-        window.visualViewport.addEventListener('scroll', syncInputFocusedState);
-    }
-    document.addEventListener('visibilitychange', () => {
-        if (document.hidden) document.body.classList.remove('messages-input-focused');
     });
 
     async function doSendMessage() {
@@ -533,7 +578,7 @@ function init() {
         }
     }
 
-    sendBtn?.addEventListener('click', (e) => { doSendMessage(); });
+    sendBtn?.addEventListener('click', () => { doSendMessage(); });
 
     sendBtn?.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
     sendBtn?.addEventListener('touchend', (e) => {
@@ -544,30 +589,30 @@ function init() {
         if (e.key === 'Escape') closeModal();
     });
 
+    const ownerDropdown = $('new-conv-owner-dropdown');
     const petDropdown = $('new-conv-pet-dropdown');
-    const vetDropdown = $('new-conv-vet-dropdown');
+    const ownerTrigger = $('new-conv-owner-trigger');
     const petTrigger = $('new-conv-pet-trigger');
-    const vetTrigger = $('new-conv-vet-trigger');
+    const ownerMenu = $('new-conv-owner-menu');
     const petMenu = $('new-conv-pet-menu');
-    const vetMenu = $('new-conv-vet-menu');
 
     function closeAllDropdowns() {
+        ownerDropdown?.classList.remove('is-open');
         petDropdown?.classList.remove('is-open');
-        vetDropdown?.classList.remove('is-open');
     }
+    ownerTrigger?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        ownerDropdown?.classList.toggle('is-open');
+        petDropdown?.classList.remove('is-open');
+    });
     petTrigger?.addEventListener('click', (e) => {
         e.stopPropagation();
         petDropdown?.classList.toggle('is-open');
-        vetDropdown?.classList.remove('is-open');
-    });
-    vetTrigger?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        vetDropdown?.classList.toggle('is-open');
-        petDropdown?.classList.remove('is-open');
+        ownerDropdown?.classList.remove('is-open');
     });
     document.addEventListener('click', closeAllDropdowns);
+    ownerMenu?.addEventListener('click', (e) => e.stopPropagation());
     petMenu?.addEventListener('click', (e) => e.stopPropagation());
-    vetMenu?.addEventListener('click', (e) => e.stopPropagation());
 
     onAuthStateChanged(auth, (user) => {
         if (user) {
