@@ -1,10 +1,5 @@
-/* ============================================
-   MESSAGES PAGE STYLES
-   Veterinarian — Conversation list + Chat thread (pet owner ↔ vet)
-   Uses project palette: --primary-color, --primary-dark, --accent-color
-   ============================================ */
+/* Messages — Vet: conversation list + chat (pet owner ↔ vet). Uses --primary-color, --primary-dark, --accent-color */
 
-/* Messages page: light grey background so cards lift with shadow; lock to viewport, no page scroll */
 .messages-page { overflow: hidden; }
 .messages-main {
     background: var(--bg-light) !important;
@@ -16,7 +11,6 @@
     position: relative;
     box-sizing: border-box;
 }
-/* Page header overlays the wrapper so the wrapper can fill full height below app header */
 .messages-page-header {
     position: absolute;
     top: var(--header-height, 70px);
@@ -24,20 +18,23 @@
     right: 0;
     z-index: 10;
     margin-bottom: 0;
-    padding: 8px 30px 12px 30px;
+    padding: 8px 30px 12px;
+    display: flex;
+    align-items: flex-start;
 }
+.messages-header-text { flex: 1; min-width: 0; }
 .messages-page .sidebar-brand i { margin-right: 8px; opacity: 0.95; }
 .content-wrapper.messages-wrapper { background: transparent !important; box-shadow: none !important; }
 .content-wrapper.messages-wrapper.is-hidden { display: none !important; }
 
-/* ========== Single panel when no messages yet ========== */
+/* Empty state (no messages yet) */
 .messages-empty-single-panel {
     position: absolute;
     top: var(--header-height, 70px);
     left: 0;
     right: 0;
     bottom: 0;
-    padding: 60px 30px 30px 30px;
+    padding: 60px 30px 30px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -50,7 +47,7 @@
 .messages-empty-single-content {
     position: relative;
     background: var(--bg-white);
-    padding: 40px 36px 36px;
+    padding: 40px 36px;
     border-radius: 14px;
     border: 6px solid rgba(0, 0, 0, 0.08);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.06);
@@ -122,10 +119,7 @@
 .messages-empty-single-title { font-size: 22px; font-weight: 700; color: var(--text-primary); margin: 0 0 8px; }
 .messages-empty-single-sub { font-size: 14px; color: var(--text-light); margin: 0 0 20px; max-width: 280px; line-height: 1.5; }
 
-/* ========== Conversation list + Chat panel layout ========== */
-.messages-page-header { display: flex; align-items: flex-start; margin-bottom: 0; }
-.messages-header-text { flex: 1; min-width: 0; }
-
+/* Wrapper: list + chat */
 .content-wrapper.messages-wrapper,
 .messages-wrapper {
     display: flex;
@@ -145,7 +139,7 @@
     box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
 }
 
-/* ========== Conversation List Panel ========== */
+/* Conversation list */
 .messages-list-panel {
     width: 320px;
     min-width: 280px;
@@ -159,7 +153,6 @@
 }
 .messages-list-header {
     padding: 18px 20px;
-    border-bottom: none;
     flex-shrink: 0;
     display: flex;
     align-items: center;
@@ -332,7 +325,7 @@
 }
 .messages-conv-meta { font-size: 12px; color: var(--text-light); }
 
-/* ========== Chat Panel ========== */
+/* Chat panel */
 .messages-chat-panel {
     flex: 1;
     min-width: 0;
@@ -434,7 +427,6 @@
     gap: 2px;
     min-width: 0;
 }
-/* Vet side: show owner name + pet badge */
 .messages-chat-owner-name { font-size: 16px; font-weight: 600; color: var(--text-dark); }
 .messages-chat-owner-sub { font-size: 12px; color: var(--text-light); font-weight: 400; }
 .messages-chat-pet-badge { font-size: 12px; color: var(--primary-color); font-weight: 500; }
@@ -459,7 +451,6 @@
     margin: auto;
 }
 
-/* Message row: received = owner (left), sent = vet (right) */
 .message-row {
     display: flex;
     align-items: flex-end;
@@ -484,7 +475,6 @@
 .message-row--sent .message-row-avatar {
     background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
 }
-
 .message-bubble {
     max-width: 100%;
     padding: 10px 14px;
@@ -510,7 +500,6 @@
 .message-bubble--received .message-bubble-time { color: var(--text-light); }
 .message-bubble--sent .message-bubble-time { color: rgba(255, 255, 255, 0.9); }
 
-/* Compose area */
 .messages-chat-compose {
     flex: 0 0 auto;
     padding: 20px;
@@ -597,7 +586,7 @@
 .messages-send-btn i { font-size: 18px; }
 .messages-send-btn span { display: none; }
 
-/* ========== New Conversation Modal (Vet: Pet Owner + Pet) — matches petowner UI ========== */
+/* New conversation modal */
 .new-conversation-overlay {
     position: fixed;
     inset: 0;
@@ -608,10 +597,7 @@
     visibility: hidden;
     transition: opacity 0.25s, visibility 0.25s;
 }
-.new-conversation-overlay.is-open {
-    opacity: 1;
-    visibility: visible;
-}
+.new-conversation-overlay.is-open { opacity: 1; visibility: visible; }
 .new-conversation-modal {
     position: fixed;
     top: 50%;
@@ -632,10 +618,7 @@
     visibility: hidden;
     transition: opacity 0.25s, visibility 0.25s;
 }
-.new-conversation-modal.is-open {
-    opacity: 1;
-    visibility: visible;
-}
+.new-conversation-modal.is-open { opacity: 1; visibility: visible; }
 .new-conversation-header {
     display: flex;
     align-items: center;
@@ -668,10 +651,7 @@
     cursor: pointer;
     transition: background 0.2s, color 0.2s;
 }
-.new-conversation-close:hover {
-    background: var(--bg-light);
-    color: var(--text-dark);
-}
+.new-conversation-close:hover { background: var(--bg-light); color: var(--text-dark); }
 .new-conversation-form {
     display: flex;
     flex-direction: column;
@@ -695,9 +675,7 @@
     margin-bottom: 16px;
 }
 .new-conversation-error.is-hidden { display: none !important; }
-.new-conversation-group {
-    margin-bottom: 20px;
-}
+.new-conversation-group { margin-bottom: 20px; }
 .new-conversation-group:last-child { margin-bottom: 0; }
 .new-conversation-group--message { margin-top: 4px; }
 .new-conv-message-input {
@@ -714,20 +692,13 @@
     font-family: inherit;
     transition: border-color 0.2s, box-shadow 0.2s;
 }
-.new-conv-message-input::placeholder {
-    color: var(--text-muted, #888);
-}
+.new-conv-message-input::placeholder { color: var(--text-muted, #888); }
 .new-conv-message-input:focus {
     outline: none;
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px rgba(44, 95, 125, 0.12);
 }
-.new-conv-message-hint {
-    display: block;
-    font-size: 12px;
-    color: var(--text-muted, #888);
-    margin-top: 8px;
-}
+.new-conv-message-hint { display: block; font-size: 12px; color: var(--text-muted, #888); margin-top: 8px; }
 .new-conversation-group label {
     display: block;
     font-size: 13px;
@@ -755,8 +726,6 @@
 .new-conv-trigger:hover { border-color: var(--primary-color); }
 .new-conv-trigger-icon { color: var(--primary-color); font-size: 14px; }
 .new-conv-trigger .dropdown-caret { margin-left: auto; font-size: 12px; transition: transform 0.2s; }
-
-/* Owner + Pet dropdowns (vet side) */
 .new-conv-owner-dropdown.is-open .new-conv-trigger .dropdown-caret,
 .new-conv-pet-dropdown.is-open .new-conv-trigger .dropdown-caret { transform: rotate(180deg); }
 .new-conv-owner-dropdown.is-open .new-conv-trigger,
@@ -808,12 +777,7 @@
 }
 .new-conv-item:hover { background: var(--bg-light); }
 .new-conv-item .dropdown-item-icon { font-size: 16px; flex-shrink: 0; color: var(--primary-color); }
-.new-conv-empty {
-    padding: 12px 14px;
-    font-size: 14px;
-    color: var(--text-muted, #666);
-    text-align: center;
-}
+.new-conv-empty { padding: 12px 14px; font-size: 14px; color: var(--text-muted, #666); text-align: center; }
 .new-conversation-footer {
     padding: 18px 24px;
     border-top: 1px solid var(--border-color);
@@ -837,30 +801,20 @@
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
     color: white;
 }
-.new-conversation-footer .btn-primary:hover:not(:disabled) {
-    opacity: 0.95;
-    transform: translateY(-1px);
-}
+.new-conversation-footer .btn-primary:hover:not(:disabled) { opacity: 0.95; transform: translateY(-1px); }
 .new-conversation-footer .btn-secondary {
     background: var(--bg-light);
     color: var(--primary-color);
     border: 1px solid var(--border-color);
 }
-.new-conversation-footer .btn-secondary:hover {
-    background: var(--border-color);
-}
+.new-conversation-footer .btn-secondary:hover { background: var(--border-color); }
 
-/* ========== Responsive ========== */
 @media (max-width: 768px) {
-    .new-conversation-modal {
-        width: calc(100% - 24px);
-        max-height: 80vh;
-    }
+    .new-conversation-modal { width: calc(100% - 24px); max-height: 80vh; }
     .new-conversation-body { padding: 18px 20px; }
     .new-conversation-footer { padding: 16px 20px; }
     .new-conv-message-input { min-height: 90px; }
     .messages-page-header { display: none; }
-    /* When message input is focused (keyboard open), use full visible height so input sits just above keyboard with no gap */
     body.messages-input-focused .messages-main {
         height: calc(var(--vh, 100vh) - env(safe-area-inset-bottom, 0));
         max-height: calc(var(--vh, 100vh) - env(safe-area-inset-bottom, 0));

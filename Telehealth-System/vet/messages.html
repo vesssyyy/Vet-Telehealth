@@ -4,27 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Messages - Televet Health (Vet)</title>
-
     <link rel="stylesheet" href="css/sidebar-layout.css">
     <link rel="stylesheet" href="css/messages.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     <link href="https://fonts.googleapis.com/css?family=Lalezar" rel="stylesheet">
-
-    <style>
-        body { visibility: hidden; }
-    </style>
+    <style>body{visibility:hidden}</style>
 </head>
-
 <body class="messages-page">
     <div class="sidebar-overlay"></div>
-
     <aside class="sidebar">
         <div class="sidebar-header">
             <a href="dashboard.html" class="sidebar-brand">Telehealth</a>
             <div class="sidebar-tagline">Veterinarian Portal</div>
         </div>
-
         <div class="user-profile">
             <a href="profile.html" class="user-profile-link">
                 <div class="user-info">
@@ -39,7 +32,6 @@
                 </div>
             </a>
         </div>
-
         <nav class="sidebar-nav">
             <a href="dashboard.html" class="nav-item"><i class="fa fa-th-large"></i> Dashboard</a>
             <a href="appointments.html" class="nav-item"><i class="fa fa-calendar"></i> Appointments</a>
@@ -65,9 +57,8 @@
                 <button type="button" class="profile-header-btn" aria-label="Profile"><i class="fa fa-user-circle" aria-hidden="true"></i></button>
             </div>
         </header>
-        <div class="page-header messages-page-header"></div>
+        <div class="page-header messages-page-header" aria-hidden="true"></div>
 
-        <!-- Single panel when no messages yet -->
         <div class="messages-empty-single-panel" id="messages-empty-single-panel">
             <div class="messages-empty-single-content">
                 <div class="messages-empty-single-illus">
@@ -77,9 +68,7 @@
                 </div>
                 <h2 class="messages-empty-single-title">No Messages</h2>
                 <p class="messages-empty-single-sub">Start a conversation with a pet owner about their pet's health.</p>
-                <button type="button" class="messages-empty-new-btn" id="messages-empty-new-icon" aria-label="Start new conversation">
-                    <i class="fa fa-plus" aria-hidden="true"></i> New Message
-                </button>
+                <button type="button" class="messages-empty-new-btn" id="messages-empty-new-icon" aria-label="Start new conversation"><i class="fa fa-plus" aria-hidden="true"></i> New Message</button>
             </div>
         </div>
 
@@ -87,9 +76,7 @@
             <aside class="messages-list-panel">
                 <div class="messages-list-header">
                     <h2 class="messages-list-title">Conversations</h2>
-                    <button type="button" class="messages-list-new-icon" id="messages-list-new-icon" aria-label="New message" title="New message">
-                        <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
-                    </button>
+                    <button type="button" class="messages-list-new-icon" id="messages-list-new-icon" aria-label="New message" title="New message"><i class="fa fa-pencil-square-o" aria-hidden="true"></i></button>
                 </div>
                 <div class="messages-list-search-wrap">
                     <span class="messages-list-search-icon" aria-hidden="true"><i class="fa fa-search" aria-hidden="true"></i></span>
@@ -112,9 +99,7 @@
                 </div>
                 <div class="messages-chat-active is-hidden" id="messages-chat-active">
                     <header class="messages-chat-header">
-                        <button type="button" class="messages-chat-back" id="messages-chat-back" aria-label="Back to list">
-                            <i class="fa fa-arrow-left" aria-hidden="true"></i>
-                        </button>
+                        <button type="button" class="messages-chat-back" id="messages-chat-back" aria-label="Back to list"><i class="fa fa-arrow-left" aria-hidden="true"></i></button>
                         <div class="messages-chat-header-info">
                             <div class="messages-chat-avatar">
                                 <img id="messages-chat-owner-img" class="messages-chat-avatar-img is-hidden" alt="" src="">
@@ -137,9 +122,7 @@
                                 </div>
                                 <textarea id="messages-compose-input" class="messages-compose-textarea" placeholder="Type a message..." rows="1" maxlength="2000" aria-label="Message input"></textarea>
                             </div>
-                            <button type="button" class="messages-send-btn" id="messages-send-btn" aria-label="Send message">
-                                <i class="fa fa-paper-plane" aria-hidden="true"></i><span>Send</span>
-                            </button>
+                            <button type="button" class="messages-send-btn" id="messages-send-btn" aria-label="Send message"><i class="fa fa-paper-plane" aria-hidden="true"></i><span>Send</span></button>
                         </div>
                     </div>
                 </div>
@@ -147,13 +130,10 @@
         </div>
     </main>
 
-    <!-- New Conversation Modal (Vet: select Pet Owner + Pet) -->
     <div class="new-conversation-overlay" id="new-conversation-overlay" aria-hidden="true"></div>
     <div class="new-conversation-modal" id="new-conversation-modal" role="dialog" aria-labelledby="new-conversation-title" aria-modal="true" tabindex="-1">
         <div class="new-conversation-header">
-            <h2 class="new-conversation-title" id="new-conversation-title">
-                <i class="fa fa-comment"></i> Start a conversation
-            </h2>
+            <h2 class="new-conversation-title" id="new-conversation-title"><i class="fa fa-comment"></i> Start a conversation</h2>
             <button type="button" class="new-conversation-close" id="new-conversation-close" aria-label="Close"><i class="fa fa-times"></i></button>
         </div>
         <form class="new-conversation-form" id="new-conversation-form" novalidate>
