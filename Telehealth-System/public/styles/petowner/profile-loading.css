@@ -1,0 +1,28 @@
+@import "../shared/loading.css";
+
+/* Profile loading — full-page on login, content-only when navigating */
+body.profile-loading .profile-loading-overlay { display: flex; }
+body.profile-loading.profile-loading-full-page .sidebar,
+body.profile-loading.profile-loading-full-page .main-content,
+body.profile-loading.profile-loading-full-page .mobile-menu-toggle { visibility: hidden !important; }
+body.profile-loading:not(.profile-loading-full-page) .sidebar,
+body.profile-loading:not(.profile-loading-full-page) .mobile-menu-toggle { visibility: visible !important; }
+body.profile-loading:not(.profile-loading-full-page) .profile-loading-overlay { display: none !important; }
+
+.profile-loading-overlay {
+    display: none; position: fixed; inset: 0; z-index: 9999;
+    background: #E3E3E3; align-items: center; justify-content: center; text-align: center;
+}
+.content-wrapper { position: relative; }
+.content-loading-overlay {
+    display: none; position: absolute; inset: 0; z-index: 10;
+    background: #E3E3E3; border-radius: inherit;
+    align-items: center; justify-content: center; text-align: center;
+}
+body.profile-loading:not(.profile-loading-full-page) .content-wrapper .content-loading-overlay { display: flex; }
+
+.dashboard-loading {
+    min-height: 560px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; padding: 40px 25px;
+}
+.dashboard-loading-text { margin: 20px 0 0; font-size: 16px; font-weight: 500; color: #1B3C53; }
