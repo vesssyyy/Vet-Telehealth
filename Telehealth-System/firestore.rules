@@ -18,6 +18,23 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /appointments/{appointmentId}/videoCall/room {
+      allow read, write: if request.auth != null
+        && (get(/databases/$(database)/documents/appointments/$(appointmentId)).data.ownerId == request.auth.uid
+            || get(/databases/$(database)/documents/appointments/$(appointmentId)).data.vetId == request.auth.uid);
+    }
+
+    match /appointments/{appointmentId}/signaling/{msgId} {
+      allow read: if request.auth != null
+        && (get(/databases/$(database)/documents/appointments/$(appointmentId)).data.ownerId == request.auth.uid
+            || get(/databases/$(database)/documents/appointments/$(appointmentId)).data.vetId == request.auth.uid);
+      allow create: if request.auth != null
+        && (get(/databases/$(database)/documents/appointments/$(appointmentId)).data.ownerId == request.auth.uid
+            || get(/databases/$(database)/documents/appointments/$(appointmentId)).data.vetId == request.auth.uid)
+        && request.resource.data.from == request.auth.uid;
+      allow update, delete: if false;
+    }
+
     match /users/{userId} {
       allow read: if request.auth != null && (
         request.auth.uid == userId

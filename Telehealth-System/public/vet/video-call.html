@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Consultation - Televet Health (Vet)</title>
+    <link rel="stylesheet" href="../styles/vet/sidebar-layout.css">
+    <link rel="stylesheet" href="../styles/core/video-call.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+</head>
+<body>
+    <div class="sidebar-overlay"></div>
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <a href="dashboard.html" class="sidebar-brand">Televet Health</a>
+            <div class="sidebar-tagline">Veterinarian Portal</div>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="appointments.html" class="nav-item active"><i class="fa fa-video-camera"></i> Video Call</a>
+            <a href="appointments.html" class="nav-item" id="back-link"><i class="fa fa-arrow-left"></i> Back to Appointments</a>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        <header class="app-top-header">
+            <div class="header-left">
+                <span class="role-badge"><i class="fa fa-video-camera" aria-hidden="true"></i> Video Consultation</span>
+            </div>
+            <p class="call-status" id="call-status" aria-live="polite">Connecting…</p>
+        </header>
+
+        <div class="video-call-container">
+            <div class="video-call-main">
+                <div class="remote-video-wrap">
+                    <video id="remote-video" class="remote-video" autoplay playsinline aria-label="Other participant"></video>
+                    <p id="waiting-message" class="waiting-message" aria-live="polite">
+                        <i class="fa fa-clock-o" aria-hidden="true"></i> Waiting for the other participant…
+                    </p>
+                    <p id="connected-message" class="connected-message is-hidden" aria-live="polite">Connected</p>
+                </div>
+                <div class="local-video-wrap">
+                    <video id="local-video" class="local-video" autoplay playsinline muted aria-label="You"></video>
+                    <span class="local-video-label">You</span>
+                </div>
+            </div>
+            <div class="video-call-controls">
+                <button type="button" class="video-call-btn hangup-btn" id="hangup-btn" aria-label="End call">
+                    <i class="fa fa-phone" aria-hidden="true"></i> End call
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { initVideoCallPage } from '../scripts/core/video-call.js';
+        initVideoCallPage({
+            backUrl: 'appointments.html',
+            backLabel: 'Back to Appointments',
+        });
+    </script>
+</body>
+</html>

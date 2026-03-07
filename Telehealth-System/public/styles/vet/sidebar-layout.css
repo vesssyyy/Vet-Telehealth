@@ -23,7 +23,7 @@
     --w-7: rgba(var(--w), 0.7);
 }
 
-body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg-light); color: var(--text-dark); line-height: 1.6; }
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg-light); color: var(--text-dark); line-height: 1.6; overflow-x: hidden; }
 
 .sidebar {
     position: fixed; top: 0; left: 0; width: var(--sidebar-width); height: 100vh;

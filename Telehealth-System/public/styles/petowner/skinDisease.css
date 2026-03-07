@@ -1,7 +1,671 @@
-/* ============================================
-   SKIN HEALTH PAGE STYLES
-   ============================================ */
+/* Skin Health Detection — Pet selection section */
 
-/* Skin disease detection-specific styles will go here */
-/* This file is currently empty as layout is handled by sidebar-layout.css */
-/* Add image upload, camera interface, detection results, etc. here when needed */
+.skin-content-wrapper {
+    margin-top: 20px;
+    flex: 1;
+}
+
+.main-content:has(.skin-selection-view:not(.is-hidden)) .skin-content-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.skin-detection-section {
+    width: 100%;
+    margin: 0 auto;
+    padding: 20px 0;
+}
+
+.skin-detection-heading {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--text-dark, #2d3748);
+    line-height: 1.5;
+    margin-bottom: 8px;
+    text-align: center;
+}
+
+/* Two-column layout for pet cards */
+.pet-selection-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 35px;
+    align-items: stretch;
+    margin-bottom: 28px;
+    padding-top: 50px;
+}
+
+/* Main card container */
+.pet-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-height: 210px;
+    height: 100%;
+    max-height: 220px;
+    padding: 28px 28px 26px;
+    background: #eef3f7;
+    border: 1px solid #d6e2ea;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    cursor: pointer;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.pet-card:hover {
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+}
+
+.pet-card:focus {
+    outline: 2px solid var(--primary-color, #2c5f7d);
+    outline-offset: 2px;
+}
+
+/* DIV 1 — Pet image container (floating above card) */
+.pet-card-image-wrap {
+    position: absolute;
+    top: -45px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15));
+}
+
+.pet-card-image {
+    width: 100px;
+    max-width: 110px;
+    height: auto;
+    display: block;
+    object-fit: contain;
+}
+
+/* DIV 2 — Pet information content */
+.pet-card-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-top: 28px;
+}
+
+.pet-card-title {
+    font-size: 25px;
+    font-weight: bold;
+    color: #374151;
+    margin: 0;
+    letter-spacing: 0.02em;
+}
+
+.pet-card-label {
+    font-size: 14px;
+    color: #6b7280;
+    margin-top: 6px;
+}
+
+.pet-card-btn {
+    width: 150px;
+    height: 40px;
+    margin-top: 16px;
+    padding: 0 16px;
+    background: linear-gradient(180deg, #6aa7c8 0%, #4f8fb2 100%);
+    color: white;
+    border: none;
+    border-radius: 9px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.pet-card-btn:hover {
+    background: linear-gradient(180deg, #5d96b8 0%, #457a9a 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+}
+
+.pet-card-btn:active {
+    transform: translateY(0);
+}
+
+/* Prevent button click from double-firing when card is clicked */
+.pet-card-btn:focus {
+    outline: 2px solid white;
+    outline-offset: 2px;
+}
+
+/* Disclaimer */
+.skin-detection-disclaimer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #6b7280;
+    margin: 0;
+    padding: 12px 16px;
+    background: #fef9e7;
+    border: 1px solid #f0e6b3;
+    border-radius: 8px;
+}
+
+.skin-detection-disclaimer i {
+    color: #d69e2e;
+    flex-shrink: 0;
+}
+
+/* ——— View switching (selection vs identify) ——— */
+.skin-view.is-hidden {
+    display: none !important;
+}
+
+.skin-identify-view {
+    width: 100%;
+    margin: 0 auto;
+    padding: 16px 20px 32px;
+}
+
+.skin-identify-top {
+    margin-bottom: 24px;
+}
+
+.skin-back-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    margin-bottom: 20px;
+    background: var(--bg-light, #f7fafc);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 10px;
+    color: var(--text-dark, #2d3748);
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+.skin-back-btn:hover {
+    background: #eef3f7;
+    border-color: #d6e2ea;
+}
+.skin-back-btn i {
+    font-size: 1.125rem;
+}
+
+.skin-identify-hero {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+    background: linear-gradient(165deg, #eef5f9 0%, #e4eef5 100%);
+    border-radius: 14px;
+    border: 1px solid rgba(106, 167, 200, 0.25);
+}
+.skin-identify-pet-badge {
+    flex-shrink: 0;
+    width: 80px;
+    height: 80px;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 2px solid rgba(79, 143, 178, 0.35);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+    background: #fff;
+}
+.skin-identify-pet-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.skin-identify-hero-text {
+    min-width: 0;
+}
+.skin-identify-title {
+    font-size: 1.375rem;
+    font-weight: 700;
+    color: var(--text-dark, #2d3748);
+    margin: 0 0 4px 0;
+    letter-spacing: -0.02em;
+}
+.skin-identify-subtitle {
+    font-size: 0.875rem;
+    color: var(--text-light, #718096);
+    margin: 0;
+}
+
+.skin-identify-body {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* 3-way drop zone: drag & drop + Scan + Upload */
+.skin-drop-zone {
+    position: relative;
+    border: 2px dashed rgba(79, 143, 178, 0.5);
+    border-radius: 14px;
+    background: linear-gradient(180deg, #f8fbfd 0%, #eef5f9 100%);
+    padding: 28px 24px;
+    transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+.skin-drop-zone.is-dragover {
+    border-color: #6aa7c8;
+    background: linear-gradient(180deg, #eef8fc 0%, #e0f0f8 100%);
+    box-shadow: 0 0 0 4px rgba(106, 167, 200, 0.2);
+}
+.skin-file-input {
+    position: absolute;
+    width: 0;
+    height: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+.skin-drop-zone-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    text-align: center;
+}
+.skin-drop-zone-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(180deg, #6aa7c8 0%, #4f8fb2 100%);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    box-shadow: 0 4px 14px rgba(79, 143, 178, 0.35);
+}
+.skin-drop-zone-drag {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-dark, #2d3748);
+    margin: 0;
+}
+.skin-drop-zone-or {
+    font-size: 0.8125rem;
+    color: var(--text-light, #718096);
+    margin: 0;
+}
+.skin-drop-zone-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+}
+.skin-scan-btn,
+.skin-upload-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    border: none;
+}
+.skin-scan-btn {
+    background: linear-gradient(180deg, #6aa7c8 0%, #4f8fb2 100%);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(79, 143, 178, 0.3);
+}
+.skin-scan-btn:hover {
+    background: linear-gradient(180deg, #5d96b8 0%, #457a9a 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(79, 143, 178, 0.35);
+}
+.skin-upload-btn {
+    background: #fff;
+    color: #4f8fb2;
+    border: 2px solid #6aa7c8;
+}
+.skin-upload-btn:hover {
+    background: #eef5f9;
+    transform: translateY(-1px);
+}
+
+/* Scope section */
+.skin-scope-section {
+    margin: 0;
+}
+.skin-scope-heading {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--text-dark, #2d3748);
+    margin: 0 0 6px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.skin-scope-heading i {
+    color: #4f8fb2;
+}
+.skin-scope-intro {
+    font-size: 0.8125rem;
+    color: var(--text-light, #718096);
+    margin: 0 0 14px 0;
+    line-height: 1.45;
+}
+.skin-scope-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.skin-scope-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 14px;
+    background: #f8fafc;
+    border-radius: 10px;
+    border-left: 3px solid #6aa7c8;
+    transition: background 0.2s ease, border-left-color 0.2s ease;
+}
+.skin-scope-item:hover {
+    background: #eef5f9;
+    border-left-color: #4f8fb2;
+}
+.skin-scope-icon {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: rgba(106, 167, 200, 0.2);
+    color: #4f8fb2;
+    font-size: 0.875rem;
+}
+.skin-scope-text {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.skin-scope-name {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--text-dark, #2d3748);
+}
+.skin-scope-desc {
+    font-size: 0.75rem;
+    color: var(--text-light, #718096);
+    line-height: 1.4;
+}
+.skin-scope-more {
+    font-size: 0.8125rem;
+    color: var(--text-dark, #4a5568);
+    line-height: 1.55;
+    margin: 10px 0 0 0;
+    padding-top: 10px;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* ——— Camera capture overlay ——— */
+.skin-camera-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+.skin-camera-overlay.is-hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+.skin-camera-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+}
+.skin-camera-box {
+    position: relative;
+    width: 100%;
+    max-width: 480px;
+    background: var(--bg-card, #fff);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+}
+.skin-camera-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    background: linear-gradient(165deg, #eef5f9 0%, #e4eef5 100%);
+    border-bottom: 1px solid rgba(106, 167, 200, 0.2);
+}
+.skin-camera-title {
+    font-size: 1.0625rem;
+    font-weight: 600;
+    color: var(--text-dark, #2d3748);
+    margin: 0;
+}
+.skin-camera-close {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 8px;
+    color: #64748b;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+.skin-camera-close:hover {
+    background: #fff;
+    color: var(--text-dark, #2d3748);
+}
+.skin-camera-video-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.skin-camera-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.skin-camera-canvas {
+    display: none;
+}
+.skin-camera-error {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    margin: 0;
+    font-size: 0.9375rem;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.85);
+    text-align: center;
+}
+.skin-camera-error.is-hidden {
+    display: none !important;
+}
+.skin-camera-actions {
+    padding: 16px;
+    border-top: 1px solid var(--border-color, #e2e8f0);
+}
+.skin-camera-capture {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 20px;
+    background: linear-gradient(180deg, #6aa7c8 0%, #4f8fb2 100%);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, opacity 0.2s ease;
+    box-shadow: 0 2px 8px rgba(79, 143, 178, 0.3);
+}
+.skin-camera-capture:hover:not(:disabled) {
+    background: linear-gradient(180deg, #5d96b8 0%, #457a9a 100%);
+}
+.skin-camera-capture:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+.skin-camera-capture .fa-circle {
+    font-size: 0.5rem;
+}
+
+/* ——— Mobile layout ——— */
+@media (max-width: 768px) {
+    .skin-detection-section {
+        padding: 50px 0 24px;
+    }
+
+    .skin-detection-heading {
+        font-size: 16px;
+        margin-bottom: 48px;
+        padding: 0 8px;
+    }
+
+    .pet-selection-grid {
+        grid-template-columns: 1fr;
+        gap: 56px 0;
+        margin-bottom: 24px;
+    }
+
+    .pet-card {
+        min-height: 200px;
+        max-height: none;
+        padding: 26px 24px 24px;
+    }
+
+    .pet-card-image-wrap {
+        top: -44px;
+    }
+
+    .pet-card-image {
+        width: 95px;
+        max-width: 110px;
+    }
+
+    .pet-card-content {
+        margin-top: 26px;
+    }
+
+    .pet-card-title {
+        font-size: 24px;
+    }
+
+    .pet-card-label {
+        font-size: 13px;
+        margin-top: 5px;
+    }
+
+    .pet-card-btn {
+        width: 145px;
+        height: 38px;
+        margin-top: 15px;
+        font-size: 14px;
+    }
+
+    .skin-detection-disclaimer {
+        font-size: 12px;
+        padding: 10px 14px;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+    }
+}
+
+@media (max-width: 480px) {
+    .skin-detection-heading {
+        font-size: 15px;
+        margin-bottom: 44px;
+    }
+
+    .pet-selection-grid {
+        gap: 52px 0;
+    }
+
+    .pet-card {
+        padding: 24px 20px 22px;
+        min-height: 190px;
+    }
+
+    .pet-card-image-wrap {
+        top: -40px;
+    }
+
+    .pet-card-image {
+        width: 90px;
+    }
+
+    .pet-card-title {
+        font-size: 22px;
+    }
+
+    .pet-card-btn {
+        width: 140px;
+        height: 38px;
+    }
+}
+
+/* Identify view responsive */
+@media (max-width: 600px) {
+    .skin-identify-view {
+        padding: 12px 0 24px;
+    }
+    .skin-identify-hero {
+        padding: 16px;
+        gap: 14px;
+    }
+    .skin-identify-pet-badge {
+        width: 64px;
+        height: 64px;
+    }
+    .skin-identify-title {
+        font-size: 1.2rem;
+    }
+    .skin-drop-zone {
+        padding: 22px 16px;
+    }
+    .skin-drop-zone-buttons {
+        flex-direction: column;
+        width: 100%;
+    }
+    .skin-scan-btn,
+    .skin-upload-btn {
+        width: 100%;
+        justify-content: center;
+    }
+}

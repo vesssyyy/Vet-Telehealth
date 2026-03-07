@@ -75,6 +75,25 @@ export function formatMessageTime(ts) {
 }
 
 /**
+ * Format a message timestamp for display on click: today = time only,
+ * yesterday = "Yesterday 2:30 PM", else = date + time.
+ */
+export function formatMessageTimeWithDate(ts) {
+    if (!ts?.toDate) return '';
+    const d = ts.toDate();
+    const timeStr = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const msgDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (msgDay.getTime() === today.getTime()) return timeStr;
+    if (msgDay.getTime() === yesterday.getTime()) return `Yesterday ${timeStr}`;
+    const dateStr = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
+    return `${dateStr} ${timeStr}`;
+}
+
+/**
  * Return up to two initials from a display name.
  * @param {string} name
  * @param {string} [fallback='?']

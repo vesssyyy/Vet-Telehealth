@@ -18,6 +18,7 @@ import {
     CLINIC_HOURS_PLACEHOLDER,
 } from './appointment-manager.js';
 import { auth } from '../core/firebase-config.js';
+import { isWithinAppointmentTime, getJoinAvailableLabel } from '../core/video-call-utils.js';
 
 const $ = (id) => document.getElementById(id);
 const overlay = $('booking-modal-overlay');
@@ -37,13 +38,37 @@ const bookingVetDropdown = $('booking-vet-dropdown');
 const uploadZone = $('booking-upload-zone');
 const fileInput = $('booking-media');
 const fileListEl = $('booking-file-list');
+const uploadHint = $('booking-upload-hint');
+
+const MIN_MEDIA_FILES = 0;
+const MAX_MEDIA_FILES = 3;
+const BOOKING_MEDIA_DB = 'televet_booking_media';
+const BOOKING_MEDIA_STORE = 'files';
 
 let cachedAvailability = { dates: [], slotsByDate: {} };
+/** Persisted list so "Add more" stacks files instead of replacing. */
+let bookingMediaFiles = [];
+let ignoreFileInputChange = false;
+
+function syncFileInputFromBookingMedia() {
+    if (!fileInput) return;
+    ignoreFileInputChange = true;
+    const dt = new DataTransfer();
+    bookingMediaFiles.forEach((f) => dt.items.add(f));
+    fileInput.files = dt.files;
+    ignoreFileInputChange = false;
+}
 
 function openModal() {
     if (!overlay || !modal) return;
     clearFieldErrors();
     showFormError('');
+    bookingMediaFiles = [];
+    syncFileInputFromBookingMedia();
+    if (fileListEl) { fileListEl.classList.add('is-hidden'); fileListEl.innerHTML = ''; }
+    if (uploadZone) uploadZone.classList.remove('booking-upload-zone--has-files');
+    const addMoreWrap = $('booking-add-more-wrap');
+    if (addMoreWrap) addMoreWrap.classList.add('is-hidden');
     overlay.classList.add('is-open');
     overlay.setAttribute('aria-hidden', 'false');
     modal.focus();
@@ -82,6 +107,7 @@ function validateAndHighlightFields() {
     const reasonVal = reasonInput?.value?.trim();
     const dateVal = dateEl?.value;
     const timeVal = timeEl?.value;
+    const fileCount = fileInput?.files?.length ?? 0;
     let hasError = false;
     if (!petVal || !petNameVal) { setFieldError($('booking-pet-dropdown')); hasError = true; }
     if (!vetVal || !vetNameVal) { setFieldError($('booking-vet-dropdown')); hasError = true; }
@@ -91,6 +117,11 @@ function validateAndHighlightFields() {
         if (!timeVal) setFieldError(timeEl);
         hasError = true;
     }
+    if (fileCount > MAX_MEDIA_FILES) {
+        setFieldError(uploadZone);
+        if (uploadHint) { uploadHint.textContent = `Maximum ${MAX_MEDIA_FILES} files. Remove ${fileCount - MAX_MEDIA_FILES} file(s).`; uploadHint.classList.remove('is-hidden'); }
+        hasError = true;
+    } else if (uploadHint) uploadHint.classList.add('is-hidden');
     return !hasError;
 }
 
@@ -145,11 +176,27 @@ function onDateChange() {
     } else if (bookingTime) bookingTime.innerHTML = '<option value="">No available times</option>';
 }
 
+function updateConfirmButtonState() {
+    const petCount = window._bookingPetsCount ?? 0;
+    const fileCount = fileInput?.files?.length ?? 0;
+    if (confirmBtn) confirmBtn.disabled = petCount === 0 || fileCount > MAX_MEDIA_FILES;
+}
+
 function updateFileList() {
     const files = fileInput?.files ? Array.from(fileInput.files) : [];
+    updateConfirmButtonState();
     if (!fileListEl) return;
     fileListEl.innerHTML = '';
     fileListEl.classList.toggle('has-files', files.length > 0);
+    fileListEl.classList.toggle('is-hidden', files.length === 0);
+    if (uploadHint) {
+        if (files.length > MAX_MEDIA_FILES) {
+            uploadHint.textContent = `Maximum ${MAX_MEDIA_FILES} files.`;
+            uploadHint.classList.remove('is-hidden');
+        } else {
+            uploadHint.classList.add('is-hidden');
+        }
+    }
     files.forEach((file, i) => {
         const li = document.createElement('li');
         li.className = 'booking-file-item';
@@ -164,15 +211,43 @@ function updateFileList() {
         li.innerHTML = '<i class="fa ' + icon + '" aria-hidden="true"></i><span class="booking-file-name" title="' + name.replace(/"/g, '&quot;') + '">' + name + '</span><span class="booking-file-size">' + sizeStr + '</span><button type="button" class="booking-file-remove" data-index="' + i + '" aria-label="Remove file"><i class="fa fa-times" aria-hidden="true"></i></button>';
         fileListEl.appendChild(li);
     });
+    const addMoreWrap = $('booking-add-more-wrap');
+    if (addMoreWrap) {
+        addMoreWrap.classList.toggle('is-hidden', files.length === 0 || files.length >= MAX_MEDIA_FILES);
+    }
+    if (uploadZone) {
+        uploadZone.classList.toggle('booking-upload-zone--has-files', files.length > 0);
+    }
 }
 function removeFile(index) {
-    if (!fileInput?.files?.length) return;
-    const dt = new DataTransfer();
-    for (let i = 0; i < fileInput.files.length; i++) {
-        if (i !== index) dt.items.add(fileInput.files[i]);
-    }
-    fileInput.files = dt.files;
+    if (index < 0 || index >= bookingMediaFiles.length) return;
+    bookingMediaFiles.splice(index, 1);
+    syncFileInputFromBookingMedia();
     updateFileList();
+}
+
+/** Save files to IndexedDB for retrieval on payment page. Returns the storage key. */
+function saveBookingMediaToIndexedDB(files) {
+    return new Promise((resolve, reject) => {
+        if (!files?.length) { resolve(null); return; }
+        const key = 'televet_media_' + Date.now();
+        const request = indexedDB.open(BOOKING_MEDIA_DB, 1);
+        request.onerror = () => reject(new Error('Could not save files for payment.'));
+        request.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(BOOKING_MEDIA_STORE)) {
+                db.createObjectStore(BOOKING_MEDIA_STORE, { keyPath: 'key' });
+            }
+        };
+        request.onsuccess = (e) => {
+            const db = e.target.result;
+            const tx = db.transaction(BOOKING_MEDIA_STORE, 'readwrite');
+            const store = tx.objectStore(BOOKING_MEDIA_STORE);
+            store.put({ key, files: Array.from(files) });
+            tx.oncomplete = () => { db.close(); resolve(key); };
+            tx.onerror = () => { db.close(); reject(tx.error); };
+        };
+    });
 }
 
 function formatTimeDisplay(timeVal, slotEnd, dateStr) {
@@ -242,8 +317,12 @@ form?.querySelectorAll('#booking-pet-dropdown, #booking-vet-dropdown, #booking-r
     }
 });
 
-if (uploadZone && fileInput && !uploadZone.classList.contains('booking-upload-zone--coming-soon')) {
-    uploadZone.addEventListener('click', (e) => { if (!e.target.closest('.booking-file-remove')) fileInput.click(); });
+if (uploadZone && fileInput) {
+    uploadZone.addEventListener('click', (e) => {
+        if (e.target.closest('.booking-file-remove')) return;
+        e.preventDefault();
+        fileInput.click();
+    });
     uploadZone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
     uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('is-dragover'); });
     uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('is-dragover'));
@@ -251,29 +330,58 @@ if (uploadZone && fileInput && !uploadZone.classList.contains('booking-upload-zo
         e.preventDefault();
         uploadZone.classList.remove('is-dragover');
         if (e.dataTransfer?.files?.length) {
-            const dt = new DataTransfer();
-            if (fileInput.files) Array.from(fileInput.files).forEach((f) => dt.items.add(f));
             for (let i = 0; i < e.dataTransfer.files.length; i++) {
                 const f = e.dataTransfer.files[i];
-                if ((f.type?.includes('image')) || (f.name?.toLowerCase().endsWith('.pdf'))) dt.items.add(f);
+                if ((f.type?.includes('image')) || (f.name?.toLowerCase().endsWith('.pdf'))) bookingMediaFiles.push(f);
             }
-            fileInput.files = dt.files;
+            bookingMediaFiles = bookingMediaFiles.slice(0, MAX_MEDIA_FILES);
+            syncFileInputFromBookingMedia();
             updateFileList();
         }
     });
 }
-if (fileInput && !uploadZone?.classList.contains('booking-upload-zone--coming-soon')) fileInput.addEventListener('change', updateFileList);
+if (fileInput) {
+    fileInput.addEventListener('change', () => {
+        if (ignoreFileInputChange) return;
+        const newFiles = Array.from(fileInput.files || []);
+        bookingMediaFiles = bookingMediaFiles.concat(newFiles).slice(0, MAX_MEDIA_FILES);
+        syncFileInputFromBookingMedia();
+        updateFileList();
+    });
+}
 fileListEl?.addEventListener('click', (e) => {
     const btn = e.target.closest('.booking-file-remove');
     if (btn?.dataset.index != null) removeFile(parseInt(btn.dataset.index, 10));
 });
+const addMoreBtn = $('booking-add-more-btn');
+if (addMoreBtn && fileInput) {
+    addMoreBtn.addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
+}
 
 /* Details modal */
 const detailsOverlay = $('details-modal-overlay');
 const detailsModalEl = $('details-modal');
 const detailsClose = $('details-modal-close');
+const detailsMessageBtn = $('details-message-btn');
 const detailsJoinBtn = $('details-join-btn');
+let currentDetailsApt = null;
+let detailsJoinCheckTimer = null;
+
+function updateDetailsJoinButton(apt) {
+    if (!detailsJoinBtn || !apt) return;
+    const within = isWithinAppointmentTime(apt);
+    detailsJoinBtn.disabled = !within;
+    const label = getJoinAvailableLabel(apt);
+    detailsJoinBtn.title = label;
+    detailsJoinBtn.innerHTML = `<i class="fa fa-video-camera" aria-hidden="true"></i><span class="details-join-btn-text">${label}</span>`;
+    detailsJoinBtn.classList.toggle('is-past', !within);
+}
+
 function closeDetailsModal() {
+    if (detailsJoinCheckTimer) {
+        clearInterval(detailsJoinCheckTimer);
+        detailsJoinCheckTimer = null;
+    }
     if (detailsOverlay) {
         detailsOverlay.classList.remove('is-open');
         detailsOverlay.setAttribute('aria-hidden', 'true');
@@ -306,6 +414,43 @@ document.addEventListener('click', (e) => {
     $('details-time').textContent = getAppointmentTimeDisplay(apt);
     $('details-concern').textContent = (apt.reason?.trim()) ? apt.reason.trim() : '—';
     $('details-appointment-id').textContent = aptId || '—';
+    const mediaUrls = apt.mediaUrls && Array.isArray(apt.mediaUrls) ? apt.mediaUrls : [];
+    const placeholderEl = $('details-shared-images-placeholder');
+    const listEl = $('details-shared-images-list');
+    if (placeholderEl) placeholderEl.classList.toggle('is-hidden', mediaUrls.length > 0);
+    if (listEl) {
+        listEl.classList.toggle('is-hidden', mediaUrls.length === 0);
+        listEl.innerHTML = '';
+        mediaUrls.forEach((url, idx) => {
+            const isPdf = /\.pdf(\?|$)/i.test(url) || (typeof url === 'string' && url.toLowerCase().includes('pdf'));
+            const isImage = !isPdf;
+            const item = document.createElement('div');
+            item.className = 'details-shared-image-item';
+            if (isImage) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'details-shared-image-link';
+                btn.dataset.url = url;
+                btn.dataset.isImage = 'true';
+                const img = document.createElement('img');
+                img.src = url;
+                img.alt = `Shared image ${idx + 1}`;
+                img.className = 'details-shared-image-thumb';
+                img.loading = 'lazy';
+                btn.appendChild(img);
+                item.appendChild(btn);
+            } else {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'details-shared-file-link';
+                btn.dataset.url = url;
+                btn.dataset.isImage = 'false';
+                btn.innerHTML = '<i class="fa fa-file-pdf-o" aria-hidden="true"></i> View document ' + (idx + 1);
+                item.appendChild(btn);
+            }
+            listEl.appendChild(item);
+        });
+    }
     const vetImg = $('details-vet-img');
     const vetFallback = $('details-vet-avatar-fallback');
     if (vetImg) { vetImg.style.display = 'none'; vetImg.src = ''; vetImg.alt = apt.vetName || 'Vet'; }
@@ -348,17 +493,88 @@ document.addEventListener('click', (e) => {
             }
         });
     }
+    currentDetailsApt = apt;
+    updateDetailsJoinButton(apt);
+    if (detailsJoinCheckTimer) clearInterval(detailsJoinCheckTimer);
+    detailsJoinCheckTimer = setInterval(() => {
+        if (currentDetailsApt && detailsOverlay?.classList.contains('is-open')) {
+            updateDetailsJoinButton(currentDetailsApt);
+        }
+    }, 30000);
     detailsOverlay.classList.add('is-open');
     detailsOverlay.setAttribute('aria-hidden', 'false');
     detailsModalEl.focus();
     document.body.style.overflow = 'hidden';
 });
 detailsClose?.addEventListener('click', closeDetailsModal);
+detailsMessageBtn?.addEventListener('click', () => {
+    if (!currentDetailsApt?.vetId || !currentDetailsApt?.petId) return;
+    closeDetailsModal();
+    const params = new URLSearchParams({
+        vetId: currentDetailsApt.vetId,
+        petId: currentDetailsApt.petId,
+    });
+    if (currentDetailsApt.petName) params.set('petName', currentDetailsApt.petName);
+    if (currentDetailsApt.vetName) params.set('vetName', currentDetailsApt.vetName);
+    window.location.href = `messages.html?${params.toString()}`;
+});
 detailsOverlay?.addEventListener('click', (e) => { if (e.target === detailsOverlay) closeDetailsModal(); });
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && detailsOverlay?.classList.contains('is-open')) closeDetailsModal();
 });
-detailsJoinBtn?.addEventListener('click', () => alert('Video call integration coming soon. You will be able to join your consultation here.'));
+detailsJoinBtn?.addEventListener('click', () => {
+    if (!currentDetailsApt || detailsJoinBtn.disabled) return;
+    window.location.href = `video-call.html?appointmentId=${currentDetailsApt.id}`;
+});
+
+/* Details media lightbox (click to enlarge, no new tab) */
+function initDetailsMediaLightbox() {
+    const lb = $('details-media-lightbox');
+    const lbImg = lb?.querySelector('.details-media-lightbox-img');
+    const lbIframe = lb?.querySelector('.details-media-lightbox-iframe');
+    const closeBtn = lb?.querySelector('.details-media-lightbox-close');
+    const backdrop = lb?.querySelector('.details-media-lightbox-backdrop');
+    const listEl = $('details-shared-images-list');
+
+    const closeLB = () => {
+        if (!lb) return;
+        lb.classList.add('is-hidden');
+        lb.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = (detailsOverlay?.classList.contains('is-open') ? 'hidden' : '');
+        if (lbImg) { lbImg.src = ''; lbImg.classList.remove('is-hidden'); }
+        if (lbIframe) { lbIframe.src = ''; lbIframe.classList.add('is-hidden'); }
+    };
+    const openLB = (url, isImage) => {
+        if (!lb) return;
+        if (isImage) {
+            if (lbImg) { lbImg.src = url; lbImg.classList.remove('is-hidden'); }
+            if (lbIframe) { lbIframe.src = ''; lbIframe.classList.add('is-hidden'); }
+        } else {
+            if (lbIframe) { lbIframe.src = url; lbIframe.classList.remove('is-hidden'); }
+            if (lbImg) { lbImg.src = ''; lbImg.classList.add('is-hidden'); }
+        }
+        lb.classList.remove('is-hidden');
+        lb.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+    };
+
+    closeBtn?.addEventListener('click', closeLB);
+    backdrop?.addEventListener('click', closeLB);
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && lb && !lb.classList.contains('is-hidden')) {
+            closeLB();
+            e.preventDefault();
+            e.stopPropagation();
+        }
+    }, true);
+    listEl?.addEventListener('click', (e) => {
+        const btn = e.target.closest('.details-shared-image-link, .details-shared-file-link');
+        if (!btn?.dataset?.url) return;
+        e.preventDefault();
+        openLB(btn.dataset.url, btn.dataset.isImage === 'true');
+    });
+}
+initDetailsMediaLightbox();
 
 /* Auth & subscriptions — subscribe to appointments first so loading clears even if loadVets/loadPets fail */
 auth.onAuthStateChanged((user) => {
@@ -380,12 +596,14 @@ auth.onAuthStateChanged((user) => {
         populatePetSelect($('booking-pet-dropdown'), pets);
         const petHint = $('booking-pet-hint');
         if (petHint) petHint.classList.toggle('is-hidden', pets.length > 0);
-        if (confirmBtn) confirmBtn.disabled = pets.length === 0;
+        window._bookingPetsCount = pets.length;
+        updateConfirmButtonState();
     }).catch((err) => {
         console.error('Load vets/pets for appointment page:', err);
         populateVetSelect($('booking-vet-dropdown'), []);
         populatePetSelect($('booking-pet-dropdown'), []);
-        if (confirmBtn) confirmBtn.disabled = true;
+        window._bookingPetsCount = 0;
+        updateConfirmButtonState();
     });
 });
 
@@ -429,8 +647,21 @@ form?.addEventListener('submit', async (e) => {
                 return;
             }
         }
-        if (confirmBtn) confirmBtn.querySelector('.booking-confirm-text').textContent = 'Booking consultation…';
+        if (confirmBtn) confirmBtn.querySelector('.booking-confirm-text').textContent = 'Saving files…';
         const petSpecies = petSelect?.dataset?.species || '';
+        syncFileInputFromBookingMedia();
+        const mediaFiles = bookingMediaFiles.length ? bookingMediaFiles : (fileInput?.files ? Array.from(fileInput.files) : []);
+        let mediaKey = null;
+        if (mediaFiles.length > 0) {
+            try {
+                mediaKey = await saveBookingMediaToIndexedDB(mediaFiles);
+            } catch (err) {
+                showFormError('Could not save your files. Please try again.');
+                if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.querySelector('.booking-confirm-text').textContent = 'Book Online Consultation'; }
+                return;
+            }
+        }
+        if (confirmBtn) confirmBtn.querySelector('.booking-confirm-text').textContent = 'Booking consultation…';
         const booking = {
             title: title || null,
             petId,
@@ -444,6 +675,7 @@ form?.addEventListener('submit', async (e) => {
             timeDisplay,
             slotStart: timeVal || null,
             slotEnd: slotEnd || null,
+            mediaKey: mediaKey || undefined,
         };
         sessionStorage.setItem('televet_booking', JSON.stringify(booking));
         closeModal();
