@@ -139,6 +139,7 @@ function subscribeToConversations() {
                 const conv = state.conversations.find(c => c.id === state.currentConvId);
                 if (conv) { updateChatHeader(conv); state.currentConvData = conv; renderChatMessages(state.lastRenderedMessages, conv); }
             }
+            tryOpenConversationFromParams();
         },
         err => { console.error('Conversations listener error:', err); setListState(false, true, false); }
     );
@@ -208,6 +209,68 @@ async function handleFormSubmit(e) {
         showModalError(err?.message || 'Failed to start conversation. Please try again.');
     } finally {
         if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Start Chat'; }
+    }
+}
+
+/* ── Open conversation from URL (e.g. from appointment details Message button) ── */
+let hasHandledParams = false;
+async function tryOpenConversationFromParams() {
+    if (hasHandledParams) return;
+    const params = new URLSearchParams(location.search);
+    const vetId = params.get('vetId');
+    const petId = params.get('petId');
+    if (!vetId || !petId || !auth.currentUser) return;
+    hasHandledParams = true;
+    const user = auth.currentUser;
+    const petName = params.get('petName') || 'Pet';
+    const vetName = params.get('vetName') || 'Vet';
+    let conv = state.conversations.find(c => c.vetId === vetId && c.petId === petId);
+    if (conv) {
+        openConversation(conv);
+        history.replaceState(null, '', location.pathname);
+        return;
+    }
+    try {
+        const existingSnap = await getDocs(query(collection(db, 'conversations'), where('participants', 'array-contains', user.uid)));
+        const existingDoc = existingSnap.docs.find(d => { const data = d.data(); return data.vetId === vetId && data.petId === petId; });
+        if (existingDoc) {
+            conv = { id: existingDoc.id, ...existingDoc.data() };
+            if (!state.conversations.find(c => c.id === conv.id)) {
+                state.conversations = [conv, ...state.conversations];
+                setListState(false, false, true);
+                renderConversationList();
+            }
+            openConversation(conv);
+            history.replaceState(null, '', location.pathname);
+            return;
+        }
+        const ownerSnap = await getDoc(doc(db, 'users', user.uid));
+        const ownerData = ownerSnap.exists() ? ownerSnap.data() : {};
+        const ownerName = (ownerData.displayName || '').trim()
+            || [ownerData.firstName, ownerData.lastName].filter(Boolean).join(' ').trim()
+            || (ownerData.email || '').split('@')[0] || 'Pet Owner';
+        const convRef = await addDoc(collection(db, 'conversations'), {
+            ownerId: user.uid, ownerName, vetId, petId,
+            petName, vetName, vetSpecialty: '',
+            participants: [user.uid, vetId],
+            lastMessage: '', lastMessageAt: serverTimestamp(), createdAt: serverTimestamp(),
+        });
+        conv = {
+            id: convRef.id, ownerId: user.uid, ownerName, vetId, petId,
+            petName, vetName, vetSpecialty: '',
+            participants: [user.uid, vetId],
+            lastMessage: '', lastMessageAt: new Date(), createdAt: new Date(),
+        };
+        if (!state.conversations.find(c => c.id === conv.id)) {
+            state.conversations = [conv, ...state.conversations];
+            setListState(false, false, true);
+            renderConversationList();
+        }
+        openConversation(conv);
+        history.replaceState(null, '', location.pathname);
+    } catch (err) {
+        console.error('Open conversation from params:', err);
+        hasHandledParams = false;
     }
 }
 

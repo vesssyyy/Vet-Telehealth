@@ -435,7 +435,8 @@ async function uploadMediaFiles(appointmentId, ownerId, files) {
     const urls = [];
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const ext = (file.name || '').split('.').pop() || 'bin';
+        const name = file.name || `file_${i}`;
+        const ext = name.split('.').pop() || (file.type && file.type.indexOf('pdf') !== -1 ? 'pdf' : 'bin');
         const path = `appointments/${appointmentId}/media/${ownerId}_${Date.now()}_${i}.${ext}`;
         const ref = storageRef(storage, path);
         await uploadBytesResumable(ref, file);
@@ -539,7 +540,8 @@ export async function createAppointment(data) {
                     });
                 }
             } catch (err) {
-                console.warn('Media upload failed:', err);
+                console.error('Appointment media upload failed:', err);
+                throw new Error('Your appointment was booked but uploading photos failed. You can send them in the chat. ' + (err.message || ''));
             }
         }
         return { id: appointmentId, ...appointmentData };
@@ -558,7 +560,8 @@ export async function createAppointment(data) {
                 });
             }
         } catch (err) {
-            console.warn('Media upload failed:', err);
+            console.error('Appointment media upload failed:', err);
+            throw new Error('Your appointment was booked but uploading photos failed. You can send them in the chat. ' + (err.message || ''));
         }
     }
 

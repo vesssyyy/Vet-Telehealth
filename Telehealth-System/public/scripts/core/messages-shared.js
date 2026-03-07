@@ -14,7 +14,7 @@
  */
 
 import { auth, db } from './firebase-config.js';
-import { escapeHtml, formatConversationMeta, formatMessageTime, timestampToMs } from './utils.js';
+import { escapeHtml, formatConversationMeta, formatMessageTimeWithDate, timestampToMs } from './utils.js';
 import {
     validateAttachment, getAttachmentKind,
     uploadMessageAttachment, renderAttachment,
@@ -53,6 +53,7 @@ export function createMessaging(config) {
         sendBtn:             $('messages-send-btn'),
         attachInput:         $('messages-attach-input'),
         attachBtn:           $('messages-attach-btn'),
+        emojiBtn:            $('messages-emoji-btn'),
         attachPreview:       $('messages-attach-preview'),
         attachPreviewName:   $('messages-attach-preview-name'),
         attachPreviewRemove: $('messages-attach-preview-remove'),
@@ -69,6 +70,7 @@ export function createMessaging(config) {
         lastRenderedMessages:       [],
         currentConvData:            undefined,
         deliveredUpdateTimeouts:    new Map(),
+        timeVisibleMessageId:       null, // message id whose timestamp is shown (survives re-renders)
     };
 
     /* ── List / chat view ──────────────────────────────────────────── */
@@ -120,25 +122,65 @@ export function createMessaging(config) {
             if (messages[i].senderId === uid) { lastSentId = messages[i].id; break; }
         }
 
-        messages.forEach(msg => {
+        messages.forEach((msg, index) => {
             const isSent     = msg.senderId === uid;
             const isSending  = msg.status === 'sending';
             const side       = isSent ? 'sent' : 'received';
+            const isLast     = index === messages.length - 1;
+            const showTime   = isLast || msg.id === state.timeVisibleMessageId;
             const avatarIcon = isSent ? sentAvatarIcon : receivedAvatarIcon;
+            const timeLabel  = formatMessageTimeWithDate(msg.sentAt);
             const row        = document.createElement('div');
-            row.className    = `message-row message-row--${side}`;
+            row.className    = `message-row message-row--${side} message-row--clickable${isLast ? ' message-row--last' : ''}${showTime ? ' message-row--time-visible' : ''}`;
+            row.dataset.messageId = msg.id;
+            row.setAttribute('role', 'button');
+            row.setAttribute('tabindex', '0');
+            row.setAttribute('aria-label', isLast ? 'Last message' : 'Message, click to show time');
             row.innerHTML = `
                 <div class="message-row-avatar"><i class="fa ${avatarIcon}" aria-hidden="true"></i></div>
                 <div class="message-bubble message-bubble--${side}">
                     ${msg.attachment ? renderAttachment(msg.attachment, isSending) : ''}
                     ${msg.text ? `<div>${escapeHtml(msg.text)}</div>` : ''}
                     <div class="message-bubble-footer">
-                        <span class="message-bubble-time">${formatMessageTime(msg.sentAt)}</span>
+                        <span class="message-bubble-time message-bubble-time--reveal" title="${escapeHtml(timeLabel)}">${escapeHtml(timeLabel)}</span>
                         ${isSent ? renderMessageStatusIcon(msg, convData, msg.id === lastSentId) : ''}
                     </div>
                 </div>
             `;
+            row.addEventListener('click', (e) => {
+                if (e.target.closest('a, button')) return;
+                if (row.classList.contains('message-row--last')) return;
+                if (row.classList.contains('message-row--time-visible')) {
+                    state.timeVisibleMessageId = null;
+                    row.classList.remove('message-row--time-visible');
+                    return;
+                }
+                state.timeVisibleMessageId = msg.id;
+                body.querySelectorAll('.message-row:not(.message-row--last)').forEach(r => r.classList.remove('message-row--time-visible'));
+                row.classList.add('message-row--time-visible');
+                e.stopPropagation();
+            });
+            row.addEventListener('keydown', (e) => {
+                if (e.key !== 'Enter' && e.key !== ' ') return;
+                e.preventDefault();
+                if (row.classList.contains('message-row--last')) return;
+                if (row.classList.contains('message-row--time-visible')) {
+                    state.timeVisibleMessageId = null;
+                    row.classList.remove('message-row--time-visible');
+                    return;
+                }
+                state.timeVisibleMessageId = msg.id;
+                body.querySelectorAll('.message-row:not(.message-row--last)').forEach(r => r.classList.remove('message-row--time-visible'));
+                row.classList.add('message-row--time-visible');
+            });
             body.appendChild(row);
+        });
+
+        body.addEventListener('click', (e) => {
+            if (e.target.closest('a, button')) return;
+            if (e.target.closest('.message-row')) return;
+            state.timeVisibleMessageId = null;
+            body.querySelectorAll('.message-row:not(.message-row--last)').forEach(r => r.classList.remove('message-row--time-visible'));
         });
 
         body.querySelectorAll('.message-attachment-img').forEach(img => {
@@ -175,6 +217,7 @@ export function createMessaging(config) {
      * @param {function} markReadFn   async () → updateDoc for lastReadAt
      */
     function subscribeMessages(conv, myId, markReadFn) {
+        state.timeVisibleMessageId = null;
         if (state.conversationDocUnsubscribe) state.conversationDocUnsubscribe();
         state.conversationDocUnsubscribe = onSnapshot(
             doc(db, 'conversations', conv.id),
@@ -206,6 +249,7 @@ export function createMessaging(config) {
         refs.composeInput?.blur();
         document.body.classList.remove('messages-input-focused');
         state.currentConvId = null;
+        state.timeVisibleMessageId = null;
         if (state.conversationDocUnsubscribe) { state.conversationDocUnsubscribe(); state.conversationDocUnsubscribe = null; }
         if (state.messagesUnsubscribe)        { state.messagesUnsubscribe();        state.messagesUnsubscribe        = null; }
         showPlaceholder();
@@ -258,6 +302,89 @@ export function createMessaging(config) {
         if (refs.attachPreviewName) refs.attachPreviewName.textContent = '';
     }
 
+    /* ── Emoji picker ──────────────────────────────────────────────── */
+    const EMOJI_LIST = ['😀','😊','😁','😂','🤣','😃','😄','😅','😉','😍','😘','🥰','🙂','🤗','😋','😜','😎','🤔','😐','😏','🙄','😌','😔','😴','😷','🤒','🤢','🤧','😵','😤','😡','👍','👎','👏','🙌','🙏','✌️','🤞','👌','❤️','🧡','💛','💚','💙','💜','🖤','💕','💖','💪','🐾','🐕','🐈','🦴','⭐','🔥','✨','💯'];
+    let emojiPickerEl = null;
+
+    function getOrCreateEmojiPicker() {
+        if (emojiPickerEl) return emojiPickerEl;
+        emojiPickerEl = document.createElement('div');
+        emojiPickerEl.id = 'messages-emoji-picker';
+        emojiPickerEl.className = 'messages-emoji-picker';
+        emojiPickerEl.setAttribute('role', 'listbox');
+        emojiPickerEl.setAttribute('aria-label', 'Choose emoji');
+        EMOJI_LIST.forEach(emoji => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'messages-emoji-picker-item';
+            btn.textContent = emoji;
+            btn.setAttribute('role', 'option');
+            btn.setAttribute('aria-label', `Insert ${emoji}`);
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                insertEmojiAtCursor(emoji);
+                closeEmojiPicker();
+            });
+            emojiPickerEl.appendChild(btn);
+        });
+        document.body.appendChild(emojiPickerEl);
+        document.addEventListener('click', (e) => {
+            if (emojiPickerEl?.classList.contains('is-open') && !emojiPickerEl.contains(e.target) && e.target !== refs.emojiBtn) {
+                closeEmojiPicker();
+            }
+        });
+        return emojiPickerEl;
+    }
+
+    function insertEmojiAtCursor(emoji) {
+        const input = refs.composeInput;
+        if (!input) return;
+        const start = input.selectionStart ?? input.value.length;
+        const end = input.selectionEnd ?? input.value.length;
+        const before = input.value.slice(0, start);
+        const after = input.value.slice(end);
+        const newVal = before + emoji + after;
+        if (newVal.length > (input.getAttribute('maxlength') || 2000)) return;
+        input.value = newVal;
+        const newPos = start + emoji.length;
+        input.setSelectionRange(newPos, newPos);
+        input.focus();
+        resizeComposeInput();
+    }
+
+    function toggleEmojiPicker() {
+        const picker = getOrCreateEmojiPicker();
+        const isOpen = picker.classList.toggle('is-open');
+        refs.emojiBtn?.setAttribute('aria-expanded', String(isOpen));
+        if (isOpen) {
+            const wrap = refs.composeInput?.closest('.messages-chat-compose');
+            if (wrap) {
+                const br = wrap.getBoundingClientRect();
+                const margin = 8;
+                const maxH = 220;
+                let left = Math.max(margin, br.left);
+                const maxW = Math.min(320, window.innerWidth - margin * 2);
+                let width = Math.min(br.width, maxW, window.innerWidth - left - margin);
+                if (left + width > window.innerWidth - margin) {
+                    width = window.innerWidth - left - margin;
+                }
+                left = Math.min(left, window.innerWidth - width - margin);
+                const bottomFromCompose = window.innerHeight - br.top + margin;
+                const bottom = Math.min(bottomFromCompose, window.innerHeight - maxH - margin);
+                picker.style.left = `${left}px`;
+                picker.style.width = `${Math.max(width, 200)}px`;
+                picker.style.bottom = `${bottom}px`;
+                picker.style.top = '';
+                picker.style.right = '';
+            }
+        }
+    }
+
+    function closeEmojiPicker() {
+        emojiPickerEl?.classList.remove('is-open');
+        refs.emojiBtn?.setAttribute('aria-expanded', 'false');
+    }
+
     /* ── Send message ──────────────────────────────────────────────── */
     async function doSendMessage() {
         if (state.isSendingMessage) return;
@@ -266,6 +393,7 @@ export function createMessaging(config) {
         if ((!text && !fileToUpload) || !state.currentConvId || !auth.currentUser) return;
 
         state.isSendingMessage = true;
+        closeEmojiPicker();
         if (refs.sendBtn) { refs.sendBtn.disabled = true; refs.sendBtn.setAttribute('aria-busy', 'true'); }
 
         const resetSending = () => {
@@ -441,6 +569,12 @@ export function createMessaging(config) {
         }
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) document.body.classList.remove('messages-input-focused');
+        });
+
+        /* Emoji */
+        refs.emojiBtn?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleEmojiPicker();
         });
 
         /* Attachment */

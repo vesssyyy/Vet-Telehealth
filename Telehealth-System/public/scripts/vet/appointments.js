@@ -4,6 +4,7 @@
  */
 import { auth, db } from '../core/firebase-config.js';
 import { escapeHtml } from '../core/utils.js';
+import { isWithinAppointmentTime, getJoinAvailableLabel } from '../core/video-call-utils.js';
 import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 
 (function () {
@@ -33,6 +34,7 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
     let currentTemplateAction = null, schedulesUnsubscribe = null;
     let blockCalendarMonth = null, blockSelectedDates = new Set(), blockPreviouslyBlocked = new Set();
     let editDayDateStr = null, editDaySlots = [];
+    let currentDetailsApt = null;
 
     // === DOM & UI helpers ===
     const invalidateSchedulesCache = () => { cachedSchedules = null; };
@@ -505,7 +507,24 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
         if (visible && modal) modal.focus();
     }
 
+    let detailsJoinCheckTimer = null;
+
+    function updateDetailsJoinButton(apt) {
+        const joinBtn = $('details-join-btn');
+        if (!joinBtn || !apt) return;
+        const within = isWithinAppointmentTime(apt);
+        joinBtn.disabled = !within;
+        const label = getJoinAvailableLabel(apt);
+        joinBtn.title = label;
+        joinBtn.innerHTML = `<i class="fa fa-video-camera" aria-hidden="true"></i><span class="details-join-btn-text">${label}</span>`;
+        joinBtn.classList.toggle('is-past', !within);
+    }
+
     function closeSlotDetailsModal() {
+        if (detailsJoinCheckTimer) {
+            clearInterval(detailsJoinCheckTimer);
+            detailsJoinCheckTimer = null;
+        }
         setDetailsModalVisible(false);
     }
 
@@ -521,6 +540,7 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
     }
 
     function fillDetailsModalFromApt(apt) {
+        currentDetailsApt = apt || null;
         const titleEl = $('details-title');
         const ownerNameEl = $('details-owner-name');
         const ownerImg = $('details-owner-img');
@@ -606,6 +626,51 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
         }
         if (concernEl) concernEl.textContent = (apt.reason && apt.reason.trim()) ? apt.reason.trim() : '—';
         if (idEl) idEl.textContent = apt.id || '—';
+
+        const placeholderEl = $('details-shared-images-placeholder');
+        const listEl = $('details-shared-images-list');
+        const mediaUrls = apt.mediaUrls && Array.isArray(apt.mediaUrls) ? apt.mediaUrls : [];
+        if (placeholderEl) placeholderEl.classList.toggle('is-hidden', mediaUrls.length > 0);
+        if (listEl) {
+            listEl.classList.toggle('is-hidden', mediaUrls.length === 0);
+            listEl.innerHTML = '';
+            mediaUrls.forEach((url, idx) => {
+                const isPdf = /\.pdf(\?|$)/i.test(url) || (typeof url === 'string' && url.toLowerCase().includes('pdf'));
+                const isImage = !isPdf;
+                const item = document.createElement('div');
+                item.className = 'details-shared-image-item';
+                if (isImage) {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'details-shared-image-link';
+                    btn.dataset.url = url;
+                    btn.dataset.isImage = 'true';
+                    const img = document.createElement('img');
+                    img.src = url;
+                    img.alt = `Shared image ${idx + 1}`;
+                    img.className = 'details-shared-image-thumb';
+                    img.loading = 'lazy';
+                    btn.appendChild(img);
+                    item.appendChild(btn);
+                } else {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'details-shared-file-link';
+                    btn.dataset.url = url;
+                    btn.dataset.isImage = 'false';
+                    btn.innerHTML = '<i class="fa fa-file-pdf-o" aria-hidden="true"></i> View document ' + (idx + 1);
+                    item.appendChild(btn);
+                }
+                listEl.appendChild(item);
+            });
+        }
+        updateDetailsJoinButton(apt);
+        if (detailsJoinCheckTimer) clearInterval(detailsJoinCheckTimer);
+        detailsJoinCheckTimer = setInterval(() => {
+            if (currentDetailsApt && detailsOverlay()?.classList.contains('is-open')) {
+                updateDetailsJoinButton(currentDetailsApt);
+            }
+        }, 30000);
     }
 
     function fillDetailsModalFromSlotData(appointmentId, slotData) {
@@ -622,6 +687,8 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
             reason: slotData.reason || '—',
             dateStr: slotData.dateStr,
             date: slotData.dateStr,
+            slotStart: slotData.timeStart,
+            slotEnd: slotData.timeEnd,
             timeDisplay,
         });
     }
@@ -1811,7 +1878,65 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && detailsOverlay()?.classList.contains('is-open')) closeSlotDetailsModal();
         });
-        $('details-join-btn')?.addEventListener('click', () => alert('Video call integration coming soon. You will be able to join the consultation here.'));
+        $('details-message-btn')?.addEventListener('click', () => {
+            if (currentDetailsApt?.ownerId && currentDetailsApt?.petId) {
+                closeSlotDetailsModal();
+                const params = new URLSearchParams({ ownerId: currentDetailsApt.ownerId, petId: currentDetailsApt.petId });
+                window.location.href = `messages.html?${params.toString()}`;
+            }
+        });
+        $('details-join-btn')?.addEventListener('click', () => {
+            if (!currentDetailsApt || $('details-join-btn')?.disabled) return;
+            window.location.href = `video-call.html?appointmentId=${currentDetailsApt.id}`;
+        });
+
+        /* Details media lightbox (click to enlarge, no new tab) */
+        (function initDetailsMediaLightbox() {
+            const lb = $('details-media-lightbox');
+            const lbImg = lb?.querySelector('.details-media-lightbox-img');
+            const lbIframe = lb?.querySelector('.details-media-lightbox-iframe');
+            const closeBtn = lb?.querySelector('.details-media-lightbox-close');
+            const backdrop = lb?.querySelector('.details-media-lightbox-backdrop');
+            const listEl = $('details-shared-images-list');
+
+            const closeLB = () => {
+                if (!lb) return;
+                lb.classList.add('is-hidden');
+                lb.setAttribute('aria-hidden', 'true');
+                document.body.style.overflow = (detailsOverlay()?.classList.contains('is-open') ? 'hidden' : '');
+                if (lbImg) { lbImg.src = ''; lbImg.classList.remove('is-hidden'); }
+                if (lbIframe) { lbIframe.src = ''; lbIframe.classList.add('is-hidden'); }
+            };
+            const openLB = (url, isImage) => {
+                if (!lb) return;
+                if (isImage) {
+                    if (lbImg) { lbImg.src = url; lbImg.classList.remove('is-hidden'); }
+                    if (lbIframe) { lbIframe.src = ''; lbIframe.classList.add('is-hidden'); }
+                } else {
+                    if (lbIframe) { lbIframe.src = url; lbIframe.classList.remove('is-hidden'); }
+                    if (lbImg) { lbImg.src = ''; lbImg.classList.add('is-hidden'); }
+                }
+                lb.classList.remove('is-hidden');
+                lb.setAttribute('aria-hidden', 'false');
+                document.body.style.overflow = 'hidden';
+            };
+
+            closeBtn?.addEventListener('click', closeLB);
+            backdrop?.addEventListener('click', closeLB);
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && lb && !lb.classList.contains('is-hidden')) {
+                    closeLB();
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            }, true);
+            listEl?.addEventListener('click', (e) => {
+                const btn = e.target.closest('.details-shared-image-link, .details-shared-file-link');
+                if (!btn?.dataset?.url) return;
+                e.preventDefault();
+                openLB(btn.dataset.url, btn.dataset.isImage === 'true');
+            });
+        })();
 
         $('schedules-list')?.addEventListener('click', (e) => {
             const viewDetailsBtn = e.target.closest('.slot-details-view-btn');

@@ -217,6 +217,61 @@
         import { auth } from '../scripts/core/firebase-config.js';
         import { createAppointment, markAppointmentPaid } from '../scripts/petowner/appointment-manager.js';
 
+        var BOOKING_MEDIA_DB = 'televet_booking_media';
+        var BOOKING_MEDIA_STORE = 'files';
+
+        function getBookingMediaFromIndexedDB(mediaKey) {
+            return new Promise(function (resolve, reject) {
+                if (!mediaKey) { resolve([]); return; }
+                var request = indexedDB.open(BOOKING_MEDIA_DB, 1);
+                request.onerror = function () { reject(new Error('Could not load attached files.')); };
+                request.onupgradeneeded = function (e) {
+                    if (!e.target.result.objectStoreNames.contains(BOOKING_MEDIA_STORE)) {
+                        e.target.result.createObjectStore(BOOKING_MEDIA_STORE, { keyPath: 'key' });
+                    }
+                };
+                request.onsuccess = function (e) {
+                    var db = e.target.result;
+                    var tx = db.transaction(BOOKING_MEDIA_STORE, 'readonly');
+                    var store = tx.objectStore(BOOKING_MEDIA_STORE);
+                    var getReq = store.get(mediaKey);
+                    getReq.onsuccess = function () {
+                        var record = getReq.result;
+                        db.close();
+                        var raw = record && record.files ? record.files : [];
+                        var out = [];
+                        for (var i = 0; i < raw.length; i++) {
+                            var f = raw[i];
+                            if (f instanceof File) {
+                                out.push(f);
+                            } else if (f && (f instanceof Blob || f.type != null)) {
+                                var name = f.name || ('file_' + i + (f.type && f.type.indexOf('pdf') !== -1 ? '.pdf' : '.jpg'));
+                                out.push(new File([f], name, { type: f.type || 'application/octet-stream' }));
+                            }
+                        }
+                        resolve(out);
+                    };
+                    getReq.onerror = function () { db.close(); reject(getReq.error); };
+                };
+            });
+        }
+
+        function deleteBookingMediaFromIndexedDB(mediaKey) {
+            return new Promise(function (resolve, reject) {
+                if (!mediaKey) { resolve(); return; }
+                var request = indexedDB.open(BOOKING_MEDIA_DB, 1);
+                request.onerror = function () { resolve(); };
+                request.onsuccess = function (e) {
+                    var db = e.target.result;
+                    var tx = db.transaction(BOOKING_MEDIA_STORE, 'readwrite');
+                    var store = tx.objectStore(BOOKING_MEDIA_STORE);
+                    store.delete(mediaKey);
+                    tx.oncomplete = function () { db.close(); resolve(); };
+                    tx.onerror = function () { db.close(); resolve(); };
+                };
+            });
+        }
+
         var params = new URLSearchParams(window.location.search);
         var summaryEl = document.getElementById('payment-booking-summary');
         var successBadge = document.getElementById('payment-success-badge');
@@ -248,6 +303,10 @@
                         btnConfirmPay.disabled = true;
                         btnConfirmPay.textContent = 'Processing…';
                         try {
+                            var mediaFiles = [];
+                            if (booking.mediaKey) {
+                                mediaFiles = await getBookingMediaFromIndexedDB(booking.mediaKey);
+                            }
                             var data = {
                                 title: booking.title || null,
                                 petId: booking.petId,
@@ -259,12 +318,13 @@
                                 reason: booking.reason,
                                 dateStr: booking.dateStr,
                                 timeDisplay: booking.timeDisplay,
-                                mediaFiles: [],
+                                mediaFiles: mediaFiles,
                                 slotStart: booking.slotStart || null,
                                 slotEnd: booking.slotEnd || null,
                             };
                             var res = await createAppointment(data);
                             await markAppointmentPaid(res.id);
+                            await deleteBookingMediaFromIndexedDB(booking.mediaKey);
                             sessionStorage.removeItem('televet_booking');
                             if (summaryEl) summaryEl.style.display = 'none';
                             if (btnConfirmPay) btnConfirmPay.style.display = 'none';
