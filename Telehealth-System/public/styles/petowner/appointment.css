@@ -815,6 +815,15 @@ button.details-shared-image-link { padding: 0; }
     cursor: default;
 }
 .details-join-btn.is-past:hover { transform: none; box-shadow: 0 2px 8px rgba(148,163,184,.3); }
+.details-join-btn:disabled,
+.details-join-btn.is-session-ended {
+    pointer-events: none;
+    cursor: not-allowed;
+    opacity: 0.65;
+}
+.details-join-btn.is-loading-video-status {
+    pointer-events: none;
+}
 
 /* ========== Responsive ========== */
 @media (max-width: 1024px) {

@@ -17,7 +17,9 @@ import {
     getAppointmentTimeDisplay,
     CLINIC_HOURS_PLACEHOLDER,
 } from './appointment-manager.js';
-import { auth } from '../core/firebase-config.js';
+import { auth, db } from '../core/firebase-config.js';
+import { formatTime12h } from '../core/utils.js';
+import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 import { isWithinAppointmentTime, getJoinAvailableLabel } from '../core/video-call-utils.js';
 
 const $ = (id) => document.getElementById(id);
@@ -260,18 +262,7 @@ function formatTimeDisplay(timeVal, slotEnd, dateStr) {
         }
         return CLINIC_HOURS_PLACEHOLDER;
     }
-    const parts = timeVal.split(':');
-    const h = parseInt(parts[0], 10);
-    const m = parts[1] ? parseInt(parts[1], 10) : 0;
-    const startStr = (h % 12 || 12) + ':' + String(m).padStart(2, '0') + ' ' + (h >= 12 ? 'PM' : 'AM');
-    let endStr = '';
-    if (slotEnd) {
-        const p = slotEnd.split(':');
-        const hE = parseInt(p[0], 10);
-        const mM = p[1] ? parseInt(p[1], 10) : 0;
-        endStr = (hE % 12 || 12) + ':' + String(mM).padStart(2, '0') + ' ' + (hE >= 12 ? 'PM' : 'AM');
-    }
-    const timeDisplay = startStr + (endStr ? ' – ' + endStr : '');
+    const timeDisplay = formatTime12h(timeVal) + (slotEnd ? ' \u2013 ' + formatTime12h(slotEnd) : '');
     if (dateStr) {
         try {
             const d = new Date(dateStr + 'T' + timeVal);
@@ -282,18 +273,30 @@ function formatTimeDisplay(timeVal, slotEnd, dateStr) {
 }
 
 /* Tabs */
+function switchToTab(tabKey) {
+    const tab = document.querySelector(`.appointments-tab[data-tab="${tabKey}"]`);
+    if (!tab) return;
+    document.querySelectorAll('.appointments-tab').forEach((tb) => {
+        tb.classList.toggle('active', tb === tab);
+        tb.setAttribute('aria-selected', tb === tab ? 'true' : 'false');
+    });
+    document.querySelectorAll('.appointments-tab-panel').forEach((p) => {
+        p.classList.toggle('is-hidden', p.id !== 'panel-' + tabKey);
+    });
+}
+
 document.querySelectorAll('.appointments-tab').forEach((tab) => {
     tab.addEventListener('click', () => {
         const t = tab.getAttribute('data-tab');
-        document.querySelectorAll('.appointments-tab').forEach((tb) => {
-            tb.classList.toggle('active', tb === tab);
-            tb.setAttribute('aria-selected', tb === tab ? 'true' : 'false');
-        });
-        document.querySelectorAll('.appointments-tab-panel').forEach((p) => {
-            p.classList.toggle('is-hidden', p.id !== 'panel-' + t);
-        });
+        switchToTab(t);
     });
 });
+
+// If redirected from session-ended (e.g. ?tab=history), open History tab
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('tab') === 'history') {
+    switchToTab('history');
+}
 
 document.addEventListener('click', (e) => {
     if (e.target?.closest?.('#book-appointment-btn')) { e.preventDefault(); openModal(); }
@@ -367,14 +370,17 @@ const detailsJoinBtn = $('details-join-btn');
 let currentDetailsApt = null;
 let detailsJoinCheckTimer = null;
 
-function updateDetailsJoinButton(apt) {
+function updateDetailsJoinButton(apt, videoCall) {
     if (!detailsJoinBtn || !apt) return;
-    const within = isWithinAppointmentTime(apt);
-    detailsJoinBtn.disabled = !within;
-    const label = getJoinAvailableLabel(apt);
+    const sessionEnded = videoCall?.status === 'ended';
+    const within = !sessionEnded && isWithinAppointmentTime(apt);
+    detailsJoinBtn.disabled = sessionEnded || !within;
+    detailsJoinBtn.setAttribute('aria-disabled', detailsJoinBtn.disabled ? 'true' : 'false');
+    const label = getJoinAvailableLabel(apt, videoCall);
     detailsJoinBtn.title = label;
     detailsJoinBtn.innerHTML = `<i class="fa fa-video-camera" aria-hidden="true"></i><span class="details-join-btn-text">${label}</span>`;
-    detailsJoinBtn.classList.toggle('is-past', !within);
+    detailsJoinBtn.classList.toggle('is-past', !within || sessionEnded);
+    detailsJoinBtn.classList.toggle('is-session-ended', sessionEnded);
 }
 
 function closeDetailsModal() {
@@ -494,11 +500,28 @@ document.addEventListener('click', (e) => {
         });
     }
     currentDetailsApt = apt;
-    updateDetailsJoinButton(apt);
+    if (detailsJoinBtn) {
+        detailsJoinBtn.classList.add('is-loading-video-status');
+        detailsJoinBtn.disabled = true;
+        detailsJoinBtn.setAttribute('aria-disabled', 'true');
+        detailsJoinBtn.title = 'Checking call status…';
+        detailsJoinBtn.innerHTML = '<i class="fa fa-video-camera" aria-hidden="true"></i><span class="details-join-btn-text">Loading…</span>';
+        detailsJoinBtn.classList.add('is-past');
+    }
+    getDoc(doc(db, 'appointments', apt.id, 'videoCall', 'room')).then((videoSnap) => {
+        const videoCall = videoSnap.exists() ? videoSnap.data() : null;
+        detailsJoinBtn?.classList.remove('is-loading-video-status');
+        updateDetailsJoinButton(apt, videoCall);
+    }).catch(() => {
+        detailsJoinBtn?.classList.remove('is-loading-video-status');
+        updateDetailsJoinButton(apt, null);
+    });
     if (detailsJoinCheckTimer) clearInterval(detailsJoinCheckTimer);
     detailsJoinCheckTimer = setInterval(() => {
         if (currentDetailsApt && detailsOverlay?.classList.contains('is-open')) {
-            updateDetailsJoinButton(currentDetailsApt);
+            getDoc(doc(db, 'appointments', currentDetailsApt.id, 'videoCall', 'room')).then((videoSnap) => {
+                updateDetailsJoinButton(currentDetailsApt, videoSnap.exists() ? videoSnap.data() : null);
+            }).catch(() => updateDetailsJoinButton(currentDetailsApt, null));
         }
     }, 30000);
     detailsOverlay.classList.add('is-open');
@@ -637,9 +660,13 @@ form?.addEventListener('submit', async (e) => {
     }
     try {
         if (vetId && dateStr && timeVal) {
-            const check = await checkSlotAvailability(vetId, dateStr, timeVal);
+            const ownerId = auth.currentUser?.uid || null;
+            const check = await checkSlotAvailability(vetId, dateStr, timeVal, ownerId);
             if (!check.available) {
-                showFormError("I'm sorry, this slot is no longer available. It's either deleted or already booked.");
+                const msg = check.reason === 'owner_overlap'
+                    ? "You already have an appointment at this time. Please choose another slot."
+                    : "I'm sorry, this slot is no longer available. It's either deleted or already booked.";
+                showFormError(msg);
                 if (confirmBtn) {
                     confirmBtn.disabled = false;
                     confirmBtn.querySelector('.booking-confirm-text').textContent = 'Book Online Consultation';

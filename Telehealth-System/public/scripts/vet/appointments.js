@@ -509,15 +509,18 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
 
     let detailsJoinCheckTimer = null;
 
-    function updateDetailsJoinButton(apt) {
+    function updateDetailsJoinButton(apt, videoCall) {
         const joinBtn = $('details-join-btn');
         if (!joinBtn || !apt) return;
-        const within = isWithinAppointmentTime(apt);
-        joinBtn.disabled = !within;
-        const label = getJoinAvailableLabel(apt);
+        const sessionEnded = videoCall?.status === 'ended';
+        const within = !sessionEnded && isWithinAppointmentTime(apt);
+        joinBtn.disabled = sessionEnded || !within;
+        joinBtn.setAttribute('aria-disabled', joinBtn.disabled ? 'true' : 'false');
+        const label = getJoinAvailableLabel(apt, videoCall);
         joinBtn.title = label;
         joinBtn.innerHTML = `<i class="fa fa-video-camera" aria-hidden="true"></i><span class="details-join-btn-text">${label}</span>`;
-        joinBtn.classList.toggle('is-past', !within);
+        joinBtn.classList.toggle('is-past', !within || sessionEnded);
+        joinBtn.classList.toggle('is-session-ended', sessionEnded);
     }
 
     function closeSlotDetailsModal() {
@@ -664,11 +667,28 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
                 listEl.appendChild(item);
             });
         }
-        updateDetailsJoinButton(apt);
+        const joinBtn = $('details-join-btn');
+        if (joinBtn) {
+            joinBtn.classList.add('is-loading-video-status');
+            joinBtn.disabled = true;
+            joinBtn.setAttribute('aria-disabled', 'true');
+            joinBtn.title = 'Checking call status…';
+            joinBtn.innerHTML = '<i class="fa fa-video-camera" aria-hidden="true"></i><span class="details-join-btn-text">Loading…</span>';
+            joinBtn.classList.add('is-past');
+        }
+        getDoc(doc(db, 'appointments', apt.id, 'videoCall', 'room')).then((videoSnap) => {
+            joinBtn?.classList.remove('is-loading-video-status');
+            updateDetailsJoinButton(apt, videoSnap.exists() ? videoSnap.data() : null);
+        }).catch(() => {
+            joinBtn?.classList.remove('is-loading-video-status');
+            updateDetailsJoinButton(apt, null);
+        });
         if (detailsJoinCheckTimer) clearInterval(detailsJoinCheckTimer);
         detailsJoinCheckTimer = setInterval(() => {
             if (currentDetailsApt && detailsOverlay()?.classList.contains('is-open')) {
-                updateDetailsJoinButton(currentDetailsApt);
+                getDoc(doc(db, 'appointments', currentDetailsApt.id, 'videoCall', 'room')).then((videoSnap) => {
+                    updateDetailsJoinButton(currentDetailsApt, videoSnap.exists() ? videoSnap.data() : null);
+                }).catch(() => updateDetailsJoinButton(currentDetailsApt, null));
             }
         }, 30000);
     }

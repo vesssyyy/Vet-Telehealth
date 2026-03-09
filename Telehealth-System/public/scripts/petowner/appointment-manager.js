@@ -72,6 +72,40 @@ function ensureSlotExpiry(slot, dateStr, minAdvanceMinutes) {
     return { ...slot, expiryTime: computeExpiryTimeMs(dateStr, slot.start, mins) };
 }
 
+/** Returns true if two time ranges on the same date overlap (start1 < end2 && start2 < end1). Times in "HH:mm". */
+function slotsOverlapSameDate(start1, end1, start2, end2) {
+    if (!start1 || !end1 || !start2 || !end2) return false;
+    return start1 < end2 && start2 < end1;
+}
+
+/** Load owner's upcoming appointment time ranges (dateStr, start, end) for overlap checks. Excludes cancelled/completed, dateStr >= today. */
+async function getOwnerUpcomingSlotRanges(ownerId) {
+    if (!ownerId) return [];
+    const today = getTodayDateString();
+    const q = query(appointmentsRef(), where('ownerId', '==', ownerId));
+    const snap = await getDocs(q);
+    const ranges = [];
+    snap.docs.forEach((d) => {
+        const data = d.data();
+        const status = (data.status || 'booked').toLowerCase();
+        if (status === 'cancelled' || status === 'completed') return;
+        const dateStr = data.dateStr || data.date || '';
+        if (dateStr < today) return;
+        const start = data.slotStart || data.timeStart || '';
+        if (!start) return;
+        const end = data.slotEnd || data.timeEnd || addMinutesToTime(start, DEFAULT_SLOT_DURATION_MINUTES);
+        ranges.push({ dateStr, start, end });
+    });
+    return ranges;
+}
+
+/** Returns true if the given slot overlaps any of the owner's upcoming appointments. */
+async function ownerHasOverlappingAppointment(ownerId, dateStr, slotStart, slotEnd) {
+    if (!ownerId || !dateStr || !slotStart) return false;
+    const end = slotEnd || addMinutesToTime(slotStart, DEFAULT_SLOT_DURATION_MINUTES);
+    const ranges = await getOwnerUpcomingSlotRanges(ownerId);
+    return ranges.some((r) => r.dateStr === dateStr && slotsOverlapSameDate(slotStart, end, r.start, r.end));
+}
 
 /** Default consultation duration in minutes when slotEnd is missing */
 const DEFAULT_SLOT_DURATION_MINUTES = 30;
@@ -79,17 +113,12 @@ const DEFAULT_SLOT_DURATION_MINUTES = 30;
 /** Given "HH:mm" start, return "HH:mm" start + duration minutes. */
 function addMinutesToTime(timeStr, durationMinutes) {
     if (!timeStr || typeof timeStr !== 'string') return null;
-    const parts = String(timeStr).trim().split(':');
-    const h = parseInt(parts[0], 10);
-    const m = parts[1] != null ? parseInt(parts[1], 10) : 0;
+    const [hStr, mStr = '0'] = String(timeStr).trim().split(':');
+    const h = parseInt(hStr, 10);
     if (isNaN(h)) return null;
-    let totalMins = h * 60 + m + (durationMinutes || DEFAULT_SLOT_DURATION_MINUTES);
-    const dayOverflow = Math.floor(totalMins / (24 * 60));
-    totalMins = totalMins % (24 * 60);
-    if (totalMins < 0) totalMins += 24 * 60;
-    const nh = Math.floor(totalMins / 60);
-    const nm = totalMins % 60;
-    return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
+    let total = h * 60 + parseInt(mStr, 10) + (durationMinutes || DEFAULT_SLOT_DURATION_MINUTES);
+    total = ((total % (24 * 60)) + 24 * 60) % (24 * 60);
+    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
 function vetDisplayName(data) {
@@ -330,8 +359,9 @@ export async function getAvailableDatesAndSlots(vetId) {
     return { dates, slotsByDate };
 }
 
-/** Check if a specific slot is still available (for pre-confirmation check). Returns { available: boolean }. Handles vet deleted date, blocked date, already booked by another user (race condition). */
-export async function checkSlotAvailability(vetId, dateStr, slotStart) {
+/** Check if a specific slot is still available (for pre-confirmation check). Returns { available: boolean, reason?: string }.
+ * Handles vet deleted date, blocked date, already booked by another user (race condition), and owner's own schedule overlap. */
+export async function checkSlotAvailability(vetId, dateStr, slotStart, ownerId = null) {
     if (!vetId || !dateStr || !slotStart) return { available: false };
     try {
         const [scheduleSnap, settings] = await Promise.all([
@@ -351,6 +381,13 @@ export async function checkSlotAvailability(vetId, dateStr, slotStart) {
         const nowMs = Date.now();
         if (isSlotExpired(slotWithExpiry, nowMs)) return { available: false };
         if (isSlotPastCutoff(dateStr, slotStart, minAdvance)) return { available: false };
+        if (ownerId) {
+            const slotEnd = targetSlot.end || addMinutesToTime(slotStart, DEFAULT_SLOT_DURATION_MINUTES);
+            const overlap = await ownerHasOverlappingAppointment(ownerId, dateStr, slotStart, slotEnd);
+            if (overlap) {
+                return { available: false, reason: 'owner_overlap' };
+            }
+        }
         return { available: true };
     } catch (err) {
         console.warn('checkSlotAvailability error:', err);
@@ -480,8 +517,15 @@ export async function createAppointment(data) {
     };
 
     const SLOT_UNAVAILABLE_MSG = "I'm sorry, this slot is no longer available. It's either deleted or already booked.";
+    const OWNER_OVERLAP_MSG = "You already have an appointment at this time. Please choose another slot.";
 
     if (slotStart && vetId && dateStr) {
+        const slotEndVal = data.slotEnd || addMinutesToTime(slotStart, DEFAULT_SLOT_DURATION_MINUTES);
+        const ownerOverlap = await ownerHasOverlappingAppointment(user.uid, dateStr, slotStart, slotEndVal);
+        if (ownerOverlap) {
+            throw new Error(OWNER_OVERLAP_MSG);
+        }
+
         const appointmentId = await runTransaction(db, async (transaction) => {
             const scheduleSnap = await transaction.get(scheduleDoc(vetId, dateStr));
             if (!scheduleSnap.exists()) {
@@ -601,113 +645,77 @@ export function subscribeAppointments(uid, callback) {
     );
 }
 
+function renderAppointmentCard(apt, isHistory = false) {
+    const isCat = (apt.petSpecies || '').toLowerCase() === 'cat';
+    const statusLine = isHistory
+        ? `<p class="appointment-card-status appointment-card-status--${escapeHtml((apt.status || 'completed').toLowerCase())}"><i class="fa fa-check-circle" aria-hidden="true"></i> ${escapeHtml((apt.status === 'confirmed' ? 'completed' : (apt.status || 'completed')).toLowerCase())}</p>`
+        : '';
+    return `
+        <div class="appointment-card${isHistory ? ' appointment-card--history' : ''}" data-appointment-id="${escapeHtml(apt.id)}">
+            <div class="appointment-card-pet">
+                <div class="appointment-card-pet-img${isCat ? ' appointment-card-pet-img--cat' : ''}" aria-hidden="true"><i class="fa fa-paw" aria-hidden="true"></i></div>
+            </div>
+            <div class="appointment-card-body">
+                <p class="appointment-card-title">${escapeHtml(apt.petName || 'Pet')} | ${escapeHtml(apt.title?.trim() || '—')}</p>
+                <p class="appointment-card-meta">${escapeHtml(apt.vetName || '')}${apt.clinicName ? ' · ' + escapeHtml(apt.clinicName) : ''}</p>
+                <p class="appointment-card-time"><span class="appointment-card-time-text">${escapeHtml(getAppointmentTimeDisplay(apt))}</span></p>
+                ${statusLine}
+            </div>
+            <div class="appointment-card-actions">
+                <button type="button" class="appointment-view-btn" data-id="${escapeHtml(apt.id)}">View Details <i class="fa fa-chevron-right" aria-hidden="true"></i></button>
+            </div>
+        </div>`;
+}
+
+function groupByDate(apts, dateKey) {
+    const byDate = {};
+    apts.forEach(apt => {
+        const key = apt.date || apt.dateStr || dateKey;
+        (byDate[key] ??= []).push(apt);
+    });
+    return byDate;
+}
+
 /** Render upcoming appointments into panel */
 export function renderUpcomingPanel(panelEl, appointments) {
     if (!panelEl) return;
     const upcoming = (appointments || []).filter(isUpcoming);
-    const byDate = {};
-    upcoming.forEach((apt) => {
-        const key = apt.date || apt.dateStr || 'No date';
-        if (!byDate[key]) byDate[key] = [];
-        byDate[key].push(apt);
-    });
-    const sortedDates = Object.keys(byDate).sort();
-
-    if (sortedDates.length === 0) {
+    if (upcoming.length === 0) {
         panelEl.innerHTML = `
             <div class="appointments-empty-state">
                 <i class="fa fa-calendar-plus-o" aria-hidden="true"></i>
                 <p>No upcoming online consultations</p>
                 <span class="appointments-empty-hint">Book an online video consultation using the button above.</span>
-            </div>
-        `;
+            </div>`;
         return;
     }
-
-    panelEl.innerHTML = sortedDates
-        .map((dateStr) => {
-            const heading = dateStr === 'No date' ? 'Scheduled' : formatAppointmentDate(dateStr);
-            const cards = byDate[dateStr]
-                .map(
-                    (apt) => `
-                <div class="appointment-card" data-appointment-id="${escapeHtml(apt.id)}">
-                    <div class="appointment-card-pet">
-                        <div class="appointment-card-pet-img ${(apt.petSpecies || '').toLowerCase() === 'cat' ? 'appointment-card-pet-img--cat' : ''}" aria-hidden="true"><i class="fa fa-paw" aria-hidden="true"></i></div>
-                    </div>
-                    <div class="appointment-card-body">
-                        <p class="appointment-card-title">${escapeHtml(apt.petName || 'Pet')} | ${escapeHtml(apt.title && apt.title.trim() ? apt.title.trim() : '—')}</p>
-                        <p class="appointment-card-meta">${escapeHtml(apt.vetName || '')}${apt.clinicName ? ' · ' + escapeHtml(apt.clinicName) : ''}</p>
-                        <p class="appointment-card-time"><span class="appointment-card-time-text">${escapeHtml(getAppointmentTimeDisplay(apt))}</span></p>
-                    </div>
-                    <div class="appointment-card-actions">
-                        <button type="button" class="appointment-view-btn" data-id="${escapeHtml(apt.id)}">View Details <i class="fa fa-chevron-right" aria-hidden="true"></i></button>
-                    </div>
-                </div>
-            `
-                )
-                .join('');
-            return `
-                <section class="appointments-date-group">
-                    <h3 class="appointments-date-heading">${escapeHtml(heading)}</h3>
-                    ${cards}
-                </section>
-            `;
-        })
-        .join('');
+    const byDate = groupByDate(upcoming, 'No date');
+    panelEl.innerHTML = Object.keys(byDate).sort().map(dateStr => `
+        <section class="appointments-date-group">
+            <h3 class="appointments-date-heading">${escapeHtml(dateStr === 'No date' ? 'Scheduled' : formatAppointmentDate(dateStr))}</h3>
+            ${byDate[dateStr].map(apt => renderAppointmentCard(apt, false)).join('')}
+        </section>`).join('');
 }
 
 /** Render history panel */
 export function renderHistoryPanel(panelEl, appointments) {
     if (!panelEl) return;
-    const history = (appointments || []).filter((a) => !isUpcoming(a));
+    const history = (appointments || []).filter(a => !isUpcoming(a));
     if (history.length === 0) {
         panelEl.innerHTML = `
             <div class="appointments-empty-state">
                 <i class="fa fa-calendar-o" aria-hidden="true"></i>
                 <p>No consultation history</p>
                 <span class="appointments-empty-hint">Your past online consultations will appear here.</span>
-            </div>
-        `;
+            </div>`;
         return;
     }
-    const byDate = {};
-    history.forEach((apt) => {
-        const key = apt.date || apt.dateStr || 'Other';
-        if (!byDate[key]) byDate[key] = [];
-        byDate[key].push(apt);
-    });
-    const sortedDates = Object.keys(byDate).sort().reverse();
-    panelEl.innerHTML = sortedDates
-        .map((dateStr) => {
-            const heading = formatAppointmentDate(dateStr);
-            const cards = byDate[dateStr]
-                .map(
-                    (apt) => `
-                <div class="appointment-card appointment-card--history" data-appointment-id="${escapeHtml(apt.id)}">
-                    <div class="appointment-card-pet">
-                        <div class="appointment-card-pet-img ${(apt.petSpecies || '').toLowerCase() === 'cat' ? 'appointment-card-pet-img--cat' : ''}" aria-hidden="true"><i class="fa fa-paw" aria-hidden="true"></i></div>
-                    </div>
-                    <div class="appointment-card-body">
-                        <p class="appointment-card-title">${escapeHtml(apt.petName || 'Pet')} | ${escapeHtml(apt.title && apt.title.trim() ? apt.title.trim() : '—')}</p>
-                        <p class="appointment-card-meta">${escapeHtml(apt.vetName || '')}${apt.clinicName ? ' · ' + escapeHtml(apt.clinicName) : ''}</p>
-                        <p class="appointment-card-time"><span class="appointment-card-time-text">${escapeHtml(getAppointmentTimeDisplay(apt))}</span></p>
-                        <p class="appointment-card-status appointment-card-status--${escapeHtml((apt.status || 'completed').toLowerCase())}"><i class="fa fa-check-circle" aria-hidden="true"></i> ${escapeHtml((apt.status === 'confirmed' ? 'completed' : (apt.status || 'completed')).toLowerCase())}</p>
-                    </div>
-                    <div class="appointment-card-actions">
-                        <button type="button" class="appointment-view-btn" data-id="${escapeHtml(apt.id)}">View Details <i class="fa fa-chevron-right" aria-hidden="true"></i></button>
-                    </div>
-                </div>
-            `
-                )
-                .join('');
-            return `
-                <section class="appointments-date-group">
-                    <h3 class="appointments-date-heading">${escapeHtml(heading)}</h3>
-                    ${cards}
-                </section>
-            `;
-        })
-        .join('');
+    const byDate = groupByDate(history, 'Other');
+    panelEl.innerHTML = Object.keys(byDate).sort().reverse().map(dateStr => `
+        <section class="appointments-date-group">
+            <h3 class="appointments-date-heading">${escapeHtml(formatAppointmentDate(dateStr))}</h3>
+            ${byDate[dateStr].map(apt => renderAppointmentCard(apt, true)).join('')}
+        </section>`).join('');
 }
 
 /** Get vet label by id from a list */

@@ -950,6 +950,9 @@ button.details-shared-image-link { padding: 0; }
 .details-join-btn:disabled { cursor: not-allowed; opacity: 0.65; background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%); }
 .details-join-btn.is-past:hover,
 .details-join-btn:disabled:hover { transform: none; box-shadow: 0 4px 16px rgba(44, 95, 125, 0.3); }
+.details-join-btn:disabled,
+.details-join-btn.is-session-ended,
+.details-join-btn.is-loading-video-status { pointer-events: none; }
 
 .template-modal, .template-view-modal { position: fixed; inset: 0; z-index: 1201; display: flex; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; }
 .template-modal-card {

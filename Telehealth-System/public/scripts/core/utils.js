@@ -33,15 +33,12 @@ export function formatTime12h(timeStr) {
 export function formatDate(ts) {
     if (ts == null) return '—';
     let d;
-    if (typeof ts?.toDate === 'function') {
-        d = ts.toDate();
-    } else if (typeof ts === 'number' && !Number.isNaN(ts)) {
-        d = new Date(ts);
-    } else if (ts instanceof Date && !Number.isNaN(ts.getTime())) {
-        d = ts;
-    } else if (ts && typeof ts === 'object') {
-        const ms = ts.seconds != null ? ts.seconds * 1000 : ts._seconds != null ? ts._seconds * 1000 : null;
-        d = ms != null ? new Date(ms) : new Date(ts);
+    if (typeof ts?.toDate === 'function') d = ts.toDate();
+    else if (typeof ts === 'number' && !Number.isNaN(ts)) d = new Date(ts);
+    else if (ts instanceof Date) d = ts;
+    else if (ts && typeof ts === 'object') {
+        const secs = ts.seconds ?? ts._seconds;
+        d = secs != null ? new Date(secs * 1000) : new Date(ts);
     } else {
         d = new Date(ts);
     }
@@ -117,6 +114,34 @@ export function timestampToMs(ts) {
     if (typeof ts.toDate === 'function') return ts.toDate().getTime();
     if (typeof ts.seconds === 'number') return ts.seconds * 1000;
     return 0;
+}
+
+/**
+ * Get consultation start time in ms for an appointment (dateStr + slotStart).
+ * Used to place appointment dividers in message timelines.
+ * @param {{ dateStr?: string, date?: string, slotStart?: string, timeStart?: string }} apt
+ * @returns {number|null}
+ */
+export function getConsultationStartMs(apt) {
+    const dateStr = apt?.dateStr || apt?.date || '';
+    const slotStart = apt?.slotStart || apt?.timeStart || '';
+    if (!dateStr || !slotStart) return null;
+    const d = new Date(`${dateStr}T${slotStart}`);
+    return isNaN(d.getTime()) ? null : d.getTime();
+}
+
+/**
+ * Format appointment date and time (start only) for divider line 1: "Mar 8, 2026 at 4:40 PM".
+ * @param {string} dateStr - e.g. "2026-03-08"
+ * @param {string} slotStart - e.g. "16:40"
+ */
+export function formatAppointmentDividerDateTime(dateStr, slotStart) {
+    if (!dateStr || !slotStart) return '—';
+    const d = new Date(`${dateStr}T${slotStart}`);
+    if (isNaN(d.getTime())) return '—';
+    const datePart = d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    const timePart = formatTime12h(slotStart);
+    return `${datePart} at ${timePart}`;
 }
 
 /**
