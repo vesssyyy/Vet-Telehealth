@@ -35,20 +35,20 @@ body.video-call-fullscreen .main-content {
     padding: 0;
 }
 
-/* Video call header — back left, icon+text, title center, date/time right */
+/* Video call header — compact: back left, icon+text, title center, date/time right */
 .video-call-header {
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    min-height: clamp(48px, 10vw, 56px);
-    padding: clamp(8px, 2vw, 10px) clamp(12px, 4vw, 20px);
+    min-height: 40px;
+    padding: 6px 12px;
     background: linear-gradient(90deg, rgba(44, 95, 125, 0.92) 0%, rgba(30, 65, 89, 0.92) 100%);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--w-2);
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-    gap: clamp(0.5rem, 2vw, 1rem);
+    gap: 0.5rem;
 }
 
 .video-call-header-left {
@@ -87,41 +87,41 @@ body.video-call-fullscreen .main-content {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 48px;
-    padding: 8px 12px;
+    min-width: 40px;
+    padding: 4px 8px;
     font-variant-numeric: tabular-nums;
-    font-size: 1rem;
+    font-size: 0.875rem;
     font-weight: 600;
     color: #fff;
     background: var(--w-1);
     border: 1px solid var(--w-2);
-    border-radius: 8px;
+    border-radius: 6px;
 }
 
 /* Icon + Video Consultation text (like role-badge / identification of roles) */
 .video-call-role-badge {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    font-size: 13px;
+    gap: 4px;
+    padding: 4px 8px;
+    font-size: 11px;
     font-weight: 500;
     color: rgba(255, 255, 255, 0.9);
     background: rgba(255, 255, 255, 0.08);
-    border-left: 3px solid rgba(255, 255, 255, 0.4);
+    border-left: 2px solid rgba(255, 255, 255, 0.4);
     border-radius: 4px;
     white-space: nowrap;
     letter-spacing: 0.02em;
 }
 
 .video-call-role-badge i {
-    font-size: 13px;
+    font-size: 11px;
     opacity: 0.9;
 }
 
 /* Consultation title — in header, centered over remote video */
 .consultation-title {
-    font-size: clamp(0.8rem, 2vw, 0.95rem);
+    font-size: clamp(0.75rem, 2vw, 0.875rem);
     font-weight: 600;
     color: #fff;
     text-align: center;
@@ -133,7 +133,7 @@ body.video-call-fullscreen .main-content {
 
 /* Date and time — right */
 .consultation-datetime {
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     color: rgba(255, 255, 255, 0.9);
     white-space: nowrap;
 }
@@ -1255,15 +1255,15 @@ body.video-call-fullscreen .video-call-controls .participant-btn-mobile {
     }
 
     .video-call-header {
-        padding: 8px 12px;
-        min-height: 48px;
+        padding: 6px 10px;
+        min-height: 40px;
         gap: 0.5rem;
     }
 
     .video-call-header .call-duration {
-        min-width: 44px;
-        padding: 6px 10px;
-        font-size: 0.9rem;
+        min-width: 40px;
+        padding: 4px 8px;
+        font-size: 0.8rem;
     }
 
     /* Mobile: sidebar overlays, so no spacer — title centers over full-width video */
@@ -1422,6 +1422,199 @@ body.video-call-fullscreen .video-call-controls .participant-btn-mobile {
 }
 .sidebar-pet-shared-file:hover {
     background: var(--w-2);
+}
+
+/* Mobile: Details panel (Pet + Basic info + Concern + Shared files + Remote participant) */
+.video-call-details-panel {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: linear-gradient(180deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    flex-direction: column;
+    overflow: hidden;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.video-call-details-panel:not(.is-hidden) {
+    display: flex;
+}
+.video-call-details-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+.details-section {
+    background: var(--w-1);
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid var(--w-15);
+}
+.details-section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.details-pet-profile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.details-pet-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: var(--w-15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.details-pet-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.details-pet-img[aria-hidden="true"],
+.details-pet-avatar:not(.has-avatar) .details-pet-img {
+    display: none;
+}
+.details-pet-avatar-fallback {
+    font-size: 1.5rem;
+    color: var(--w-2);
+}
+.details-pet-avatar .details-pet-img:not([aria-hidden="true"]) + .details-pet-avatar-fallback {
+    display: none;
+}
+.details-pet-name {
+    font-size: 1.125rem;
+    font-weight: 600;
+}
+/* Details panel pet inner: same structure as sidebar (default view + detail view with divide) */
+.video-call-details-panel .details-pet-inner {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    gap: 12px;
+}
+.video-call-details-panel .details-pet-default-view {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    gap: 12px;
+}
+.video-call-details-panel .details-pet-default-view.is-hidden {
+    display: none !important;
+}
+/* Dividing line under profile when Concern/Shared Images detail is open (like desktop sidebar) */
+.video-call-details-panel .details-pet-section:has(#details-pet-detail-view:not(.is-hidden)) .details-pet-profile {
+    padding-bottom: 12px;
+    margin-bottom: 0;
+    border-bottom: 1px solid var(--w-15);
+}
+/* Reuse sidebar pet styles inside details panel (basic info, buttons, detail panes) */
+.video-call-details-panel .details-pet-section .sidebar-pet-basic-info {
+    border-top: 1px solid var(--w-15);
+    border-bottom: 1px solid var(--w-15);
+    padding: 10px 0;
+}
+.video-call-details-panel .details-pet-section .sidebar-pet-detail {
+    flex: 1;
+    min-height: 120px;
+}
+.video-call-details-panel .details-pet-section .details-shared-placeholder.is-hidden {
+    display: none !important;
+}
+.details-subtitle {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.85);
+    margin: 0 0 8px 0;
+}
+.details-dl {
+    margin: 0 0 16px 0;
+}
+.details-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 0.875rem;
+}
+.details-row dt {
+    min-width: 72px;
+    color: rgba(255, 255, 255, 0.8);
+}
+.details-row dd {
+    margin: 0;
+}
+.details-concern-text {
+    font-size: 0.875rem;
+    line-height: 1.5;
+    margin: 0 0 16px 0;
+    color: rgba(255, 255, 255, 0.95);
+    white-space: pre-wrap;
+}
+.details-shared-files .details-placeholder {
+    font-size: 0.875rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0;
+}
+.details-shared-files .details-placeholder.is-hidden {
+    display: none;
+}
+.details-shared-gallery {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.details-shared-gallery:empty {
+    display: none;
+}
+.details-remote-profile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.details-remote-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: var(--w-15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.details-remote-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.details-remote-avatar .details-remote-img[aria-hidden="true"] {
+    display: none;
+}
+.details-remote-initial {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+}
+.details-remote-avatar.has-avatar .details-remote-initial {
+    display: none;
+}
+.details-remote-name {
+    font-size: 1rem;
+    font-weight: 500;
 }
 
 /* Message attachments inside video call convo (match messages page) */

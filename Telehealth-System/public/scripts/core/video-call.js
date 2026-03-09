@@ -59,6 +59,46 @@ export function initVideoCallPage(options = {}) {
     });
     $('convo-panel-close')?.addEventListener('click', closeConvoPanel);
 
+    /* Mobile: Details panel (Pet + Basic info + Concern + Shared files + Remote participant) */
+    const detailsPanel = $('video-call-details-panel');
+    const participantBtn = $('participant-btn');
+    function setDetailsPanel(open) {
+        if (detailsPanel) {
+            detailsPanel.classList.toggle('is-hidden', !open);
+            detailsPanel.setAttribute('aria-hidden', open ? 'false' : 'true');
+        }
+    }
+    participantBtn?.addEventListener('click', () => {
+        setDetailsPanel(true);
+        showDetailsPetDefaultView();
+    });
+    $('details-panel-close')?.addEventListener('click', () => setDetailsPanel(false));
+
+    /* Mobile Details panel: Concern / Shared Images (same behavior as sidebar) */
+    const detailsPetDefaultView = $('details-pet-default-view');
+    const detailsPetDetailView = $('details-pet-detail-view');
+    const detailsPetDetailConcern = $('details-pet-detail-concern');
+    const detailsPetDetailSharedImages = $('details-pet-detail-shared-images');
+    function showDetailsPetDetailView(view) {
+        detailsPetDefaultView?.classList.add('is-hidden');
+        if (detailsPetDetailView) {
+            detailsPetDetailView.classList.remove('is-hidden');
+            detailsPetDetailView.setAttribute('aria-hidden', 'false');
+        }
+        detailsPetDetailConcern?.classList.toggle('is-hidden', view !== 'concern');
+        detailsPetDetailSharedImages?.classList.toggle('is-hidden', view !== 'shared-images');
+    }
+    function showDetailsPetDefaultView() {
+        detailsPetDefaultView?.classList.remove('is-hidden');
+        if (detailsPetDetailView) {
+            detailsPetDetailView.classList.add('is-hidden');
+            detailsPetDetailView.setAttribute('aria-hidden', 'true');
+        }
+    }
+    $('details-concern-btn')?.addEventListener('click', () => showDetailsPetDetailView('concern'));
+    $('details-shared-images-btn')?.addEventListener('click', () => showDetailsPetDetailView('shared-images'));
+    $('details-pet-detail-back')?.addEventListener('click', showDetailsPetDefaultView);
+
     /* Pet sidebar: Concern / Shared Images detail view and back button */
     const petDefaultView        = $('pet-default-view');
     const petDetailView         = $('pet-detail-view');
@@ -258,6 +298,8 @@ export function initVideoCallPage(options = {}) {
             const petName = appointmentData.petName || 'Pet';
             const petLabelEl = document.getElementById('pet-name-label');
             if (petLabelEl) petLabelEl.textContent = petName;
+            const detailsPetNameEl = $('details-pet-name');
+            if (detailsPetNameEl) detailsPetNameEl.textContent = petName;
 
             const petImgEl = document.getElementById('pet-placeholder-img');
             const petImageWrap = document.querySelector('.sidebar-card-image--pet');
@@ -271,7 +313,7 @@ export function initVideoCallPage(options = {}) {
                         petImgEl.alt = petName;
                         if (petImageWrap) petImageWrap.classList.add('has-pet-image');
                     }
-                    // Basic information in sidebar
+                    // Basic information in sidebar and details panel
                     const setBasicInfo = (id, value) => {
                         const el = document.getElementById(id);
                         if (el) el.textContent = value != null && value !== '' ? String(value) : '—';
@@ -280,16 +322,32 @@ export function initVideoCallPage(options = {}) {
                     setBasicInfo('pet-weight', petData.weight != null ? `${petData.weight} kg` : null);
                     setBasicInfo('pet-species', petData.species);
                     setBasicInfo('pet-breed', petData.breed);
+                    const detailsPetImg = $('details-pet-img');
+                    const detailsPetFallback = $('details-pet-fallback');
+                    const detailsPetAvatar = detailsPetImg?.closest('.details-pet-avatar');
+                    if (detailsPetImg && petData.imageUrl) {
+                        detailsPetImg.src = petData.imageUrl;
+                        detailsPetImg.alt = petName;
+                        detailsPetImg.removeAttribute('aria-hidden');
+                        if (detailsPetFallback) detailsPetFallback.setAttribute('aria-hidden', 'true');
+                        if (detailsPetAvatar) detailsPetAvatar.classList.add('has-avatar');
+                    }
+                    setBasicInfo('details-pet-age', petData.age);
+                    setBasicInfo('details-pet-weight', petData.weight != null ? `${petData.weight} kg` : null);
+                    setBasicInfo('details-pet-species', petData.species);
+                    setBasicInfo('details-pet-breed', petData.breed);
                 } catch (e) {
                     console.warn('Could not load pet data', e);
                 }
             }
 
+            const concernText = (appointmentData.reason && String(appointmentData.reason).trim()) || '';
             const concernPlaceholder = document.querySelector('#pet-detail-concern .sidebar-pet-detail-placeholder');
             if (concernPlaceholder) {
-                const reason = (appointmentData.reason && String(appointmentData.reason).trim()) || '';
-                concernPlaceholder.textContent = reason || 'No concern provided.';
+                concernPlaceholder.textContent = concernText || 'No concern provided.';
             }
+            const detailsConcernEl = $('details-concern-text');
+            if (detailsConcernEl) detailsConcernEl.textContent = concernText || 'No concern provided.';
 
             const sharedImagesPane = $('pet-detail-shared-images');
             if (sharedImagesPane) {
@@ -318,6 +376,26 @@ export function initVideoCallPage(options = {}) {
                     }
                 }
             }
+            const detailsGallery = $('details-shared-gallery');
+            const detailsSharedPlaceholder = $('details-shared-placeholder');
+            if (detailsGallery && detailsSharedPlaceholder) {
+                const mediaUrlsForDetails = Array.isArray(appointmentData.mediaUrls) ? appointmentData.mediaUrls : [];
+                if (mediaUrlsForDetails.length === 0) {
+                    detailsSharedPlaceholder.textContent = 'No images shared for this consultation.';
+                    detailsSharedPlaceholder.classList.remove('is-hidden');
+                    detailsGallery.innerHTML = '';
+                } else {
+                    detailsSharedPlaceholder.classList.add('is-hidden');
+                    detailsGallery.innerHTML = mediaUrlsForDetails.map((url, idx) => {
+                        const ext = (url || '').split('.').pop()?.toLowerCase();
+                        const isImage = /^(jpg|jpeg|png|gif|webp|bmp)$/.test(ext || '');
+                        if (isImage) {
+                            return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="sidebar-pet-shared-thumb"><img src="${escapeHtml(url)}" alt="Shared image ${idx + 1}" loading="lazy"></a>`;
+                        }
+                        return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="sidebar-pet-shared-file"><i class="fa fa-file-o"></i> File ${idx + 1}</a>`;
+                    }).join('');
+                }
+            }
 
             const otherUid = isPetOwner ? vetId : ownerId;
             const otherParticipantNameEl = document.getElementById('other-participant-name');
@@ -344,6 +422,22 @@ export function initVideoCallPage(options = {}) {
                         otherParticipantInitialEl.textContent = initial;
                     }
                     if (otherParticipantLabelEl) otherParticipantLabelEl.classList.add('is-hidden');
+                    const detailsOtherName = $('details-other-name');
+                    const detailsOtherImg = $('details-other-img');
+                    const detailsOtherInitial = $('details-other-initial');
+                    const detailsOtherAvatarWrap = $('details-other-avatar-wrap');
+                    if (detailsOtherName) detailsOtherName.textContent = displayOtherName;
+                    if (photoURL && detailsOtherImg) {
+                        detailsOtherImg.src = photoURL;
+                        detailsOtherImg.alt = otherName;
+                        detailsOtherImg.removeAttribute('aria-hidden');
+                        if (detailsOtherInitial) detailsOtherInitial.setAttribute('aria-hidden', 'true');
+                        if (detailsOtherAvatarWrap) detailsOtherAvatarWrap.classList.add('has-avatar');
+                    } else if (detailsOtherInitial) {
+                        detailsOtherInitial.textContent = (displayOtherName || '?').trim().charAt(0).toUpperCase();
+                        detailsOtherInitial.removeAttribute('aria-hidden');
+                        if (detailsOtherImg) detailsOtherImg.setAttribute('aria-hidden', 'true');
+                    }
                     const convoNameEl = document.getElementById('convo-panel-with-name');
                     const convoImgEl = document.getElementById('convo-panel-avatar-img');
                     const convoFallbackEl = document.getElementById('convo-panel-avatar-fallback');
@@ -361,6 +455,10 @@ export function initVideoCallPage(options = {}) {
                 } else {
                     if (otherParticipantNameEl) otherParticipantNameEl.textContent = isPetOwner ? 'Vet' : 'Pet Owner';
                     if (otherParticipantInitialEl) otherParticipantInitialEl.textContent = '?';
+                    const detailsOtherName = $('details-other-name');
+                    if (detailsOtherName) detailsOtherName.textContent = isPetOwner ? 'Vet' : 'Pet Owner';
+                    const detailsOtherInitial = $('details-other-initial');
+                    if (detailsOtherInitial) { detailsOtherInitial.textContent = '?'; detailsOtherInitial.removeAttribute('aria-hidden'); }
                 }
             } catch (e) {
                 console.warn('Could not load other participant', e);
@@ -368,6 +466,10 @@ export function initVideoCallPage(options = {}) {
                 if (otherParticipantInitialEl) otherParticipantInitialEl.textContent = '?';
                 const convoNameEl = document.getElementById('convo-panel-with-name');
                 if (convoNameEl) convoNameEl.textContent = isPetOwner ? 'Veterinarian' : 'Pet Owner';
+                const detailsOtherName = $('details-other-name');
+                if (detailsOtherName) detailsOtherName.textContent = isPetOwner ? 'Veterinarian' : 'Pet Owner';
+                const detailsOtherInitial = $('details-other-initial');
+                if (detailsOtherInitial) { detailsOtherInitial.textContent = '?'; detailsOtherInitial.removeAttribute('aria-hidden'); }
             }
 
             let myName = isVet ? 'Vet' : 'Pet Owner';

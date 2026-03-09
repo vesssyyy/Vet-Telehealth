@@ -73,9 +73,19 @@
                     <p id="connected-message" class="connected-message is-hidden" aria-live="polite">Connected</p>
                 </div>
 
-                <!-- Right sidebar: 3 divs — pet info, other participant (vet/owner), local video -->
+                <!-- Right sidebar: vet/owner first, then pet info, then local video -->
                 <aside class="video-call-sidebar">
-                    <!-- 1. Pet info: profile, basic info, 2 buttons -->
+                    <!-- 1. Pet owner / Vet info: image + name (shown first) -->
+                    <div class="sidebar-card sidebar-other-participant" id="other-participant-card">
+                        <div class="sidebar-other-participant-inner">
+                            <div class="sidebar-other-avatar" id="other-participant-avatar">
+                                <img id="other-participant-img" class="sidebar-other-avatar-img" src="" alt="" aria-hidden="true">
+                                <span class="sidebar-other-avatar-initial" id="other-participant-initial" aria-hidden="true"></span>
+                            </div>
+                            <span class="sidebar-other-name" id="other-participant-name"></span>
+                        </div>
+                    </div>
+                    <!-- 2. Pet info: profile, basic info, concern, shared files -->
                     <div class="sidebar-card sidebar-pet-placeholder" id="pet-placeholder">
                         <div class="sidebar-pet-info">
                             <div class="sidebar-pet-top">
@@ -127,17 +137,7 @@
                             </div>
                         </div>
                     </div>
-                    <!-- 2. Pet owner / Vet info: image + name only -->
-                    <div class="sidebar-card sidebar-other-participant" id="other-participant-card">
-                        <div class="sidebar-other-participant-inner">
-                            <div class="sidebar-other-avatar" id="other-participant-avatar">
-                                <img id="other-participant-img" class="sidebar-other-avatar-img" src="" alt="" aria-hidden="true">
-                                <span class="sidebar-other-avatar-initial" id="other-participant-initial" aria-hidden="true"></span>
-                            </div>
-                            <span class="sidebar-other-name" id="other-participant-name"></span>
-                        </div>
-                    </div>
-                    <!-- 3. Local video preview (unchanged) -->
+                    <!-- 3. Local video preview -->
                     <div class="sidebar-card sidebar-local-wrap" id="local-placeholder-wrap">
                         <video id="local-video" class="local-video" autoplay playsinline muted aria-label="Local video"></video>
                         <div class="local-placeholder-overlay">
@@ -160,9 +160,9 @@
                     <i class="fa fa-comment" aria-hidden="true"></i>
                     <span class="control-label">Message</span>
                 </button>
-                <button type="button" class="video-call-btn control-btn participant-btn-mobile" id="participant-btn" aria-label="Participants" title="Participants">
-                    <i class="fa fa-users" aria-hidden="true"></i>
-                    <span class="control-label">Participants</span>
+                <button type="button" class="video-call-btn control-btn participant-btn-mobile" id="participant-btn" aria-label="Details" title="Details">
+                    <i class="fa fa-info-circle" aria-hidden="true"></i>
+                    <span class="control-label">Details</span>
                 </button>
                 <button type="button" class="video-call-btn leave-btn" id="hangup-btn" aria-label="Leave call">
                     <i class="fa fa-sign-out" aria-hidden="true"></i>
@@ -171,6 +171,66 @@
             </div>
         </div>
     </main>
+
+    <!-- Mobile: Details panel (Pet + Basic info + Concern + Shared files + Remote participant) -->
+    <aside class="video-call-details-panel is-hidden" id="video-call-details-panel" aria-label="Consultation details">
+        <header class="video-call-convo-header">
+            <h2 class="video-call-convo-title"><i class="fa fa-info-circle" aria-hidden="true"></i> Details</h2>
+            <button type="button" class="video-call-convo-close" id="details-panel-close" aria-label="Close details"><i class="fa fa-times" aria-hidden="true"></i></button>
+        </header>
+        <div class="video-call-details-body">
+            <section class="details-section details-remote-section">
+                <div class="details-remote-profile">
+                    <div class="details-remote-avatar" id="details-other-avatar-wrap">
+                        <img id="details-other-img" class="details-remote-img" src="" alt="" aria-hidden="true">
+                        <span class="details-remote-initial" id="details-other-initial" aria-hidden="true"></span>
+                    </div>
+                    <span class="details-remote-name" id="details-other-name">—</span>
+                </div>
+            </section>
+            <section class="details-section details-pet-section">
+                <h3 class="details-section-title"><i class="fa fa-paw" aria-hidden="true"></i> Pet</h3>
+                <div class="details-pet-inner">
+                    <div class="details-pet-profile">
+                        <div class="details-pet-avatar">
+                            <img id="details-pet-img" class="details-pet-img" src="" alt="" aria-hidden="true">
+                            <span class="details-pet-avatar-fallback" id="details-pet-fallback" aria-hidden="true"><i class="fa fa-paw"></i></span>
+                        </div>
+                        <span class="details-pet-name" id="details-pet-name">PetName</span>
+                    </div>
+                    <div class="details-pet-default-view" id="details-pet-default-view">
+                        <div class="sidebar-pet-basic-info">
+                            <h3 class="sidebar-pet-info-title">Basic Information:</h3>
+                            <dl class="sidebar-pet-info-list">
+                                <div class="sidebar-pet-info-row"><dt>Age:</dt><dd id="details-pet-age">—</dd></div>
+                                <div class="sidebar-pet-info-row"><dt>Weight:</dt><dd id="details-pet-weight">—</dd></div>
+                                <div class="sidebar-pet-info-row"><dt>Species:</dt><dd id="details-pet-species">—</dd></div>
+                                <div class="sidebar-pet-info-row"><dt>Breed:</dt><dd id="details-pet-breed">—</dd></div>
+                            </dl>
+                        </div>
+                        <div class="sidebar-pet-actions">
+                            <button type="button" class="sidebar-pet-btn concern-btn" id="details-concern-btn">Concern</button>
+                            <button type="button" class="sidebar-pet-btn shared-images-btn" id="details-shared-images-btn">Shared Images</button>
+                        </div>
+                    </div>
+                    <div class="sidebar-pet-detail is-hidden" id="details-pet-detail-view" aria-hidden="true">
+                        <button type="button" class="sidebar-pet-detail-back" id="details-pet-detail-back" aria-label="Back to pet info"><i class="fa fa-angle-double-left" aria-hidden="true"></i></button>
+                        <div class="sidebar-pet-detail-content">
+                            <div class="sidebar-pet-detail-pane" id="details-pet-detail-concern" data-view="concern">
+                                <h3 class="sidebar-pet-detail-title">Concern</h3>
+                                <p class="sidebar-pet-detail-placeholder" id="details-concern-text">No concern provided.</p>
+                            </div>
+                            <div class="sidebar-pet-detail-pane is-hidden" id="details-pet-detail-shared-images" data-view="shared-images">
+                                <h3 class="sidebar-pet-detail-title">Shared Images</h3>
+                                <p class="details-shared-placeholder sidebar-pet-detail-placeholder" id="details-shared-placeholder">No images shared for this consultation.</p>
+                                <div class="sidebar-pet-shared-gallery details-shared-gallery" id="details-shared-gallery"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </aside>
 
     <div id="messages-image-lightbox" class="messages-image-lightbox is-hidden" role="dialog" aria-modal="true" aria-label="Enlarged image">
         <button type="button" class="messages-image-lightbox-close" aria-label="Close"><i class="fa fa-times"></i></button>
