@@ -14,7 +14,7 @@
  */
 
 import { auth, db } from './firebase-config.js';
-import { escapeHtml, formatConversationMeta, formatMessageTimeWithDate, timestampToMs } from './utils.js';
+import { escapeHtml, formatConversationMeta, formatMessageTimeWithDate, timestampToMs, getConsultationStartMs, formatAppointmentDividerDateTime } from './utils.js';
 import {
     validateAttachment, getAttachmentKind,
     uploadMessageAttachment, renderAttachment,
@@ -32,7 +32,7 @@ const isMobileView = () => window.matchMedia('(max-width: 768px)').matches;
    Factory
 ───────────────────────────────────────────────────────────────────────── */
 export function createMessaging(config) {
-    const { readField, deliveredField, sentAvatarIcon, receivedAvatarIcon, buildConvItem } = config;
+    const { readField, deliveredField, sentAvatarIcon, receivedAvatarIcon, buildConvItem, getAppointmentsForConv } = config;
 
     /* ── DOM refs ──────────────────────────────────────────────────── */
     const refs = {
@@ -71,6 +71,7 @@ export function createMessaging(config) {
         currentConvData:            undefined,
         deliveredUpdateTimeouts:    new Map(),
         timeVisibleMessageId:       null, // message id whose timestamp is shown (survives re-renders)
+        appointmentsForCurrentConv: null, // appointments for timeline dividers (set when opening conv)
     };
 
     /* ── List / chat view ──────────────────────────────────────────── */
@@ -107,10 +108,48 @@ export function createMessaging(config) {
         return '<span class="message-status message-status--sent" aria-label="Sent"><i class="fa fa-check"></i></span>';
     }
 
+    function appendAppointmentDivider(body, apt) {
+        const dateStr = apt?.dateStr || apt?.date || '';
+        const slotStart = apt?.slotStart || apt?.timeStart || '';
+        const dateTimeLabel = formatAppointmentDividerDateTime(dateStr, slotStart);
+        const titleLabel = (apt?.title && String(apt.title).trim()) || `${apt?.petName || 'Pet'} — Consultation`;
+        const div = document.createElement('div');
+        div.className = 'message-appointment-divider';
+        div.innerHTML = `
+            <div class="message-appointment-divider-line">
+                <span class="message-appointment-divider-text">${escapeHtml(dateTimeLabel)}</span>
+            </div>
+            <div class="message-appointment-divider-line">
+                <span class="message-appointment-divider-text">${escapeHtml(titleLabel)}</span>
+            </div>`;
+        body.appendChild(div);
+    }
+
+    function appendSessionEndedDivider(body, msg) {
+        const titleLabel = (msg.appointmentTitle && String(msg.appointmentTitle).trim()) || 'Consultation';
+        let endedAt = '—';
+        if (msg.endedAt) {
+            if (typeof msg.endedAt.toDate === 'function') endedAt = formatMessageTimeWithDate(msg.endedAt);
+            else if (typeof msg.endedAt.toMillis === 'function') endedAt = new Date(msg.endedAt.toMillis()).toLocaleString();
+        }
+        const endedLabel = `Session ended at ${endedAt}`;
+        const div = document.createElement('div');
+        div.className = 'message-appointment-divider message-session-ended-divider';
+        div.innerHTML = `
+            <div class="message-appointment-divider-line">
+                <span class="message-appointment-divider-text">${escapeHtml(titleLabel)}</span>
+            </div>
+            <div class="message-appointment-divider-line">
+                <span class="message-appointment-divider-text">${escapeHtml(endedLabel)}</span>
+            </div>`;
+        body.appendChild(div);
+    }
+
     function renderChatMessages(messages, conv) {
         const body = $('messages-chat-body');
         if (!body) return;
-        const wasNearBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 120;
+        const wasNearBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 50;
+        const distanceFromBottom = body.scrollHeight - body.scrollTop - body.clientHeight;
         state.lastRenderedMessages = messages;
         state.currentConvData      = conv;
         body.innerHTML = '';
@@ -122,7 +161,22 @@ export function createMessaging(config) {
             if (messages[i].senderId === uid) { lastSentId = messages[i].id; break; }
         }
 
+        const appointments = (state.appointmentsForCurrentConv || [])
+            .map(apt => ({ apt, startMs: getConsultationStartMs(apt) }))
+            .filter(({ startMs }) => startMs != null)
+            .sort((a, b) => a.startMs - b.startMs);
+        let nextAptIndex = 0;
+
         messages.forEach((msg, index) => {
+            const msgMs = timestampToMs(msg.sentAt);
+            while (nextAptIndex < appointments.length && appointments[nextAptIndex].startMs <= msgMs) {
+                appendAppointmentDivider(body, appointments[nextAptIndex].apt);
+                nextAptIndex++;
+            }
+            if (msg.type === 'session_ended') {
+                appendSessionEndedDivider(body, msg);
+                return;
+            }
             const isSent     = msg.senderId === uid;
             const isSending  = msg.status === 'sending';
             const side       = isSent ? 'sent' : 'received';
@@ -175,6 +229,10 @@ export function createMessaging(config) {
             });
             body.appendChild(row);
         });
+        while (nextAptIndex < appointments.length) {
+            appendAppointmentDivider(body, appointments[nextAptIndex].apt);
+            nextAptIndex++;
+        }
 
         body.addEventListener('click', (e) => {
             if (e.target.closest('a, button')) return;
@@ -190,7 +248,16 @@ export function createMessaging(config) {
             img.addEventListener('load', onLoad);
             if (img.complete) onLoad();
         });
-        if (wasNearBottom) body.scrollTop = body.scrollHeight;
+        if (wasNearBottom) {
+            body.scrollTop = body.scrollHeight;
+        } else {
+            requestAnimationFrame(() => {
+                const newScrollHeight = body.scrollHeight;
+                const newClientHeight = body.clientHeight;
+                const targetScrollTop = Math.max(0, newScrollHeight - newClientHeight - distanceFromBottom);
+                body.scrollTop = targetScrollTop;
+            });
+        }
     }
 
     function renderConversationList() {
@@ -218,6 +285,13 @@ export function createMessaging(config) {
      */
     function subscribeMessages(conv, myId, markReadFn) {
         state.timeVisibleMessageId = null;
+        state.appointmentsForCurrentConv = [];
+        if (typeof getAppointmentsForConv === 'function') {
+            getAppointmentsForConv(conv).then(apts => {
+                state.appointmentsForCurrentConv = apts || [];
+                renderChatMessages(state.lastRenderedMessages, state.currentConvData || conv);
+            }).catch(() => { state.appointmentsForCurrentConv = []; });
+        }
         if (state.conversationDocUnsubscribe) state.conversationDocUnsubscribe();
         state.conversationDocUnsubscribe = onSnapshot(
             doc(db, 'conversations', conv.id),
@@ -250,8 +324,9 @@ export function createMessaging(config) {
         document.body.classList.remove('messages-input-focused');
         state.currentConvId = null;
         state.timeVisibleMessageId = null;
-        if (state.conversationDocUnsubscribe) { state.conversationDocUnsubscribe(); state.conversationDocUnsubscribe = null; }
-        if (state.messagesUnsubscribe)        { state.messagesUnsubscribe();        state.messagesUnsubscribe        = null; }
+        for (const key of ['conversationDocUnsubscribe', 'messagesUnsubscribe']) {
+            if (state[key]) { state[key](); state[key] = null; }
+        }
         showPlaceholder();
         renderConversationList();
     }

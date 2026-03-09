@@ -330,6 +330,7 @@
 .messages-chat-panel {
     flex: 1;
     min-width: 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     background: var(--bg-white);
@@ -451,6 +452,40 @@
     color: var(--text-light);
     font-size: 14px;
     margin: auto;
+}
+
+/* Appointment divider in chat (same 2-line as video call convo) */
+.message-appointment-divider {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 0;
+    flex-shrink: 0;
+}
+.message-appointment-divider-line {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+.message-appointment-divider-line::before,
+.message-appointment-divider-line::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-color, rgba(0, 0, 0, 0.15));
+}
+.message-appointment-divider-text {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-light, #64748b);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 85%;
 }
 
 .message-row {

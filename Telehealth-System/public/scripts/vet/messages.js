@@ -11,12 +11,26 @@ import {
     query, where, orderBy, onSnapshot, serverTimestamp,
 } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 
+async function getAppointmentsForConv(conv) {
+    const user = auth.currentUser;
+    if (!user?.uid || !conv?.ownerId || !conv?.petId) return [];
+    try {
+        const snap = await getDocs(query(collection(db, 'appointments'), where('vetId', '==', user.uid)));
+        return snap.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .filter(apt => String(apt.ownerId) === String(conv.ownerId) && String(apt.petId) === String(conv.petId));
+    } catch (_) {
+        return [];
+    }
+}
+
 /* ── Shared messaging instance ─────────────────────────────────────── */
 const shared = createMessaging({
-    readField:          'lastReadAt_ownerId',
-    deliveredField:     'lastDeliveredAt_ownerId',
-    sentAvatarIcon:     'fa-user-md',
-    receivedAvatarIcon: 'fa-user',
+    readField:             'lastReadAt_ownerId',
+    deliveredField:        'lastDeliveredAt_ownerId',
+    sentAvatarIcon:        'fa-user-md',
+    receivedAvatarIcon:    'fa-user',
+    getAppointmentsForConv,
     buildConvItem: conv => `
         <div class="messages-conv-avatar"><i class="fa fa-user" aria-hidden="true"></i></div>
         <div class="messages-conv-body">

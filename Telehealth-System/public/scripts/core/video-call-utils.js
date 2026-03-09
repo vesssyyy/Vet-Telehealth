@@ -9,16 +9,12 @@ const DEFAULT_SLOT_DURATION_MINUTES = 30;
 /** Given "HH:mm" start, return "HH:mm" start + duration minutes. */
 function addMinutesToTime(timeStr, durationMinutes) {
     if (!timeStr || typeof timeStr !== 'string') return null;
-    const parts = String(timeStr).trim().split(':');
-    const h = parseInt(parts[0], 10);
-    const m = parts[1] != null ? parseInt(parts[1], 10) : 0;
+    const [hStr, mStr = '0'] = String(timeStr).trim().split(':');
+    const h = parseInt(hStr, 10);
     if (isNaN(h)) return null;
-    let totalMins = h * 60 + m + (durationMinutes ?? DEFAULT_SLOT_DURATION_MINUTES);
-    totalMins = totalMins % (24 * 60);
-    if (totalMins < 0) totalMins += 24 * 60;
-    const nh = Math.floor(totalMins / 60);
-    const nm = totalMins % 60;
-    return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
+    let total = h * 60 + parseInt(mStr, 10) + (durationMinutes ?? DEFAULT_SLOT_DURATION_MINUTES);
+    total = ((total % (24 * 60)) + 24 * 60) % (24 * 60);
+    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
 /**
@@ -41,16 +37,14 @@ export function isWithinAppointmentTime(apt) {
     return now >= start && now < end;
 }
 
-function getTodayDateString() {
+function getDateString(offsetDays = 0) {
     const d = new Date();
+    if (offsetDays) d.setDate(d.getDate() + offsetDays);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function getTomorrowDateString() {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+const getTodayDateString    = () => getDateString(0);
+const getTomorrowDateString = () => getDateString(1);
 
 function formatDateForLabel(dateStr) {
     if (!dateStr) return '';
@@ -65,8 +59,12 @@ function formatDateForLabel(dateStr) {
 /**
  * Returns label/title for the Join button based on current time vs appointment slot.
  * Before start: "Join available at 2:00 PM" (today), "Join available tomorrow at 2:00 PM", or "Join available on Mar 8, 2026 at 2:00 PM".
+ * @param {Object} apt - Appointment-like object
+ * @param {{ status?: string }} [videoCall] - If videoCall.status === 'ended', returns 'Session Ended'
  */
-export function getJoinAvailableLabel(apt) {
+export function getJoinAvailableLabel(apt, videoCall) {
+    if (videoCall?.status === 'ended') return 'Session Ended';
+
     const dateStr = apt?.date || apt?.dateStr;
     const slotStart = apt?.slotStart || apt?.timeStart;
     const slotEnd = apt?.slotEnd || apt?.timeEnd || (slotStart ? addMinutesToTime(slotStart, DEFAULT_SLOT_DURATION_MINUTES) : null);

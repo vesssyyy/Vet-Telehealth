@@ -12,12 +12,26 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 import { loadPets, loadVets } from './appointment-manager.js';
 
+async function getAppointmentsForConv(conv) {
+    const user = auth.currentUser;
+    if (!user?.uid || !conv?.vetId || !conv?.petId) return [];
+    try {
+        const snap = await getDocs(query(collection(db, 'appointments'), where('ownerId', '==', user.uid)));
+        return snap.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .filter(apt => String(apt.vetId) === String(conv.vetId) && String(apt.petId) === String(conv.petId));
+    } catch (_) {
+        return [];
+    }
+}
+
 /* ── Shared messaging instance ─────────────────────────────────────── */
 const shared = createMessaging({
-    readField:          'lastReadAt_vetId',
-    deliveredField:     'lastDeliveredAt_vetId',
-    sentAvatarIcon:     'fa-user',
-    receivedAvatarIcon: 'fa-user-md',
+    readField:             'lastReadAt_vetId',
+    deliveredField:        'lastDeliveredAt_vetId',
+    sentAvatarIcon:        'fa-user',
+    receivedAvatarIcon:    'fa-user-md',
+    getAppointmentsForConv,
     buildConvItem: conv => `
         <div class="messages-conv-avatar"><i class="fa fa-user-md" aria-hidden="true"></i></div>
         <div class="messages-conv-body">
