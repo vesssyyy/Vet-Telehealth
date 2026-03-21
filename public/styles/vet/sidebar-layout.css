@@ -1,0 +1,18 @@
+@import url('../shared/sidebar-layout.css');
+/* Vet pages omit bottom nav — undo pet-owner-only mobile rules */
+@media (max-width: 768px) {
+    .sidebar .sidebar-nav { display: block !important; }
+    .main-content {
+        height: auto !important;
+        max-height: none !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+        padding: 0 18px 20px !important;
+    }
+    .content-wrapper {
+        flex: none !important;
+        min-height: 400px !important;
+        max-height: none !important;
+        overflow-y: visible !important;
+    }
+}

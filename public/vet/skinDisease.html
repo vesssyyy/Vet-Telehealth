@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skin Health Detection - Televet Health (Vet)</title>
+    <link rel="stylesheet" href="../styles/vet/sidebar-layout.css">
+    <link rel="stylesheet" href="../styles/petowner/skinDisease.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link href="https://fonts.googleapis.com/css?family=Lalezar" rel="stylesheet">
+    <style>body{visibility:hidden}</style>
+</head>
+<body>
+    <div class="sidebar-overlay"></div>
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <a href="dashboard.html" class="sidebar-brand">Telehealth</a>
+            <div class="sidebar-tagline">Veterinarian Portal</div>
+        </div>
+        <div class="user-profile">
+            <a href="profile.html" class="user-profile-link">
+                <div class="user-info">
+                    <div class="user-avatar">
+                        <img id="sidebar-avatar-img" class="user-avatar-img is-hidden" alt="Profile photo">
+                        <span class="user-avatar-initials" id="sidebar-avatar">V</span>
+                    </div>
+                    <div class="user-text">
+                        <div class="user-name" id="sidebar-name">Veterinarian</div>
+                        <div class="user-email"><i class="fa fa-envelope"></i> <span id="sidebar-email">vet@example.com</span></div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item"><i class="fa fa-th-large"></i> Dashboard</a>
+            <a href="appointments.html" class="nav-item"><i class="fa fa-calendar"></i> Appointments</a>
+            <a href="messages.html" class="nav-item"><i class="fa fa-envelope"></i> Messages</a>
+            <a href="skinDisease.html" class="nav-item active"><i class="fa fa-stethoscope"></i> Skin Health</a>
+        </nav>
+        <div class="logout-section">
+            <button id="logout-btn" class="logout-btn"><i class="fa fa-sign-out"></i> Logout</button>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="app-top-header">
+            <div class="header-left">
+                <button class="mobile-menu-toggle" aria-label="Toggle Menu"><i class="fa fa-bars"></i></button>
+                <span class="role-badge"><i class="fa fa-stethoscope" aria-hidden="true"></i> Veterinarian</span>
+            </div>
+            <div class="header-right">
+                <button type="button" class="dark-mode-toggle" aria-label="Toggle dark mode"><i class="fa fa-moon-o" aria-hidden="true"></i></button>
+                <button type="button" class="profile-header-btn" aria-label="Profile"><i class="fa fa-user-circle" aria-hidden="true"></i></button>
+            </div>
+        </header>
+
+        <div class="content-wrapper skin-content-wrapper">
+            <!-- Selection view: choose Cat or Dog -->
+            <section class="skin-selection-view skin-view" id="skin-selection-view" aria-labelledby="skin-detection-heading">
+                <h2 class="skin-detection-heading" id="skin-detection-heading">
+                    Take a photo or upload an image of your pet's skin condition. Our AI will analyze and suggest possible conditions.
+                </h2>
+
+                <div class="pet-selection-grid">
+                    <div class="pet-card" data-pet-type="cat" role="button" tabindex="0">
+                        <div class="pet-card-image-wrap">
+                            <img src="../assets/cat-skin-detection.png" alt="Cat" class="pet-card-image" width="100" height="100">
+                        </div>
+                        <div class="pet-card-content">
+                            <h3 class="pet-card-title">CAT</h3>
+                            <span class="pet-card-label">Skin Detection</span>
+                            <button type="button" class="pet-card-btn" aria-label="Identify cat skin condition">Identify</button>
+                        </div>
+                    </div>
+
+                    <div class="pet-card" data-pet-type="dog" role="button" tabindex="0">
+                        <div class="pet-card-image-wrap">
+                            <img src="../assets/dog-skin-detection.png" alt="Dog" class="pet-card-image" width="100" height="100">
+                        </div>
+                        <div class="pet-card-content">
+                            <h3 class="pet-card-title">DOG</h3>
+                            <span class="pet-card-label">Skin Detection</span>
+                            <button type="button" class="pet-card-btn" aria-label="Identify dog skin condition">Identify</button>
+                        </div>
+                    </div>
+                </div>
+
+                <p class="skin-detection-disclaimer" role="note">
+                    <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+                    This AI tool provides preliminary analysis only. It does not replace professional veterinary diagnosis.
+                </p>
+            </section>
+
+            <!-- Full-page identify view: back, 3-way scan/upload, scope list -->
+            <section class="skin-identify-view skin-view is-hidden" id="skin-identify-view" aria-labelledby="skin-identify-title">
+                <div class="skin-identify-top">
+                    <button type="button" class="skin-back-btn" id="skin-back-btn" aria-label="Back to pet selection">
+                        <i class="fa fa-arrow-left" aria-hidden="true"></i>
+                    </button>
+                    <div class="skin-identify-hero">
+                        <div class="skin-identify-pet-badge">
+                            <img id="skin-identify-pet-img" src="" alt="" class="skin-identify-pet-img" width="80" height="80">
+                        </div>
+                        <div class="skin-identify-hero-text">
+                            <h2 class="skin-identify-title" id="skin-identify-title">Skin detection</h2>
+                            <p class="skin-identify-subtitle" id="skin-identify-subtitle">We can help identify these conditions</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="skin-identify-body">
+                    <!-- 3-way: drag & drop + Scan + Upload -->
+                    <div class="skin-drop-zone" id="skin-drop-zone">
+                        <input type="file" id="skin-upload-input" class="skin-file-input" accept="image/*" aria-label="Upload image">
+                        <div class="skin-drop-zone-inner">
+                            <div class="skin-drop-zone-icon"><i class="fa fa-cloud-upload" aria-hidden="true"></i></div>
+                            <p class="skin-drop-zone-drag">Drag & drop your image here</p>
+                            <p class="skin-drop-zone-or">or</p>
+                            <div class="skin-drop-zone-buttons">
+                                <button type="button" class="skin-scan-btn" id="skin-scan-btn"><i class="fa fa-camera" aria-hidden="true"></i> Scan</button>
+                                <button type="button" class="skin-upload-btn" id="skin-upload-btn"><i class="fa fa-folder-open-o" aria-hidden="true"></i> Upload</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <section class="skin-scope-section" aria-labelledby="skin-scope-heading">
+                        <h3 class="skin-scope-heading" id="skin-scope-heading"><i class="fa fa-list-ul" aria-hidden="true"></i> Skin conditions our AI can detect</h3>
+                        <p class="skin-scope-intro">Our AI can suggest possible matches from the following conditions.</p>
+                        <ul class="skin-scope-list" id="skin-scope-list" role="list"></ul>
+                    </section>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Camera capture overlay for Scan -->
+    <div class="skin-camera-overlay is-hidden" id="skin-camera-overlay" aria-hidden="true">
+        <div class="skin-camera-backdrop"></div>
+        <div class="skin-camera-box">
+            <div class="skin-camera-header">
+                <h3 class="skin-camera-title">Take a photo</h3>
+                <button type="button" class="skin-camera-close" id="skin-camera-close" aria-label="Close camera"><i class="fa fa-times" aria-hidden="true"></i></button>
+            </div>
+            <div class="skin-camera-video-wrap">
+                <video id="skin-camera-video" class="skin-camera-video" playsinline autoplay muted></video>
+                <canvas id="skin-camera-canvas" class="skin-camera-canvas" aria-hidden="true"></canvas>
+                <p class="skin-camera-error is-hidden" id="skin-camera-error"></p>
+            </div>
+            <div class="skin-camera-actions">
+                <button type="button" class="skin-camera-capture" id="skin-camera-capture" aria-label="Capture photo"><i class="fa fa-circle" aria-hidden="true"></i> Capture</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="../scripts/core/sidebar.js"></script>
+    <script type="module" src="../scripts/vet/dashboard-auth.js"></script>
+    <script type="module" src="../scripts/vet/profile.js"></script>
+    <script src="../scripts/core/skin-disease.js" data-assets="../assets/"></script>
+</body>
+</html>

@@ -1,0 +1,1884 @@
+/* Pet owner — full-screen video call (Teams-like), no sidebar */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+    --primary-color: #2c5f7d;
+    --primary-dark: #1e4159;
+    --accent-color: #4a90a4;
+    --w: 255, 255, 255;
+    --w-1: rgba(var(--w), 0.1);
+    --w-15: rgba(var(--w), 0.15);
+    --w-2: rgba(var(--w), 0.2);
+    --w-25: rgba(var(--w), 0.25);
+}
+
+body.video-call-fullscreen {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    min-height: 100vh;
+    min-height: 100dvh;
+    min-height: 100svh;
+    background: linear-gradient(180deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    color: #fff;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    -webkit-tap-highlight-color: transparent;
+}
+
+body.video-call-fullscreen .main-content {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+}
+
+/* Video call header — compact: back left, icon+text, title center, date/time right */
+.video-call-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 40px;
+    padding: 6px 12px;
+    background: linear-gradient(90deg, rgba(44, 95, 125, 0.92) 0%, rgba(30, 65, 89, 0.92) 100%);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--w-2);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+    gap: 0.5rem;
+}
+
+.video-call-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    flex-shrink: 0;
+}
+
+/* Center band: same width as remote-video area so title aligns over video */
+.video-call-header-center {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.5rem;
+}
+
+/* Spacer matches sidebar width so header center aligns with remote video */
+.video-call-header-sidebar-spacer {
+    width: min(280px, 28vw);
+    min-width: 180px;
+    flex-shrink: 0;
+}
+
+.video-call-header-right {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+/* Call duration — timestamp since room started */
+.video-call-header .call-duration {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    padding: 4px 8px;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #fff;
+    background: var(--w-1);
+    border: 1px solid var(--w-2);
+    border-radius: 6px;
+}
+
+/* Icon + Video Consultation text (like role-badge / identification of roles) */
+.video-call-role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.08);
+    border-left: 2px solid rgba(255, 255, 255, 0.4);
+    border-radius: 4px;
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+}
+
+.video-call-role-badge i {
+    font-size: 11px;
+    opacity: 0.9;
+}
+
+/* Consultation title — in header, centered over remote video */
+.consultation-title {
+    font-size: clamp(0.75rem, 2vw, 0.875rem);
+    font-weight: 600;
+    color: #fff;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+/* Date and time — right */
+.consultation-datetime {
+    font-size: 0.8125rem;
+    color: rgba(255, 255, 255, 0.9);
+    white-space: nowrap;
+}
+
+/* Status for screen readers only */
+.call-status-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Video container — margins around content; grid so convo panel can sit left of main */
+body.video-call-fullscreen .video-call-container {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: 1fr auto;
+    grid-template-columns: 1fr;
+    padding: 0;
+    margin: 12px;
+    gap: 12px;
+}
+
+/* Desktop: a bit more space (wider margins and gaps) */
+@media (min-width: 769px) {
+    body.video-call-fullscreen .video-call-container {
+        margin: 18px 22px;
+        gap: 16px;
+    }
+}
+@media (min-width: 993px) {
+    body.video-call-fullscreen .video-call-container {
+        margin: 20px 28px;
+        gap: 18px;
+    }
+}
+
+/* When conversation or notes panel is open: left column for panel, right for video main */
+body.video-call-fullscreen .video-call-container.convo-open,
+body.video-call-fullscreen .video-call-container.notes-open {
+    grid-template-columns: minmax(280px, 340px) 1fr;
+}
+@media (min-width: 993px) {
+    body.video-call-fullscreen .video-call-container.convo-open,
+    body.video-call-fullscreen .video-call-container.notes-open {
+        grid-template-columns: minmax(300px, 400px) 1fr;
+    }
+}
+body.video-call-fullscreen .video-call-container.convo-open .video-call-main,
+body.video-call-fullscreen .video-call-container.notes-open .video-call-main {
+    grid-column: 2;
+    min-width: 0;
+}
+body.video-call-fullscreen .video-call-controls {
+    grid-row: 2;
+    grid-column: 1 / -1;
+}
+
+/* Left: conversation panel (same convo as Messages page) */
+.video-call-convo-panel {
+    grid-row: 1;
+    grid-column: 1;
+    width: 100%;
+    max-width: 320px;
+    min-width: 260px;
+    min-height: 0;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--primary-dark);
+    border: 1px solid var(--w-2);
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
+@media (min-width: 993px) {
+    .video-call-convo-panel {
+        max-width: 360px;
+        min-width: 280px;
+    }
+}
+.video-call-convo-panel.is-hidden {
+    display: none !important;
+}
+
+/* Consultation notes panel (vet only) — same layout as convo */
+.video-call-notes-panel {
+    grid-row: 1;
+    grid-column: 1;
+    width: 100%;
+    max-width: 340px;
+    min-width: 280px;
+    min-height: 0;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--primary-dark);
+    border: 1px solid var(--w-2);
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
+@media (min-width: 993px) {
+    .video-call-notes-panel {
+        max-width: 400px;
+        min-width: 300px;
+    }
+}
+.video-call-notes-panel.is-hidden {
+    display: none !important;
+}
+.video-call-notes-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 6px 14px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: rgba(0, 0, 0, 0.2);
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.25) rgba(0, 0, 0, 0.2);
+}
+.video-call-notes-body::-webkit-scrollbar {
+    width: 6px;
+}
+.video-call-notes-body::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+.video-call-notes-body::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.25);
+    border-radius: 4px;
+}
+.video-call-notes-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.35);
+}
+.video-call-notes-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    min-height: 0;
+}
+.video-call-notes-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    min-height: 0;
+    transition: flex 0.25s ease, min-height 0.25s ease;
+}
+.video-call-notes-field.is-collapsed {
+    flex: 0 0 auto;
+    min-height: 0;
+}
+.video-call-notes-field.is-expanded {
+    flex: 1;
+    min-height: 100px;
+}
+.video-call-notes-field:last-of-type {
+    margin-bottom: 0;
+}
+/* Notes header — clinical, professional */
+.video-call-notes-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--w-2);
+    background: rgba(0, 0, 0, 0.25);
+}
+.video-call-notes-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #fff;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    letter-spacing: 0.02em;
+}
+.video-call-notes-title i {
+    opacity: 0.9;
+    font-size: 0.95em;
+}
+.video-call-notes-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.85);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.video-call-notes-textarea {
+    min-height: 36px;
+    flex: 1;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--w-2);
+    border-radius: 6px;
+    color: #fff;
+    font-size: 0.8125rem;
+    font-family: inherit;
+    line-height: 1.5;
+    resize: none;
+    overflow-y: auto;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.video-call-notes-field.is-collapsed .video-call-notes-textarea {
+    flex: none;
+    min-height: 36px;
+    max-height: 52px;
+}
+.video-call-notes-field.is-expanded .video-call-notes-textarea {
+    flex: 1;
+    min-height: 80px;
+    max-height: none;
+}
+.video-call-notes-textarea:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(74, 144, 164, 0.2);
+}
+.video-call-notes-autosave {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.6);
+    margin: 2px 0 0;
+    min-height: 1.2em;
+    flex-shrink: 0;
+}
+.video-call-notes-autosave.is-saved {
+    color: rgba(74, 222, 128, 0.9);
+}
+.video-call-notes-autosave.is-saving {
+    color: rgba(255, 255, 255, 0.7);
+}
+.video-call-convo-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--w-2);
+    background: rgba(0, 0, 0, 0.2);
+}
+.video-call-convo-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #fff;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.video-call-convo-title i {
+    opacity: 0.9;
+}
+.video-call-convo-close {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--w-1);
+    border: 1px solid var(--w-2);
+    border-radius: 8px;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s;
+}
+.video-call-convo-close:hover {
+    background: var(--w-15);
+    transform: scale(1.05);
+}
+.video-call-convo-with {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--w-15);
+    background: rgba(0, 0, 0, 0.1);
+}
+.video-call-convo-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    overflow: hidden;
+    background: var(--accent-color);
+    border: 1px solid var(--w-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 1rem;
+}
+.video-call-convo-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.video-call-convo-avatar-img.is-hidden {
+    display: none;
+}
+.video-call-convo-with-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.95);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.video-call-convo-body {
+    flex: 1;
+    min-height: 0;
+    height: 320px;
+    max-height: 50vh;
+    overflow-y: scroll;
+    overflow-x: hidden;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: rgba(0, 0, 0, 0.15);
+}
+/* Convo panel scrollbars — dark to match design, no white */
+.video-call-convo-body::-webkit-scrollbar,
+.video-call-convo-input::-webkit-scrollbar {
+    width: 8px;
+}
+.video-call-convo-body::-webkit-scrollbar-track,
+.video-call-convo-input::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+.video-call-convo-body::-webkit-scrollbar-thumb,
+.video-call-convo-input::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.25);
+    border-radius: 4px;
+}
+.video-call-convo-body::-webkit-scrollbar-thumb:hover,
+.video-call-convo-input::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.35);
+}
+.video-call-convo-body,
+.video-call-convo-input {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.25) rgba(0, 0, 0, 0.2);
+}
+/* Placeholder message bubbles in convo panel */
+.video-call-convo-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+}
+.video-call-msg {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    max-width: 92%;
+    min-width: 0;
+}
+.video-call-msg--received {
+    align-self: flex-start;
+    flex-direction: row;
+}
+.video-call-msg--sent {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+}
+.video-call-msg-avatar {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    border-radius: 50%;
+    background: var(--accent-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 0.7rem;
+}
+.video-call-msg--sent .video-call-msg-avatar {
+    background: rgba(56, 161, 105, 0.9);
+}
+.video-call-msg-bubble {
+    padding: 8px 12px;
+    border-radius: 14px;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    min-width: 0;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.video-call-msg--received .video-call-msg-bubble {
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid var(--w-2);
+    border-bottom-left-radius: 4px;
+}
+.video-call-msg--sent .video-call-msg-bubble {
+    background: var(--accent-color);
+    border-bottom-right-radius: 4px;
+}
+.video-call-msg-text {
+    color: rgba(255, 255, 255, 0.95);
+    overflow-wrap: break-word;
+    word-break: break-word;
+    min-width: 0;
+}
+.video-call-msg-time {
+    font-size: 0.65rem;
+    opacity: 0.8;
+    align-self: flex-end;
+}
+.video-call-convo-messages.is-hidden {
+    display: none !important;
+}
+.video-call-convo-appointment-divider {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 0;
+    flex-shrink: 0;
+}
+.video-call-convo-appointment-divider-line {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+.video-call-convo-appointment-divider-line::before,
+.video-call-convo-appointment-divider-line::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--w-2);
+}
+.video-call-convo-appointment-divider-text {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 85%;
+}
+.video-call-convo-empty {
+    padding: 16px;
+    text-align: center;
+    font-size: 0.8125rem;
+    color: rgba(255, 255, 255, 0.7);
+}
+.video-call-convo-compose {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+    border-top: 1px solid var(--w-2);
+    background: rgba(0, 0, 0, 0.2);
+}
+.video-call-convo-attach-preview {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--w-2);
+    border-radius: 8px;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.95);
+}
+.video-call-convo-attach-preview.is-hidden {
+    display: none !important;
+}
+.video-call-convo-attach-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.video-call-convo-attach-remove {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+.video-call-convo-attach-remove:hover {
+    background: var(--w-2);
+    color: #fff;
+}
+.video-call-convo-compose-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+}
+.video-call-convo-input-wrap {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px 6px 8px;
+    background: var(--w-1);
+    border: 1px solid var(--w-2);
+    border-radius: 20px;
+    transition: border-color 0.2s, background 0.2s;
+}
+.video-call-convo-input-wrap:focus-within {
+    border-color: var(--w-25);
+    background: var(--w-15);
+}
+.video-call-convo-icons {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+}
+.video-call-convo-icon-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.85);
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background 0.2s, color 0.2s;
+}
+.video-call-convo-icon-btn:hover {
+    background: var(--w-2);
+    color: #fff;
+}
+.video-call-convo-input {
+    flex: 1;
+    min-width: 0;
+    padding: 6px 4px;
+    border: none;
+    background: transparent;
+    color: #fff;
+    font-size: 0.875rem;
+    font-family: inherit;
+    resize: none;
+    overflow-y: auto;
+    min-height: 1.4em;
+    max-height: calc(1.4em * 5);
+    line-height: 1.4;
+    transition: height 0.08s ease-out;
+}
+.video-call-convo-input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+.video-call-convo-input:focus {
+    outline: none;
+}
+.video-call-convo-send {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    background: var(--accent-color);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s;
+}
+.video-call-convo-send:hover {
+    background: #5aa0b4;
+    transform: translateY(-1px);
+}
+.video-call-convo-send:active {
+    transform: translateY(0);
+}
+
+/* Emoji picker (video call convo) — same pattern as messages page */
+.video-call-emoji-picker {
+    display: none;
+    position: fixed;
+    z-index: 1001;
+    left: 16px;
+    right: 16px;
+    max-width: 280px;
+    max-height: 200px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    background: var(--primary-dark);
+    border: 1px solid var(--w-2);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    padding: 8px;
+    box-sizing: border-box;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 4px;
+}
+.video-call-emoji-picker.is-open {
+    display: grid;
+}
+.video-call-emoji-picker-item {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.video-call-emoji-picker-item:hover {
+    background: var(--w-2);
+}
+
+/* Main layout: left = recipient video, right = sidebar (pet + local); grid cell when convo closed */
+body.video-call-fullscreen .video-call-main {
+    grid-row: 1;
+    grid-column: 1;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+    background: transparent;
+    border-radius: 0;
+}
+@media (min-width: 769px) {
+    body.video-call-fullscreen .video-call-main {
+        gap: 16px;
+    }
+}
+@media (min-width: 993px) {
+    body.video-call-fullscreen .video-call-main {
+        gap: 18px;
+    }
+}
+
+/* Main area: recipient video — constrained so portrait/mobile streams don't break layout */
+body.video-call-fullscreen .remote-video-wrap {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    position: relative;
+    overflow: hidden;
+    background: var(--primary-dark);
+    border: 1px solid var(--w-2);
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25), inset 0 0 60px rgba(0, 0, 0, 0.15);
+}
+
+/* Remote video fills the wrap without affecting flex size (handles mobile/portrait streams) */
+body.video-call-fullscreen .remote-video-wrap .remote-video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    object-position: center;
+}
+
+/* Right sidebar: 3 divs — pet info, other participant, local video */
+.video-call-sidebar {
+    width: min(280px, 28vw);
+    min-width: 180px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 0;
+    background: transparent;
+}
+
+/* Card base — shared card look for sidebar sections */
+.video-call-sidebar .sidebar-card {
+    background: var(--primary-dark);
+    border: 1px solid var(--w-2);
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+}
+
+/* Top card: Pet info — image + name, basic info, actions */
+.sidebar-pet-placeholder {
+    flex: 1;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+}
+
+.sidebar-pet-placeholder .sidebar-pet-info {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    padding: 12px 10px 14px;
+    gap: 12px;
+}
+
+.sidebar-pet-placeholder .sidebar-pet-top {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+/* Dividing line under profile only when detail view (Concern / Shared Images) is active */
+.sidebar-pet-placeholder .sidebar-pet-info:has(.sidebar-pet-detail:not(.is-hidden)) .sidebar-pet-top {
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--w-15);
+}
+
+/* Pet image — circle; scales down on smaller desktop */
+.sidebar-pet-placeholder .sidebar-card-image--pet {
+    width: clamp(40px, 6vw, 56px);
+    height: clamp(40px, 6vw, 56px);
+    min-width: 40px;
+    min-height: 40px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: var(--w-15);
+    border: 2px solid var(--w-25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sidebar-pet-placeholder .sidebar-card-image--pet .sidebar-card-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.sidebar-pet-placeholder .sidebar-card-image--pet .sidebar-card-img[src=""],
+.sidebar-pet-placeholder .sidebar-card-image--pet .sidebar-card-img:not([src]) {
+    display: none;
+}
+
+.sidebar-pet-placeholder .sidebar-card-image-fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 1.25rem;
+}
+
+.sidebar-pet-placeholder .sidebar-card-image--pet.has-pet-image .sidebar-card-image-fallback {
+    display: none;
+}
+
+/* 2. Other participant card — image + name only */
+.sidebar-other-participant {
+    flex-shrink: 0;
+    padding: 10px 12px;
+}
+
+.sidebar-other-participant-inner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.sidebar-other-participant .sidebar-other-avatar {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: var(--accent-color);
+    border: 1px solid var(--w-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #fff;
+}
+
+.sidebar-other-participant .sidebar-other-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.sidebar-other-participant .sidebar-other-avatar-img[src=""],
+.sidebar-other-participant .sidebar-other-avatar-img:not([src]) {
+    display: none;
+}
+
+.sidebar-other-participant .sidebar-other-avatar.has-avatar .sidebar-other-avatar-initial {
+    display: none;
+}
+
+.sidebar-other-participant .sidebar-other-avatar-initial {
+    display: inline-block;
+}
+
+.sidebar-other-participant .sidebar-other-name {
+    font-size: 0.875rem;
+    color: rgba(255, 255, 255, 0.95);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+
+/* Pet name — next to image */
+.sidebar-pet-placeholder .sidebar-pet-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    letter-spacing: 0.02em;
+    line-height: 1.2;
+    word-break: break-word;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Basic Information block */
+.sidebar-pet-basic-info {
+    flex-shrink: 0;
+    padding: 10px 0;
+    border-top: 1px solid var(--w-15);
+    border-bottom: 1px solid var(--w-15);
+}
+
+.sidebar-pet-info-title {
+    margin: 0 0 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.85);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.sidebar-pet-info-list {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.sidebar-pet-info-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 0.9375rem;
+}
+
+.sidebar-pet-info-row dt {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.7);
+    font-weight: 500;
+    flex-shrink: 0;
+}
+
+.sidebar-pet-info-row dd {
+    margin: 0;
+    color: #fff;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Concern + Shared Images buttons */
+.sidebar-pet-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.sidebar-pet-btn {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--w-2);
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, transform 0.15s;
+    background: var(--w-1);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.sidebar-pet-btn:hover {
+    background: var(--w-15);
+    border-color: var(--w-25);
+    transform: translateY(-1px);
+}
+
+.sidebar-pet-btn.concern-btn {
+    background: rgba(234, 179, 8, 0.25);
+    border-color: rgba(234, 179, 8, 0.5);
+    color: #fff;
+}
+
+.sidebar-pet-btn.concern-btn:hover {
+    background: rgba(234, 179, 8, 0.35);
+    border-color: rgba(234, 179, 8, 0.65);
+}
+
+.sidebar-pet-btn.shared-images-btn {
+    background: var(--accent-color);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.sidebar-pet-btn.shared-images-btn:hover {
+    background: #5aa0b4;
+    border-color: var(--w-25);
+}
+
+/* Default view: basic info + buttons (hidden when detail is shown) */
+.sidebar-pet-default {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    gap: 12px;
+}
+.sidebar-pet-default.is-hidden {
+    display: none !important;
+}
+
+/* Detail view: back arrow + concern or shared images content */
+.sidebar-pet-detail {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+.sidebar-pet-detail.is-hidden {
+    display: none !important;
+}
+
+.sidebar-pet-detail-back {
+    flex-shrink: 0;
+    align-self: flex-start;
+    width: 28px;
+    height: 28px;
+    margin: 0 0 10px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 0.875rem;
+    font-weight: 300;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.15s;
+}
+.sidebar-pet-detail-back i {
+    font-weight: 300;
+}
+.sidebar-pet-detail-back:hover {
+    opacity: 0.9;
+    transform: translateX(-2px);
+}
+
+.sidebar-pet-detail-content {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+.sidebar-pet-detail-pane {
+    display: block;
+}
+.sidebar-pet-detail-pane.is-hidden {
+    display: none !important;
+}
+
+.sidebar-pet-detail-title {
+    margin: 0 0 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.sidebar-pet-detail-placeholder {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+/* Bottom card: Local video + "You" / other participant name */
+.sidebar-local-wrap {
+    flex: 0 0 auto;
+    min-height: 160px;
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4/3;
+    max-height: 240px;
+    background: #000;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    border: 1px solid var(--w-2);
+}
+
+/* Mirror self-view: when you raise your right hand, video shows it on the left (like a mirror) */
+.sidebar-local-wrap .local-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transform: scaleX(-1);
+}
+
+.sidebar-local-wrap .local-placeholder-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 6px 10px;
+    background: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    font-size: 0.7rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.sidebar-local-wrap .local-video-label {
+    font-weight: 600;
+    position: static;
+    background: transparent;
+    padding: 0;
+}
+
+.sidebar-local-wrap .other-participant-label {
+    font-size: 0.65rem;
+    color: rgba(255, 255, 255, 0.85);
+    font-weight: 400;
+}
+
+body.video-call-fullscreen .video-call-controls {
+    flex-shrink: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+body.video-call-fullscreen .video-call-controls .control-btn,
+body.video-call-fullscreen .video-call-controls .leave-btn {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s;
+    border: 1px solid transparent;
+}
+
+body.video-call-fullscreen .video-call-controls .control-btn {
+    background: var(--w-1);
+    color: #fff;
+    border-color: var(--w-2);
+}
+
+body.video-call-fullscreen .video-call-controls .control-btn:hover {
+    background: var(--w-15);
+    border-color: var(--w-25);
+    transform: translateY(-1px);
+}
+
+body.video-call-fullscreen .video-call-controls .control-btn.muted {
+    background: rgba(220, 38, 38, 0.4);
+    border-color: rgba(220, 38, 38, 0.6);
+    color: #fff;
+}
+
+body.video-call-fullscreen .video-call-controls .control-btn.muted:hover {
+    background: rgba(220, 38, 38, 0.5);
+}
+
+body.video-call-fullscreen .video-call-controls .control-btn i {
+    font-size: 1.25rem;
+}
+
+body.video-call-fullscreen .video-call-controls .leave-btn {
+    background: #dc2626;
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+body.video-call-fullscreen .video-call-controls .leave-btn:hover {
+    background: #b91c1c;
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+    transform: translateY(-1px);
+}
+
+body.video-call-fullscreen .video-call-controls .leave-btn i {
+    font-size: 1.25rem;
+}
+
+body.video-call-fullscreen .video-call-controls .control-label {
+    white-space: nowrap;
+}
+
+/* Participant button: mobile only */
+body.video-call-fullscreen .video-call-controls .participant-btn-mobile {
+    display: none;
+}
+
+
+/* Tablet: slightly tighter layout */
+@media (max-width: 992px) {
+    body.video-call-fullscreen .video-call-container {
+        margin: 10px;
+        gap: 10px;
+    }
+    body.video-call-fullscreen .video-call-container.convo-open {
+        grid-template-columns: minmax(240px, 280px) 1fr;
+    }
+    .video-call-sidebar {
+        width: min(240px, 26vw);
+        min-width: 160px;
+    }
+    .video-call-convo-panel {
+        min-width: 240px;
+    }
+    .video-call-convo-header,
+    .video-call-convo-with {
+        padding: 10px 12px;
+    }
+    .video-call-msg-bubble {
+        font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 768px) {
+    body.video-call-fullscreen .video-call-container {
+        margin: 6px;
+        gap: 6px;
+    }
+
+    /* Mobile: convo or notes panel overlays full screen when open */
+    body.video-call-fullscreen .video-call-container.convo-open,
+    body.video-call-fullscreen .video-call-container.notes-open {
+        grid-template-columns: 1fr;
+    }
+    body.video-call-fullscreen .video-call-container.convo-open .video-call-main,
+    body.video-call-fullscreen .video-call-container.notes-open .video-call-main {
+        grid-column: 1;
+        display: none;
+    }
+    /* Mobile: messages, notes (vet), and details panels cover full screen */
+    body.video-call-fullscreen .video-call-convo-panel:not(.is-hidden),
+    body.video-call-fullscreen .video-call-notes-panel:not(.is-hidden),
+    body.video-call-fullscreen .video-call-details-panel:not(.is-hidden) {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100vw;
+        height: 100vh;
+        height: 100dvh;
+        min-height: 100dvh;
+        z-index: 100;
+        max-width: none;
+        min-width: 0;
+        border-radius: 0;
+        margin: 0;
+        border: none;
+        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        box-sizing: border-box;
+    }
+    .video-call-convo-panel:not(.is-hidden) .video-call-convo-body {
+        height: auto;
+        max-height: none;
+        flex: 1;
+        min-height: 120px;
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+    .video-call-convo-panel:not(.is-hidden) .video-call-convo-compose {
+        padding-bottom: max(10px, env(safe-area-inset-bottom));
+    }
+    .video-call-notes-panel:not(.is-hidden) .video-call-notes-body {
+        flex: 1;
+        min-height: 120px;
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    body.video-call-fullscreen .video-call-main {
+        gap: 0;
+        position: relative;
+    }
+
+    /* Mobile: remote video takes full space; keep landscape remote (desktop) as-is with contain */
+    body.video-call-fullscreen .remote-video-wrap {
+        position: absolute;
+        inset: 0;
+    }
+
+    /* Mobile: hide sidebar pet/vet card; overlay local video on remote video */
+    body.video-call-fullscreen .video-call-sidebar {
+        position: absolute;
+        right: 8px;
+        bottom: 8px;
+        left: auto;
+        width: auto;
+        min-width: 0;
+        flex-direction: column;
+        gap: 0;
+        padding: 0;
+        pointer-events: none;
+    }
+
+    body.video-call-fullscreen .video-call-sidebar .sidebar-pet-placeholder,
+    body.video-call-fullscreen .video-call-sidebar .sidebar-other-participant {
+        display: none;
+    }
+
+    body.video-call-fullscreen .video-call-sidebar .sidebar-local-wrap {
+        pointer-events: auto;
+        width: min(130px, 38vw);
+        min-width: 100px;
+        min-height: 120px;
+        max-height: none;
+        aspect-ratio: auto;
+        border-radius: 10px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .video-call-header {
+        padding: 6px 10px;
+        min-height: 40px;
+        gap: 0.5rem;
+    }
+
+    .video-call-header .call-duration {
+        min-width: 40px;
+        padding: 4px 8px;
+        font-size: 0.8rem;
+    }
+
+    /* Mobile: sidebar overlays, so no spacer — title centers over full-width video */
+    .video-call-header-sidebar-spacer {
+        width: 0;
+        min-width: 0;
+    }
+
+    .video-call-role-badge {
+        padding: 4px 8px;
+        font-size: 12px;
+    }
+
+    .video-call-role-badge-text {
+        display: none;
+    }
+
+    .consultation-title {
+        font-size: clamp(0.75rem, 3.5vw, 0.85rem);
+    }
+
+    .consultation-datetime {
+        display: none;
+    }
+
+    /* Show participant button on mobile */
+    body.video-call-fullscreen .video-call-controls .participant-btn-mobile {
+        display: inline-flex;
+    }
+
+    /* Touch-friendly control buttons (min 44px) */
+    body.video-call-fullscreen .video-call-controls {
+        gap: 0.5rem;
+        padding: 0.5rem 0.5rem;
+        padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    body.video-call-fullscreen .video-call-controls .control-btn,
+    body.video-call-fullscreen .video-call-controls .leave-btn {
+        min-width: 44px;
+        min-height: 44px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-size: 0.65rem;
+        gap: 0.15rem;
+    }
+
+    body.video-call-fullscreen .video-call-controls .control-btn i,
+    body.video-call-fullscreen .video-call-controls .leave-btn i {
+        font-size: 1.1rem;
+    }
+
+    /* Convo panel messages on mobile */
+    .video-call-msg {
+        max-width: 88%;
+    }
+    .video-call-msg-avatar {
+        width: 24px;
+        height: 24px;
+        min-width: 24px;
+        font-size: 0.65rem;
+    }
+    .video-call-msg-bubble {
+        padding: 8px 10px;
+        font-size: 0.8rem;
+    }
+    .video-call-convo-compose-row {
+        min-height: 36px;
+        gap: 6px;
+    }
+    .video-call-convo-input-wrap {
+        padding: 5px 8px 5px 6px;
+        border-radius: 18px;
+    }
+    .video-call-convo-icon-btn {
+        width: 28px;
+        height: 28px;
+        font-size: 0.9rem;
+    }
+    .video-call-convo-attach-preview {
+        padding: 5px 8px;
+        font-size: 0.75rem;
+    }
+    .video-call-emoji-picker {
+        max-height: 180px;
+        padding: 6px;
+    }
+    .video-call-emoji-picker-item {
+        width: 28px;
+        height: 28px;
+        font-size: 16px;
+    }
+}
+
+/* Very small phones */
+@media (max-width: 380px) {
+    body.video-call-fullscreen .video-call-container {
+        margin: 4px;
+        gap: 4px;
+    }
+    .video-call-convo-header {
+        padding: 10px 12px;
+    }
+    .video-call-convo-title {
+        font-size: 0.875rem;
+    }
+    body.video-call-fullscreen .video-call-sidebar .sidebar-local-wrap {
+        width: 90px;
+        min-width: 90px;
+        min-height: 100px;
+    }
+    body.video-call-fullscreen .video-call-controls .control-btn,
+    body.video-call-fullscreen .video-call-controls .leave-btn {
+        padding: 6px 8px;
+        font-size: 0.6rem;
+    }
+}
+
+/* Local video: hide second label so only participant name shows */
+.other-participant-label.is-hidden {
+    display: none !important;
+}
+
+/* Shared images gallery in pet detail pane */
+.sidebar-pet-shared-gallery {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+.sidebar-pet-shared-thumb {
+    display: block;
+    width: 64px;
+    height: 64px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.2);
+}
+.sidebar-pet-shared-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.sidebar-pet-shared-file {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    background: var(--w-15);
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 0.8rem;
+    text-decoration: none;
+}
+.sidebar-pet-shared-file:hover {
+    background: var(--w-2);
+}
+
+/* Mobile: Details panel (Pet + Basic info + Concern + Shared files + Remote participant) */
+.video-call-details-panel {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: linear-gradient(180deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    flex-direction: column;
+    overflow: hidden;
+}
+.video-call-details-panel:not(.is-hidden) {
+    display: flex;
+}
+.video-call-details-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 16px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+.details-section {
+    background: var(--w-1);
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid var(--w-15);
+}
+.details-section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.details-pet-profile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.details-pet-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: var(--w-15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.details-pet-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.details-pet-img[aria-hidden="true"],
+.details-pet-avatar:not(.has-avatar) .details-pet-img {
+    display: none;
+}
+.details-pet-avatar-fallback {
+    font-size: 1.5rem;
+    color: var(--w-2);
+}
+.details-pet-avatar .details-pet-img:not([aria-hidden="true"]) + .details-pet-avatar-fallback {
+    display: none;
+}
+.details-pet-name {
+    font-size: 1.125rem;
+    font-weight: 600;
+}
+/* Details panel pet inner: same structure as sidebar (default view + detail view with divide) */
+.video-call-details-panel .details-pet-inner {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    gap: 12px;
+}
+.video-call-details-panel .details-pet-default-view {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    gap: 12px;
+}
+.video-call-details-panel .details-pet-default-view.is-hidden {
+    display: none !important;
+}
+/* Dividing line under profile when Concern/Shared Images detail is open (like desktop sidebar) */
+.video-call-details-panel .details-pet-section:has(#details-pet-detail-view:not(.is-hidden)) .details-pet-profile {
+    padding-bottom: 12px;
+    margin-bottom: 0;
+    border-bottom: 1px solid var(--w-15);
+}
+/* Reuse sidebar pet styles inside details panel (basic info, buttons, detail panes) */
+.video-call-details-panel .details-pet-section .sidebar-pet-basic-info {
+    border-top: 1px solid var(--w-15);
+    border-bottom: 1px solid var(--w-15);
+    padding: 10px 0;
+}
+.video-call-details-panel .details-pet-section .sidebar-pet-detail {
+    flex: 1;
+    min-height: 120px;
+}
+.video-call-details-panel .details-pet-section .details-shared-placeholder.is-hidden {
+    display: none !important;
+}
+.details-subtitle {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.85);
+    margin: 0 0 8px 0;
+}
+.details-dl {
+    margin: 0 0 16px 0;
+}
+.details-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 0.875rem;
+}
+.details-row dt {
+    min-width: 72px;
+    color: rgba(255, 255, 255, 0.8);
+}
+.details-row dd {
+    margin: 0;
+}
+.details-concern-text {
+    font-size: 0.875rem;
+    line-height: 1.5;
+    margin: 0 0 16px 0;
+    color: rgba(255, 255, 255, 0.95);
+    white-space: pre-wrap;
+}
+.details-shared-files .details-placeholder {
+    font-size: 0.875rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0;
+}
+.details-shared-files .details-placeholder.is-hidden {
+    display: none;
+}
+.details-shared-gallery {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.details-shared-gallery:empty {
+    display: none;
+}
+.details-remote-profile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.details-remote-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: var(--w-15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.details-remote-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.details-remote-avatar .details-remote-img[aria-hidden="true"] {
+    display: none;
+}
+.details-remote-initial {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+}
+.details-remote-avatar.has-avatar .details-remote-initial {
+    display: none;
+}
+.details-remote-name {
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+/* Message attachments inside video call convo (match messages page) */
+.video-call-convo-panel .message-attachment { margin-bottom: 6px; }
+.video-call-convo-panel .message-attachment--image .message-attachment-link { display: block; cursor: pointer; }
+.video-call-convo-panel .message-attachment-img-wrap {
+    position: relative;
+    display: inline-block;
+    min-width: 120px;
+    min-height: 80px;
+    border-radius: 8px;
+    overflow: hidden;
+}
+.video-call-convo-panel .message-attachment-img-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 8px;
+    background: rgba(0,0,0,0.12);
+    color: var(--text-muted, #64748b);
+    font-size: 0.875rem;
+}
+.video-call-convo-panel .message-attachment--image.is-loaded .message-attachment-img-placeholder { display: none; }
+.video-call-convo-panel .message-attachment-img { max-width: 200px; max-height: 200px; border-radius: 8px; object-fit: contain; vertical-align: top; opacity: 0; transition: opacity 0.2s ease; }
+.video-call-convo-panel .message-attachment--image.is-loaded .message-attachment-img { opacity: 1; }
+.video-call-convo-panel .message-attachment--file a { color: inherit; text-decoration: none; }
+.video-call-convo-panel .message-attachment--sending { padding: 8px; border-radius: 8px; background: rgba(0,0,0,0.15); }
+
+/* Image lightbox (same as messages page) */
+.messages-image-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    box-sizing: border-box;
+}
+.messages-image-lightbox.is-hidden { display: none; }
+.messages-image-lightbox-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    cursor: pointer;
+}
+.messages-image-lightbox-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 2;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+}
+.messages-image-lightbox-close:hover { background: rgba(255, 255, 255, 0.25); }
+.messages-image-lightbox-content {
+    position: relative;
+    z-index: 1;
+    max-width: 90vw;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+.messages-image-lightbox-img {
+    max-width: 100%;
+    max-height: 85vh;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+.messages-image-lightbox-open-tab {
+    padding: 8px 14px;
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    border-radius: 8px;
+    font-size: 14px;
+    text-decoration: none;
+}
+.messages-image-lightbox-open-tab:hover { background: rgba(255, 255, 255, 0.3); }
