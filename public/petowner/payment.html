@@ -11,119 +11,213 @@
     <link href="https://fonts.googleapis.com/css?family=Lalezar" rel="stylesheet">
     <style>
         body { visibility: hidden; }
-        .payment-page { max-width: 560px; margin: 48px auto 64px; }
+        .content-wrapper.payment-page {
+            max-width: none;
+            width: 100%;
+            padding: 20px 16px 32px;
+            box-sizing: border-box;
+        }
+        .payment-page-inner {
+            max-width: min(1040px, 100%);
+            margin: 0 auto;
+            width: 100%;
+        }
         .payment-card {
             background: var(--bg-card, #fff);
             border: 1px solid var(--border-color, #e2e8f0);
-            border-radius: 12px;
-            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+            border-radius: 10px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.04);
             overflow: hidden;
         }
         .payment-card-header {
-            padding: 28px 28px 20px;
-            text-align: center;
-            border-bottom: 1px solid var(--border-color, #e2e8f0);
-            background: linear-gradient(180deg, var(--bg-light, #f7fafc) 0%, var(--bg-card, #fff) 100%);
+            padding: 22px 24px 18px;
+            border-bottom: 1px solid var(--border-color, #e8ecf1);
         }
-        .payment-card-icon {
-            width: 64px;
-            height: 64px;
-            margin: 0 auto 16px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, var(--primary-color, #2c5f7d) 0%, #3d7a94 100%);
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 28px;
-        }
-        .payment-card-title { font-size: 1.375rem; font-weight: 600; color: var(--text-dark, #2d3748); margin: 0 0 6px 0; letter-spacing: -0.02em; }
-        .payment-card-subtitle { font-size: 0.9375rem; color: var(--text-light, #718096); margin: 0; }
-        .payment-card-body { padding: 24px 28px 28px; }
-        .payment-card-body p { font-size: 0.9375rem; color: var(--text-light, #718096); margin: 0 0 20px 0; line-height: 1.6; }
+        .payment-card-title { font-size: 1.125rem; font-weight: 600; color: var(--text-dark, #1a202c); margin: 0; letter-spacing: -0.02em; }
+        .payment-card-body { padding: 20px 24px 24px; }
+        .payment-checkout-columns { display: flex; flex-direction: column; gap: 22px; }
+        .payment-checkout-aside { min-width: 0; }
+        .payment-checkout-main { min-width: 0; }
+        .payment-amount-block--aside { margin-bottom: 0; }
+        .payment-card-body > p:not(.payment-intent-ref),
+        .payment-checkout-main > p:not(.payment-intent-ref) { font-size: 0.875rem; color: var(--text-light, #718096); margin: 0 0 16px 0; line-height: 1.5; }
         .payment-success-badge {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            padding: 8px 14px;
+            padding: 8px 12px;
             background: #f0fff4;
             color: #276749;
-            border-radius: 8px;
+            border-radius: 6px;
             font-size: 0.875rem;
-            font-weight: 500;
-            margin-bottom: 20px;
+            font-weight: 600;
+            margin-bottom: 16px;
         }
-        .payment-actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 24px; }
+        .payment-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: stretch; margin-top: 20px; }
+        .payment-actions .btn-back,
+        .payment-actions .btn-secondary { flex: 1; min-width: 140px; justify-content: center; }
         .payment-actions .btn-back {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            padding: 12px 22px;
+            padding: 11px 18px;
             background: var(--primary-color, #2c5f7d);
             color: white;
             border: none;
-            border-radius: 10px;
-            font-size: 0.9375rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
             font-weight: 600;
             text-decoration: none;
             cursor: pointer;
-            transition: background 0.2s ease, box-shadow 0.2s ease;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            transition: background 0.2s ease;
         }
-        .payment-actions .btn-back:hover { background: var(--primary-dark, #1e4159); box-shadow: 0 4px 12px rgba(44, 95, 125, 0.2); }
+        .payment-actions .btn-back:hover { background: var(--primary-dark, #1e4159); }
         .payment-actions .btn-secondary {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            padding: 12px 22px;
+            padding: 11px 18px;
             background: transparent;
-            color: var(--primary-color, #2c5f7d);
-            border: 1px solid var(--primary-color, #2c5f7d);
-            border-radius: 10px;
-            font-size: 0.9375rem;
+            color: var(--text-dark, #4a5568);
+            border: 1px solid var(--border-color, #cbd5e0);
+            border-radius: 8px;
+            font-size: 0.875rem;
             font-weight: 600;
             text-decoration: none;
-            transition: background 0.2s ease, color 0.2s ease;
+            transition: border-color 0.2s ease, background 0.2s ease;
         }
-        .payment-actions .btn-secondary:hover { background: var(--primary-color, #2c5f7d); color: white; }
-        .payment-confirmation-notice {
-            padding: 14px 16px;
-            background: var(--bg-light, #f0f4f8);
-            border-left: 4px solid var(--primary-color, #2c5f7d);
-            border-radius: 8px;
-            font-size: 0.9375rem;
-            color: var(--text-dark, #2d3748);
-            margin: 0 0 20px 0;
-            line-height: 1.5;
-        }
-        .payment-confirmation-notice i { margin-right: 8px; color: var(--primary-color, #2c5f7d); }
+        .payment-actions .btn-secondary:hover { background: var(--bg-light, #f7fafc); border-color: #a0aec0; }
         .payment-booking-summary {
-            padding: 16px;
+            padding: 14px 16px;
             background: var(--bg-light, #f7fafc);
             border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 0.9375rem;
+            margin-bottom: 18px;
+            font-size: 0.875rem;
             color: var(--text-dark, #2d3748);
+            line-height: 1.5;
         }
-        .payment-booking-summary p { margin: 0 0 8px 0; }
-        .payment-booking-summary p:last-child { margin-bottom: 0; }
+        .payment-booking-summary .payment-summary-row { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid rgba(0,0,0,0.06); align-items: baseline; }
+        .payment-booking-summary .payment-summary-row:last-child { border-bottom: none; padding-bottom: 0; }
+        .payment-booking-summary .payment-summary-row:first-of-type { padding-top: 0; }
+        .payment-booking-summary .sum-label { color: var(--text-light, #718096); flex-shrink: 0; }
+        .payment-booking-summary .sum-value { text-align: right; font-weight: 500; min-width: 0; }
+        .payment-booking-summary .sum-value.payment-summary-title-text {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: min(100%, 18rem);
+        }
+        @media (min-width: 900px) {
+            .payment-booking-summary .sum-value.payment-summary-title-text { max-width: min(100%, 22rem); }
+        }
         .btn-confirm-pay {
-            display: inline-flex;
+            display: flex;
             align-items: center;
+            justify-content: center;
             gap: 8px;
-            padding: 12px 22px;
-            background: #276749;
+            width: 100%;
+            padding: 13px 20px;
+            background: #2d3748;
             color: white;
             border: none;
-            border-radius: 10px;
+            border-radius: 8px;
             font-size: 0.9375rem;
             font-weight: 600;
             cursor: pointer;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            margin-top: 4px;
         }
-        .btn-confirm-pay:hover { background: #22543d; }
-        .btn-confirm-pay:disabled { opacity: 0.7; cursor: not-allowed; }
-        .payment-placeholder-text { margin-bottom: 20px; }
+        .btn-confirm-pay:hover { background: #1a202c; }
+        .btn-confirm-pay:disabled { opacity: 0.65; cursor: not-allowed; }
+        .payment-placeholder-text { margin-bottom: 16px; color: var(--text-light, #718096); font-size: 0.875rem; }
+        .payment-card-form { display: none; margin-bottom: 0; text-align: left; }
+        .payment-card-form.is-visible { display: block; }
+        .payment-amount-block {
+            text-align: center;
+            padding: 16px 0 18px;
+            margin-bottom: 18px;
+            border-bottom: 1px solid var(--border-color, #e8ecf1);
+        }
+        .payment-checkout-aside .payment-amount-block {
+            margin-top: 8px;
+        }
+        .payment-amount-block .payment-amount-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-light, #718096); margin: 0 0 4px 0; }
+        .payment-amount-block .payment-fee-line { font-size: 1.75rem; font-weight: 700; color: var(--text-dark, #1a202c); margin: 0; letter-spacing: -0.03em; }
+        .payment-sandbox-hint {
+            font-size: 0.75rem; color: var(--text-light, #a0aec0); margin: 0 0 18px 0; line-height: 1.45;
+        }
+        .payment-sandbox-hint code { font-size: 0.72rem; background: var(--bg-light, #edf2f7); padding: 1px 5px; border-radius: 4px; }
+        .payment-field { display: block; margin-bottom: 16px; }
+        .payment-field span { display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-dark, #4a5568); margin-bottom: 6px; }
+        .payment-field input {
+            width: 100%; max-width: 100%; box-sizing: border-box; padding: 11px 12px;
+            border: 1px solid var(--border-color, #cbd5e0); border-radius: 6px;
+            font-size: 1rem; background: var(--bg-card, #fff); color: var(--text-dark, #1a202c);
+        }
+        .payment-field input:focus { outline: none; border-color: var(--primary-color, #2c5f7d); box-shadow: 0 0 0 3px rgba(44, 95, 125, 0.12); }
+        .payment-field-row { display: grid; grid-template-columns: 1fr minmax(7rem, 9rem); gap: 16px 20px; align-items: end; }
+        @media (max-width: 400px) { .payment-field-row { grid-template-columns: 1fr; } }
+        .payment-expiry-group { margin-bottom: 0; }
+        .payment-expiry-inputs {
+            display: flex;
+            align-items: center;
+            border: 1px solid var(--border-color, #cbd5e0);
+            border-radius: 6px;
+            background: var(--bg-card, #fff);
+            overflow: hidden;
+        }
+        .payment-expiry-inputs:focus-within { border-color: var(--primary-color, #2c5f7d); box-shadow: 0 0 0 3px rgba(44, 95, 125, 0.12); }
+        .payment-expiry-inputs input {
+            border: none; border-radius: 0; box-shadow: none; text-align: center;
+            font-size: 1rem; font-variant-numeric: tabular-nums;
+            min-width: 0;
+        }
+        .payment-expiry-inputs input:focus { box-shadow: none; outline: none; }
+        .payment-expiry-inputs #pm-exp-month { flex: 1; max-width: 4.5rem; }
+        .payment-expiry-inputs #pm-exp-year { flex: 1; max-width: 4.5rem; }
+        .payment-expiry-sep {
+            font-size: 1.125rem; font-weight: 500; color: var(--text-light, #a0aec0);
+            user-select: none; padding: 0 2px;
+        }
+        .payment-field-cvc { margin-bottom: 0; }
+        .payment-config-warning { padding: 12px 14px; background: #fffbeb; border: 1px solid #f59e0b; border-radius: 8px; font-size: 0.8125rem; color: #92400e; margin-bottom: 14px; }
+        .payment-status-wait { font-size: 0.875rem; color: var(--text-light, #718096); margin-bottom: 14px; }
+        .payment-intent-ref { font-size: 0.75rem; color: var(--text-light, #a0aec0); margin: 0 0 12px 0; line-height: 1.45; word-break: break-all; }
+
+        @media (min-width: 900px) {
+            .content-wrapper.payment-page { padding: 28px 32px 48px; }
+            .payment-card-body { padding: 28px 36px 32px; }
+            .payment-card-header { padding: 24px 36px 20px; }
+            .payment-checkout-columns {
+                display: grid;
+                grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+                gap: 40px 48px;
+                align-items: start;
+            }
+            .payment-checkout-aside {
+                padding: 20px 22px 22px;
+                background: var(--bg-light, #f7fafc);
+                border-radius: 10px;
+                border: 1px solid var(--border-color, #e8ecf1);
+            }
+            .payment-booking-summary {
+                margin-bottom: 0;
+                padding: 0;
+                background: transparent;
+            }
+            .payment-checkout-aside .payment-amount-block {
+                text-align: left;
+                padding: 20px 0 0;
+                margin-top: 16px;
+                margin-bottom: 0;
+                border-bottom: none;
+                border-top: 1px solid var(--border-color, #e2e8f0);
+            }
+            .payment-checkout-aside .payment-amount-block .payment-fee-line { font-size: 2rem; }
+            .payment-checkout-main .payment-card-form.is-visible { margin-top: 0; }
+            .payment-actions { margin-top: 28px; gap: 12px; }
+            .payment-actions .btn-back,
+            .payment-actions .btn-secondary { flex: 0 1 auto; min-width: 180px; }
+        }
     </style>
 </head>
 <body>
@@ -176,28 +270,56 @@
         </header>
 
         <div class="content-wrapper payment-page">
+            <div class="payment-page-inner">
             <div class="payment-card">
                 <div class="payment-card-header">
-                    <div class="payment-card-icon" aria-hidden="true"><i class="fa fa-credit-card"></i></div>
-                    <h2 class="payment-card-title">Payment</h2>
-                    <p class="payment-card-subtitle">Complete your visit</p>
+                    <h2 class="payment-card-title">Checkout</h2>
                 </div>
                 <div class="payment-card-body">
-                    <p class="payment-confirmation-notice">
-                        <i class="fa fa-info-circle" aria-hidden="true"></i>
-                        <strong>Confirmation &amp; payment.</strong> This page is where you confirm your consultation and pay. Nothing is added or booked on either side until you complete payment here. If you leave without paying, no appointment is created and the time slot stays available.
-                    </p>
-                    <div class="payment-booking-summary" id="payment-booking-summary" style="display: none;"></div>
+                    <div class="payment-checkout-columns">
+                        <div class="payment-checkout-aside">
+                            <div class="payment-booking-summary" id="payment-booking-summary" style="display: none;"></div>
+                            <div class="payment-amount-block payment-amount-block--aside">
+                                <p class="payment-amount-label">Total due</p>
+                                <p class="payment-fee-line" id="payment-fee-line">PHP 100.00</p>
+                            </div>
+                        </div>
+                        <div class="payment-checkout-main">
                     <div class="payment-success-badge" id="payment-success-badge" style="display: none;">
-                        <i class="fa fa-check-circle" aria-hidden="true"></i> Booked and paid successfully
+                        <i class="fa fa-check-circle" aria-hidden="true"></i> Payment successful
                     </div>
-                    <p class="payment-placeholder-text" id="payment-placeholder-text">This is a placeholder for the payment flow. In the full version you would enter payment details here. Click <strong>Confirm &amp; Pay</strong> below to confirm your consultation and complete the booking.</p>
-                    <div class="payment-actions" id="payment-actions">
-                        <button type="button" class="btn-confirm-pay" id="btn-confirm-pay" style="display: none;"><i class="fa fa-check" aria-hidden="true"></i> Confirm &amp; Pay</button>
+                    <p class="payment-intent-ref" id="payment-intent-ref" style="display: none;" aria-live="polite"></p>
+                    <p class="payment-placeholder-text" id="payment-placeholder-text">Loading…</p>
+                    <div class="payment-config-warning" id="payment-config-warning" style="display: none;" role="alert">
+                        PayMongo is not configured. Add <code>paymongoPublicKey</code> in <code>firebase-config.js</code> and <code>PAYMONGO_SECRET_KEY</code> for Cloud Functions, then deploy.
+                    </div>
+                    <p class="payment-status-wait" id="payment-status-wait" style="display: none;" aria-live="polite">Confirming payment…</p>
+                    <form class="payment-card-form" id="payment-card-form" novalidate>
+                        <p class="payment-sandbox-hint" id="payment-sandbox-hint">Test: <code>4343 4343 4343 4345</code> or <code>5555 4444 4444 4457</code> · future MM/YY · any CVC</p>
+                        <label class="payment-field"><span>Cardholder name</span><input type="text" id="pm-name" name="cc-name" autocomplete="cc-name" required placeholder="Name on card"></label>
+                        <label class="payment-field"><span>Email</span><input type="email" id="pm-email" name="email" autocomplete="email" required placeholder="you@example.com"></label>
+                        <label class="payment-field"><span>Card number</span><input type="text" id="pm-number" name="cc-number" autocomplete="cc-number" inputmode="numeric" required placeholder="1234 5678 9012 3456"></label>
+                        <div class="payment-field-row">
+                            <label class="payment-field payment-expiry-group">
+                                <span>Expiry (MM / YY)</span>
+                                <div class="payment-expiry-inputs" role="group" aria-label="Card expiry">
+                                    <input type="text" id="pm-exp-month" name="cc-exp-month" inputmode="numeric" autocomplete="cc-exp-month" required placeholder="MM" maxlength="2" pattern="[0-9]{1,2}" aria-label="Expiry month">
+                                    <span class="payment-expiry-sep" aria-hidden="true">/</span>
+                                    <input type="text" id="pm-exp-year" name="cc-exp-year" inputmode="numeric" autocomplete="cc-exp-year" required placeholder="YY" maxlength="4" pattern="[0-9]{2,4}" aria-label="Expiry year">
+                                </div>
+                            </label>
+                            <label class="payment-field payment-field-cvc"><span>CVC</span><input type="text" id="pm-cvc" name="cc-csc" autocomplete="cc-csc" required placeholder="123" maxlength="4" inputmode="numeric"></label>
+                        </div>
+                        <button type="submit" class="btn-confirm-pay" id="btn-confirm-pay"><i class="fa fa-lock" aria-hidden="true"></i> Pay securely</button>
+                    </form>
+                        </div>
+                    </div>
+                    <div class="payment-actions" id="payment-actions-secondary">
                         <a href="appointment.html" class="btn-back"><i class="fa fa-arrow-left" aria-hidden="true"></i> Back to Appointments</a>
                         <a href="dashboard.html" class="btn-secondary"><i class="fa fa-th-large" aria-hidden="true"></i> Dashboard</a>
                     </div>
                 </div>
+            </div>
             </div>
         </div>
     </main>
@@ -214,11 +336,15 @@
     <script type="module" src="../scripts/petowner/dashboard-auth.js"></script>
     <script type="module" src="../scripts/petowner/profile.js"></script>
     <script type="module">
-        import { auth } from '../scripts/core/firebase-config.js';
+        import { app, auth, paymongoPublicKey } from '../scripts/core/firebase-config.js';
+        import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js';
+        import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-functions.js';
         import { createAppointment, markAppointmentPaid } from '../scripts/petowner/appointment-manager.js';
+        import { createCardPaymentMethod } from '../scripts/core/paymongo-client.js';
 
         var BOOKING_MEDIA_DB = 'televet_booking_media';
         var BOOKING_MEDIA_STORE = 'files';
+        var DEFAULT_AMOUNT_CENTAVOS = 10000;
 
         function getBookingMediaFromIndexedDB(mediaKey) {
             return new Promise(function (resolve, reject) {
@@ -257,7 +383,7 @@
         }
 
         function deleteBookingMediaFromIndexedDB(mediaKey) {
-            return new Promise(function (resolve, reject) {
+            return new Promise(function (resolve) {
                 if (!mediaKey) { resolve(); return; }
                 var request = indexedDB.open(BOOKING_MEDIA_DB, 1);
                 request.onerror = function () { resolve(); };
@@ -272,75 +398,305 @@
             });
         }
 
+        function formatPhpCentavos(centavos) {
+            var n = Number(centavos);
+            if (!Number.isFinite(n)) return '—';
+            return 'PHP ' + (n / 100).toFixed(2);
+        }
+
+        function parseCardExpiry() {
+            var m = parseInt(String(document.getElementById('pm-exp-month').value).replace(/\D/g, ''), 10);
+            var yRaw = String(document.getElementById('pm-exp-year').value).replace(/\D/g, '');
+            var y = parseInt(yRaw, 10);
+            if (!Number.isFinite(m) || m < 1 || m > 12) {
+                throw new Error('Enter a valid expiry month (01–12).');
+            }
+            if (!yRaw || !Number.isFinite(y)) {
+                throw new Error('Enter a valid expiry year.');
+            }
+            if (yRaw.length === 4 && y >= 2000 && y <= 2099) {
+                /* full year */
+            } else if (yRaw.length === 2) {
+                y = 2000 + y;
+            } else {
+                throw new Error('Enter expiry year as YY (e.g. 28) or YYYY.');
+            }
+            if (y < 2000 || y > 2099) {
+                throw new Error('Enter a valid expiry year.');
+            }
+            return { expMonth: m, expYear: y };
+        }
+
+        function formatPaymentError(err) {
+            if (!err) return 'Something went wrong.';
+            var c = err.code;
+            if (c === 'functions/failed-precondition' || c === 'functions/permission-denied' || c === 'functions/unauthenticated') {
+                return err.message || err.details || 'Request was rejected.';
+            }
+            if (err.details) return err.details;
+            return err.message || String(err);
+        }
+
+        function payMongoReturnUrl() {
+            var u = new URL(window.location.href);
+            u.searchParams.set('booking', '1');
+            u.searchParams.set('paymongo_return', '1');
+            return u.toString();
+        }
+
         var params = new URLSearchParams(window.location.search);
         var summaryEl = document.getElementById('payment-booking-summary');
         var successBadge = document.getElementById('payment-success-badge');
         var placeholderText = document.getElementById('payment-placeholder-text');
+        var paymentForm = document.getElementById('payment-card-form');
         var btnConfirmPay = document.getElementById('btn-confirm-pay');
-        var paymentActions = document.getElementById('payment-actions');
+        var configWarning = document.getElementById('payment-config-warning');
+        var statusWait = document.getElementById('payment-status-wait');
+        var feeLine = document.getElementById('payment-fee-line');
+
+        var functions = getFunctions(app);
+        var createPaymentIntent = httpsCallable(functions, 'payMongoCreatePaymentIntent');
+        var attachPayment = httpsCallable(functions, 'payMongoAttachPayment');
+        var getPaymentIntentStatus = httpsCallable(functions, 'payMongoGetPaymentIntentStatus');
+
+        onAuthStateChanged(auth, function (user) {
+            var em = document.getElementById('pm-email');
+            if (em && user && user.email && !em.value) em.value = user.email;
+        });
+
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
 
         function showBookingSummary(booking) {
             if (!summaryEl || !booking) return;
+            var vetLine = (booking.vetName || '—') + (booking.clinicName ? ' · ' + booking.clinicName : '');
+            var titleText =
+                (booking.title && String(booking.title).trim()) ||
+                (booking.reason && String(booking.reason).trim()) ||
+                '—';
+            var titleHtml = escapeHtml(titleText);
             summaryEl.innerHTML =
-                '<p><strong>Vet:</strong> ' + (booking.vetName || '—') + (booking.clinicName ? ' · ' + booking.clinicName : '') + '</p>' +
-                '<p><strong>Pet:</strong> ' + (booking.petName || '—') + '</p>' +
-                '<p><strong>Date &amp; time:</strong> ' + (booking.timeDisplay || booking.dateStr || '—') + '</p>' +
-                '<p><strong>Concern:</strong> ' + (booking.reason || '—') + '</p>';
+                '<div class="payment-summary-row"><span class="sum-label">Veterinarian</span><span class="sum-value">' + vetLine + '</span></div>' +
+                '<div class="payment-summary-row"><span class="sum-label">Pet</span><span class="sum-value">' + (booking.petName || '—') + '</span></div>' +
+                '<div class="payment-summary-row"><span class="sum-label">Title:</span><span class="sum-value payment-summary-title-text" title="' + titleHtml + '">' + titleHtml + '</span></div>' +
+                '<div class="payment-summary-row"><span class="sum-label">Date &amp; time</span><span class="sum-value">' + (booking.timeDisplay || booking.dateStr || '—') + '</span></div>';
             summaryEl.style.display = 'block';
         }
 
-        if (params.get('booking') === '1') {
-            var stored = sessionStorage.getItem('televet_booking');
-            if (stored) {
-                try {
-                    var booking = JSON.parse(stored);
-                    showBookingSummary(booking);
-                    if (btnConfirmPay) btnConfirmPay.style.display = 'inline-flex';
+        function setPayButtonLoading(loading, label) {
+            if (!btnConfirmPay) return;
+            btnConfirmPay.disabled = loading;
+            if (loading) {
+                btnConfirmPay.textContent = label || 'Processing…';
+            } else {
+                btnConfirmPay.innerHTML = '<i class="fa fa-lock" aria-hidden="true"></i> Pay securely';
+            }
+        }
 
-                    btnConfirmPay.addEventListener('click', async function () {
-                        var user = auth.currentUser;
-                        if (!user) return;
-                        btnConfirmPay.disabled = true;
-                        btnConfirmPay.textContent = 'Processing…';
-                        try {
-                            var mediaFiles = [];
-                            if (booking.mediaKey) {
-                                mediaFiles = await getBookingMediaFromIndexedDB(booking.mediaKey);
+        async function pollPaymentSucceeded(paymentIntentId) {
+            for (var i = 0; i < 15; i++) {
+                var res = await getPaymentIntentStatus({ paymentIntentId: paymentIntentId });
+                var st = res.data && res.data.status;
+                if (st === 'succeeded') return true;
+                if (st === 'awaiting_payment_method') {
+                    var le = res.data && res.data.lastPaymentError;
+                    throw new Error((le && le.detail) || (le && le.title) || 'Payment was declined.');
+                }
+                await new Promise(function (r) { setTimeout(r, 2000); });
+            }
+            throw new Error('Payment is still processing. Check Appointments in a few minutes or contact support.');
+        }
+
+        async function completeBookingAfterPayment(booking) {
+            var piRef = sessionStorage.getItem('paymongo_pi_id') || '';
+            var refEl = document.getElementById('payment-intent-ref');
+            var mediaFiles = [];
+            if (booking.mediaKey) {
+                mediaFiles = await getBookingMediaFromIndexedDB(booking.mediaKey);
+            }
+            var data = {
+                title: booking.title || null,
+                petId: booking.petId,
+                petName: booking.petName,
+                petSpecies: booking.petSpecies || '',
+                vetId: booking.vetId,
+                vetName: booking.vetName,
+                clinicName: booking.clinicName || '',
+                reason: booking.reason,
+                dateStr: booking.dateStr,
+                timeDisplay: booking.timeDisplay,
+                mediaFiles: mediaFiles,
+                slotStart: booking.slotStart || null,
+                slotEnd: booking.slotEnd || null,
+            };
+            var res = await createAppointment(data);
+            await markAppointmentPaid(res.id);
+            await deleteBookingMediaFromIndexedDB(booking.mediaKey);
+            sessionStorage.removeItem('televet_booking');
+            sessionStorage.removeItem('paymongo_pi_id');
+            if (summaryEl) summaryEl.style.display = 'none';
+            if (paymentForm) paymentForm.classList.remove('is-visible');
+            if (placeholderText) placeholderText.style.display = 'none';
+            if (successBadge) successBadge.style.display = 'inline-flex';
+            if (statusWait) statusWait.style.display = 'none';
+            if (refEl && piRef) {
+                refEl.style.display = 'block';
+                refEl.textContent = 'Reference: ' + piRef;
+            }
+            window.history.replaceState({}, '', window.location.pathname + window.location.hash);
+        }
+
+        async function runPayMongoThenBook(booking) {
+            var user = auth.currentUser;
+            if (!user) throw new Error('You must be signed in.');
+
+            var consultationTitle =
+                (booking.title && String(booking.title).trim()) ||
+                (booking.reason && String(booking.reason).trim()) ||
+                '';
+            var piRes = await createPaymentIntent({
+                amount: DEFAULT_AMOUNT_CENTAVOS,
+                consultationTitle: consultationTitle,
+                vetName: booking.vetName || '',
+                clinicName: booking.clinicName || '',
+                petName: booking.petName || '',
+            });
+            var pid = piRes.data.paymentIntentId;
+            var exp = parseCardExpiry();
+            var pmId = await createCardPaymentMethod(paymongoPublicKey, {
+                cardNumber: document.getElementById('pm-number').value,
+                expMonth: exp.expMonth,
+                expYear: exp.expYear,
+                cvc: document.getElementById('pm-cvc').value,
+                name: document.getElementById('pm-name').value,
+                email: document.getElementById('pm-email').value || (user.email || ''),
+            });
+
+            sessionStorage.setItem('paymongo_pi_id', pid);
+            if (feeLine && piRes.data.amount != null) {
+                feeLine.textContent = formatPhpCentavos(piRes.data.amount);
+            }
+
+            var attachRes = await attachPayment({
+                paymentIntentId: pid,
+                paymentMethodId: pmId,
+                returnUrl: payMongoReturnUrl(),
+            });
+            var d = attachRes.data || {};
+            if (d.status === 'succeeded') {
+                await completeBookingAfterPayment(booking);
+                return;
+            }
+            if (d.redirectUrl) {
+                window.location.href = d.redirectUrl;
+                return;
+            }
+            if (d.status === 'processing' || d.status === 'awaiting_next_action') {
+                var ok = await pollPaymentSucceeded(pid);
+                if (ok) await completeBookingAfterPayment(booking);
+                return;
+            }
+            if (d.status === 'awaiting_payment_method') {
+                var le = d.lastPaymentError;
+                throw new Error((le && le.detail) || (le && le.title) || 'Payment could not be completed.');
+            }
+            throw new Error('Unexpected payment status: ' + (d.status || 'unknown'));
+        }
+
+        async function handlePayMongoReturn() {
+            var piStored = sessionStorage.getItem('paymongo_pi_id');
+            var stored = sessionStorage.getItem('televet_booking');
+            if (!piStored || !stored) {
+                if (statusWait) statusWait.style.display = 'none';
+                if (placeholderText) {
+                    placeholderText.style.display = 'block';
+                    placeholderText.textContent = 'Could not resume payment (session expired). Start again from Appointments.';
+                }
+                return;
+            }
+            var booking = JSON.parse(stored);
+            try {
+                await pollPaymentSucceeded(piStored);
+                await completeBookingAfterPayment(booking);
+            } catch (e) {
+                console.error(e);
+                if (statusWait) statusWait.style.display = 'none';
+                alert(formatPaymentError(e) || 'Payment confirmation failed.');
+            }
+        }
+
+        if (params.get('booking') === '1') {
+            var storedBooking = sessionStorage.getItem('televet_booking');
+            if (storedBooking) {
+                try {
+                    var booking = JSON.parse(storedBooking);
+                    showBookingSummary(booking);
+
+                    if (params.get('paymongo_return') === '1') {
+                        if (placeholderText) placeholderText.style.display = 'none';
+                        if (paymentForm) paymentForm.classList.remove('is-visible');
+                        if (configWarning) configWarning.style.display = 'none';
+                        if (statusWait) statusWait.style.display = 'block';
+                        handlePayMongoReturn();
+                    } else {
+                        var pkOk = typeof paymongoPublicKey === 'string' && paymongoPublicKey.trim().indexOf('pk_test_') === 0;
+                        if (!pkOk) {
+                            if (placeholderText) {
+                                placeholderText.textContent = 'Complete payment below once keys are configured.';
+                                placeholderText.style.display = 'block';
                             }
-                            var data = {
-                                title: booking.title || null,
-                                petId: booking.petId,
-                                petName: booking.petName,
-                                petSpecies: booking.petSpecies || '',
-                                vetId: booking.vetId,
-                                vetName: booking.vetName,
-                                clinicName: booking.clinicName || '',
-                                reason: booking.reason,
-                                dateStr: booking.dateStr,
-                                timeDisplay: booking.timeDisplay,
-                                mediaFiles: mediaFiles,
-                                slotStart: booking.slotStart || null,
-                                slotEnd: booking.slotEnd || null,
-                            };
-                            var res = await createAppointment(data);
-                            await markAppointmentPaid(res.id);
-                            await deleteBookingMediaFromIndexedDB(booking.mediaKey);
-                            sessionStorage.removeItem('televet_booking');
-                            if (summaryEl) summaryEl.style.display = 'none';
-                            if (btnConfirmPay) btnConfirmPay.style.display = 'none';
+                            if (configWarning) configWarning.style.display = 'block';
+                        } else {
                             if (placeholderText) placeholderText.style.display = 'none';
-                            if (successBadge) successBadge.style.display = 'inline-flex';
-                        } catch (e) {
-                            console.error(e);
-                            btnConfirmPay.disabled = false;
-                            btnConfirmPay.innerHTML = '<i class="fa fa-check" aria-hidden="true"></i> Confirm &amp; Pay';
-                            alert(e.message || 'Booking failed. Please try again.');
+                            if (feeLine) feeLine.textContent = formatPhpCentavos(DEFAULT_AMOUNT_CENTAVOS);
+                            if (paymentForm) paymentForm.classList.add('is-visible');
+                            if (paymentForm) {
+                                var expM = document.getElementById('pm-exp-month');
+                                var expY = document.getElementById('pm-exp-year');
+                                if (expM && expY) {
+                                    expM.addEventListener('input', function () {
+                                        expM.value = expM.value.replace(/\D/g, '').slice(0, 2);
+                                        if (expM.value.length >= 2) expY.focus();
+                                    });
+                                    expY.addEventListener('input', function () {
+                                        expY.value = expY.value.replace(/\D/g, '').slice(0, 4);
+                                    });
+                                }
+                                paymentForm.addEventListener('submit', async function (ev) {
+                                    ev.preventDefault();
+                                    var u = auth.currentUser;
+                                    if (!u) return;
+                                    if (!(typeof paymongoPublicKey === 'string' && paymongoPublicKey.trim().indexOf('pk_test_') === 0)) {
+                                        alert('PayMongo public key is not set. See firebase-config.js.');
+                                        return;
+                                    }
+                                    setPayButtonLoading(true, 'Processing…');
+                                    try {
+                                        await runPayMongoThenBook(booking);
+                                    } catch (e) {
+                                        console.error(e);
+                                        alert(formatPaymentError(e) || 'Payment failed. Please try again.');
+                                    } finally {
+                                        setPayButtonLoading(false);
+                                    }
+                                });
+                            }
                         }
-                    });
+                    }
                 } catch (e) {
                     console.warn('Invalid booking data:', e);
+                    if (placeholderText) placeholderText.textContent = 'Invalid booking data. Go back to Appointments and try again.';
                 }
+            } else if (!params.get('paymongo_return')) {
+                if (placeholderText) placeholderText.textContent = 'No pending booking. Choose a slot from Appointments first.';
             }
+        } else {
+            if (placeholderText) placeholderText.textContent = 'Open this page from the booking flow (Appointments → book → pay) to see your summary and pay.';
         }
     </script>
 </body>

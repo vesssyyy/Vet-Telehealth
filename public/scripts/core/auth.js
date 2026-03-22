@@ -22,7 +22,24 @@ import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "https://www.gst
         'auth/too-many-requests': 'Too many failed attempts. Try again later.',
         'auth/popup-closed-by-user': 'Sign-in was cancelled.',
         'auth/popup-blocked': 'Pop-up blocked. Please allow pop-ups.',
-        'auth/unauthorized-domain': 'Domain not authorized in Firebase Console.'
+        'auth/unauthorized-domain': 'This site’s domain is not allowed for Firebase Auth.'
+    };
+
+    const unauthorizedDomainHelp = () => {
+        const host = typeof location !== 'undefined' ? location.hostname : '';
+        const origin = typeof location !== 'undefined' ? location.origin : '';
+        return (
+            '\n\nFix: Firebase Console → Authentication → Settings → Authorized domains → Add "' + host + '" (host only).' +
+            (origin
+                ? '\nGoogle sign-in: Google Cloud → Credentials → Web client → Authorized JavaScript origins → Add "' + origin + '".'
+                : '')
+        );
+    };
+
+    const authErrorMessage = (error) => {
+        const base = AUTH_ERRORS[error.code] || error.message || 'Something went wrong.';
+        if (error.code === 'auth/unauthorized-domain') return base + unauthorizedDomainHelp();
+        return base;
     };
 
     const DOM = {
@@ -147,7 +164,7 @@ import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "https://www.gst
                 await auth.signOut();
             } catch (error) {
                 console.error('Sign-up error:', error);
-                alert(AUTH_ERRORS[error.code] || 'Sign-up failed. Please try again.');
+                alert(authErrorMessage(error) || 'Sign-up failed. Please try again.');
                 if (auth.currentUser) await auth.signOut();
             } finally {
                 sessionStorage.removeItem('telehealthSignupPending');
@@ -173,7 +190,7 @@ import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "https://www.gst
             } catch (error) {
                 isGoogleSignInInProgress = false;
                 console.error('Google sign-in error:', error);
-                alert(AUTH_ERRORS[error.code] || `Google sign-in failed: ${error.message}`);
+                alert(authErrorMessage(error) || `Google sign-in failed: ${error.message}`);
             }
         });
     };
@@ -192,7 +209,7 @@ import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "https://www.gst
                 await handleAuthenticatedUser(user);
             } catch (error) {
                 console.error('Login error:', error);
-                alert(AUTH_ERRORS[error.code] || `Login failed: ${error.message}`);
+                alert(authErrorMessage(error) || `Login failed: ${error.message}`);
             }
         });
     };
@@ -207,7 +224,7 @@ import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "https://www.gst
                 showTab('login');
             } catch (error) {
                 console.error('Password reset error:', error);
-                alert(AUTH_ERRORS[error.code] || 'If an account exists with this email, a reset link has been sent.');
+                alert(authErrorMessage(error) || 'If an account exists with this email, a reset link has been sent.');
             }
         });
     };

@@ -623,26 +623,78 @@ export async function markAppointmentPaid(appointmentId) {
     await updateDoc(aptRef, { paid: true, updatedAt: serverTimestamp() });
 }
 
-/** Subscribe to appointments for current user */
+function mapAppointmentSnapshotDocs(docs) {
+    const appointments = docs.map((d) => {
+        const data = d.data();
+        const createdAt = data.createdAt?.toMillis?.() ?? data.createdAt?.getTime?.() ?? 0;
+        return { id: d.id, ...data, createdAt };
+    });
+    appointments.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    return appointments;
+}
+
+/**
+ * Subscribe to appointments for current user.
+ * getDocs + onSnapshot: if one transport stalls (common on mobile / tunneling), the other can still complete.
+ * Watchdog: iOS often throttles long timers; interval clears the spinner even when setTimeout is delayed.
+ */
 export function subscribeAppointments(uid, callback) {
     if (!uid) return () => {};
     const q = query(appointmentsRef(), where('ownerId', '==', uid));
-    return onSnapshot(
+    let active = true;
+    let initialDone = false;
+    const safetyMs = 12000;
+    const started = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+    let watchdogId = null;
+    const trySafetyKick = () => {
+        if (!active || initialDone) return false;
+        const now = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+        if (now - started < safetyMs) return false;
+        initialDone = true;
+        clearTimeout(safetyTimer);
+        if (watchdogId != null) clearInterval(watchdogId);
+        console.warn('Appointments: initial sync is slow; showing empty list until data arrives.');
+        callback([]);
+        return true;
+    };
+    const safetyTimer = setTimeout(trySafetyKick, safetyMs);
+    watchdogId = setInterval(() => {
+        trySafetyKick();
+        if (initialDone || !active) {
+            if (watchdogId != null) clearInterval(watchdogId);
+        }
+    }, 2000);
+    const deliver = (list) => {
+        if (!active) return;
+        if (!initialDone) {
+            initialDone = true;
+            clearTimeout(safetyTimer);
+            if (watchdogId != null) clearInterval(watchdogId);
+        }
+        callback(list);
+    };
+
+    getDocs(q)
+        .then((snap) => deliver(mapAppointmentSnapshotDocs(snap.docs)))
+        .catch((err) => {
+            console.error('Appointments getDocs error:', err);
+            deliver([]);
+        });
+
+    const unsub = onSnapshot(
         q,
-        (snapshot) => {
-            const appointments = snapshot.docs.map((d) => {
-                const data = d.data();
-                const createdAt = data.createdAt?.toMillis?.() ?? data.createdAt?.getTime?.() ?? 0;
-                return { id: d.id, ...data, createdAt };
-            });
-            appointments.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-            callback(appointments);
-        },
+        (snapshot) => deliver(mapAppointmentSnapshotDocs(snapshot.docs)),
         (err) => {
             console.error('Appointments subscription error:', err);
-            callback([]);
+            deliver([]);
         }
     );
+    return () => {
+        active = false;
+        clearTimeout(safetyTimer);
+        if (watchdogId != null) clearInterval(watchdogId);
+        unsub();
+    };
 }
 
 function renderAppointmentCard(apt, isHistory = false) {
@@ -656,7 +708,7 @@ function renderAppointmentCard(apt, isHistory = false) {
                 <div class="appointment-card-pet-img${isCat ? ' appointment-card-pet-img--cat' : ''}" aria-hidden="true"><i class="fa fa-paw" aria-hidden="true"></i></div>
             </div>
             <div class="appointment-card-body">
-                <p class="appointment-card-title">${escapeHtml(apt.petName || 'Pet')} | ${escapeHtml(apt.title?.trim() || '—')}</p>
+                <p class="appointment-card-title">${escapeHtml(apt.petName || 'Pet')} | ${escapeHtml(apt.title?.trim() || '—')}${apt.paid === true ? ' <span class="appointment-card-badge appointment-card-badge--paid" title="Consultation paid via PayMongo"><i class="fa fa-check-circle" aria-hidden="true"></i> Paid</span>' : ''}</p>
                 <p class="appointment-card-meta">${escapeHtml(apt.vetName || '')}${apt.clinicName ? ' · ' + escapeHtml(apt.clinicName) : ''}</p>
                 <p class="appointment-card-time"><span class="appointment-card-time-text">${escapeHtml(getAppointmentTimeDisplay(apt))}</span></p>
                 ${statusLine}

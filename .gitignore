@@ -12,6 +12,7 @@ ui-debug.log
 .env.*
 functions/.env
 !.env.example
+!functions/.env.example
 
 # ── Build output ─────────────────────────────────────────────────────────────────
 dist/
@@ -40,6 +41,10 @@ pnpm-debug.log*
 Thumbs.db
 Desktop.ini
 $RECYCLE.BIN/
+
+# ── Service account keys (never commit) ──────────────────────────────────────────
+**/serviceAccount*.json
+**/*firebase-adminsdk*.json
 
 # ── Misc ─────────────────────────────────────────────────────────────────────────
 *.tsbuildinfo

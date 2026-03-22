@@ -50,6 +50,14 @@ const $ = id => document.getElementById(id);
 
 const getAppointmentId = () => new URLSearchParams(window.location.search).get('appointmentId') || '';
 
+/** Firestore may return plain strings or DocumentReference for id fields; rules and paths need the uid string. */
+function idFromFirestoreField(value) {
+    if (value == null) return '';
+    if (typeof value === 'string') return value.trim();
+    if (typeof value === 'object' && typeof value.id === 'string') return value.id.trim();
+    return String(value).trim();
+}
+
 export function initVideoCallPage(options = {}) {
     const {
         backUrl = '../petowner/appointment.html',
@@ -460,7 +468,10 @@ export function initVideoCallPage(options = {}) {
                 showError('Appointment not found.');
                 return;
             }
-            appointmentData = aptSnap.data();
+            appointmentData = { ...aptSnap.data() };
+            appointmentData.ownerId = idFromFirestoreField(appointmentData.ownerId);
+            appointmentData.vetId = idFromFirestoreField(appointmentData.vetId);
+            appointmentData.petId = idFromFirestoreField(appointmentData.petId);
             const { vetId, ownerId } = appointmentData;
             if (user.uid !== vetId && user.uid !== ownerId) {
                 showError('You do not have access to this consultation.');
@@ -736,22 +747,40 @@ export function initVideoCallPage(options = {}) {
                 });
             }
 
-            const convsSnap = await getDocs(query(collection(db, 'conversations'), where('participants', 'array-contains', user.uid)));
-            const conv = convsSnap.docs
-                .map(d => ({ id: d.id, ...d.data() }))
-                .find(c => c.vetId === vetId && c.ownerId === ownerId && String(c.petId) === String(appointmentData.petId));
-            if (conv) {
-                currentConvId = conv.id;
-            } else {
-                const ownerName = isVet ? (otherParticipantNameEl?.textContent || 'Pet Owner') : myName;
-                const vetName   = isVet ? myName : (otherParticipantNameEl?.textContent || 'Veterinarian');
-                const convRef   = await addDoc(collection(db, 'conversations'), {
-                    ownerId, ownerName, vetId, vetName,
-                    petId: appointmentData.petId, petName,
-                    vetSpecialty: '', participants: [ownerId, vetId],
-                    lastMessage: '', lastMessageAt: serverTimestamp(), createdAt: serverTimestamp(),
-                });
-                currentConvId = convRef.id;
+            const ownerUid = ownerId;
+            const vetUid = vetId;
+            try {
+                const convsSnap = await getDocs(query(collection(db, 'conversations'), where('participants', 'array-contains', user.uid)));
+                const conv = convsSnap.docs
+                    .map(d => ({ id: d.id, ...d.data() }))
+                    .find((c) => {
+                        const o = idFromFirestoreField(c.ownerId);
+                        const v = idFromFirestoreField(c.vetId);
+                        return v === vetUid && o === ownerUid && String(c.petId) === String(appointmentData.petId);
+                    });
+                if (conv) {
+                    currentConvId = conv.id;
+                } else if (ownerUid && vetUid && ownerUid !== vetUid) {
+                    const ownerName = isVet ? (otherParticipantNameEl?.textContent || 'Pet Owner') : myName;
+                    const vetName = isVet ? myName : (otherParticipantNameEl?.textContent || 'Veterinarian');
+                    const convRef = await addDoc(collection(db, 'conversations'), {
+                        ownerId: ownerUid,
+                        ownerName,
+                        vetId: vetUid,
+                        vetName,
+                        petId: appointmentData.petId,
+                        petName,
+                        vetSpecialty: '',
+                        participants: [ownerUid, vetUid],
+                        lastMessage: '',
+                        lastMessageAt: serverTimestamp(),
+                        createdAt: serverTimestamp(),
+                    });
+                    currentConvId = convRef.id;
+                }
+            } catch (convErr) {
+                console.warn('Video call: could not open or create conversation (chat may be unavailable):', convErr);
+                currentConvId = null;
             }
         } catch (e) {
             console.error(e);
@@ -1602,7 +1631,20 @@ export function initVideoCallPage(options = {}) {
         }
 
         await getLocalStream();
-        if (!await joinRoom()) {
+        let joined = false;
+        try {
+            joined = await joinRoom();
+        } catch (err) {
+            console.error('joinRoom error:', err);
+            const code = err && err.code;
+            if (code === 'permission-denied') {
+                showError('Could not join the call: Firestore blocked access (permission denied). Deploy the latest firestore.rules for this project, or confirm you are logged in as the pet owner or assigned vet for this appointment.');
+            } else {
+                showError('Could not join the call room. Please try again or reopen from your appointment.');
+            }
+            return;
+        }
+        if (!joined) {
             clearSignalingCollection(db, appointmentId).catch((e) => console.warn('Clear signaling:', e));
             const aptFresh = await getDoc(appointmentRef);
             const aptFreshData = aptFresh.exists() ? aptFresh.data() : {};

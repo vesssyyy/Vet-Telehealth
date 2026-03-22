@@ -4,7 +4,7 @@
  */
 import { auth, db } from '../core/firebase-config.js';
 import { escapeHtml } from '../core/utils.js';
-import { isWithinAppointmentTime, getJoinAvailableLabel, isVideoSessionEnded } from '../core/video-call-utils.js';
+import { isWithinAppointmentTime, getJoinAvailableLabel, isVideoSessionEnded, isConsultationPdfAvailable } from '../core/video-call-utils.js';
 import { downloadConsultationReportForAppointment } from '../core/consultation-pdf-download.js';
 import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 
@@ -518,6 +518,7 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
 
     function updateDetailsJoinButton(apt, videoCall) {
         const joinBtn = $('details-join-btn');
+        const pdfBtn = $('details-download-pdf-btn');
         if (!joinBtn || !apt) return;
         const sessionEnded = videoCall?.status === 'ended' || isVideoSessionEnded(apt);
         const within = !sessionEnded && isWithinAppointmentTime(apt);
@@ -528,6 +529,11 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
         joinBtn.innerHTML = `<i class="fa fa-video-camera" aria-hidden="true"></i><span class="details-join-btn-text">${label}</span>`;
         joinBtn.classList.toggle('is-past', !within || sessionEnded);
         joinBtn.classList.toggle('is-session-ended', sessionEnded);
+        if (pdfBtn) {
+            const show = isConsultationPdfAvailable(apt, videoCall);
+            pdfBtn.classList.toggle('is-hidden', !show);
+            pdfBtn.toggleAttribute('hidden', !show);
+        }
     }
 
     function closeSlotDetailsModal() {
@@ -675,6 +681,11 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
             });
         }
         const joinBtn = $('details-join-btn');
+        const pdfBtn = $('details-download-pdf-btn');
+        if (pdfBtn) {
+            pdfBtn.classList.add('is-hidden');
+            pdfBtn.setAttribute('hidden', '');
+        }
         if (joinBtn) {
             joinBtn.classList.add('is-loading-video-status');
             joinBtn.disabled = true;

@@ -18,9 +18,10 @@ import {
     CLINIC_HOURS_PLACEHOLDER,
 } from './appointment-manager.js';
 import { auth, db } from '../core/firebase-config.js';
+import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js';
 import { formatTime12h } from '../core/utils.js';
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
-import { isWithinAppointmentTime, getJoinAvailableLabel, isVideoSessionEnded } from '../core/video-call-utils.js';
+import { isWithinAppointmentTime, getJoinAvailableLabel, isVideoSessionEnded, isConsultationPdfAvailable } from '../core/video-call-utils.js';
 import { downloadConsultationReportForAppointment } from '../core/consultation-pdf-download.js';
 
 const $ = (id) => document.getElementById(id);
@@ -383,6 +384,11 @@ function updateDetailsJoinButton(apt, videoCall) {
     detailsJoinBtn.innerHTML = `<i class="fa fa-video-camera" aria-hidden="true"></i><span class="details-join-btn-text">${label}</span>`;
     detailsJoinBtn.classList.toggle('is-past', !within || sessionEnded);
     detailsJoinBtn.classList.toggle('is-session-ended', sessionEnded);
+    if (detailsDownloadPdfBtn) {
+        const show = isConsultationPdfAvailable(apt, videoCall);
+        detailsDownloadPdfBtn.classList.toggle('is-hidden', !show);
+        detailsDownloadPdfBtn.toggleAttribute('hidden', !show);
+    }
 }
 
 function closeDetailsModal() {
@@ -420,6 +426,8 @@ document.addEventListener('click', (e) => {
     $('details-vet-name').textContent = apt.vetName || '—';
     $('details-date').textContent = formatAppointmentDate(apt.date || apt.dateStr);
     $('details-time').textContent = getAppointmentTimeDisplay(apt);
+    const payRow = $('details-payment');
+    if (payRow) payRow.textContent = apt.paid === true ? 'Paid' : '—';
     $('details-concern').textContent = (apt.reason?.trim()) ? apt.reason.trim() : '—';
     $('details-appointment-id').textContent = aptId || '—';
     const mediaUrls = apt.mediaUrls && Array.isArray(apt.mediaUrls) ? apt.mediaUrls : [];
@@ -502,6 +510,10 @@ document.addEventListener('click', (e) => {
         });
     }
     currentDetailsApt = apt;
+    if (detailsDownloadPdfBtn) {
+        detailsDownloadPdfBtn.classList.add('is-hidden');
+        detailsDownloadPdfBtn.setAttribute('hidden', '');
+    }
     if (detailsJoinBtn) {
         detailsJoinBtn.classList.add('is-loading-video-status');
         detailsJoinBtn.disabled = true;
@@ -605,15 +617,43 @@ function initDetailsMediaLightbox() {
 }
 initDetailsMediaLightbox();
 
-/* Auth & subscriptions — subscribe to appointments first so loading clears even if loadVets/loadPets fail */
-auth.onAuthStateChanged((user) => {
-    if (!user) return;
+function hideAppointmentsLoading() {
+    if (!appointmentsLoading) return;
+    appointmentsLoading.setAttribute('aria-hidden', 'true');
+    appointmentsLoading.classList.add('is-hidden');
+}
+
+/**
+ * Resolve the signed-in user for this page without hanging forever.
+ * On some mobile browsers, awaiting auth.authStateReady() inside onAuthStateChanged can stall
+ * (IndexedDB / persistence), which left the appointments spinner running indefinitely.
+ */
+async function resolveUserForAppointments(userFromCallback) {
+    if (userFromCallback) return userFromCallback;
+    const maxMs = 10000;
+    await Promise.race([
+        auth.authStateReady(),
+        new Promise((resolve) => setTimeout(resolve, maxMs)),
+    ]);
+    return auth.currentUser;
+}
+
+/* Auth & subscriptions */
+onAuthStateChanged(auth, async (userFromCallback) => {
+    if (typeof window._appointmentsUnsub === 'function') {
+        window._appointmentsUnsub();
+        window._appointmentsUnsub = null;
+    }
+    const user = await resolveUserForAppointments(userFromCallback);
+    if (!user) {
+        hideAppointmentsLoading();
+        renderUpcomingPanel(upcomingRoot, []);
+        renderHistoryPanel(historyRoot, []);
+        return;
+    }
     const callback = (appointments) => {
         window._appointmentsCache = appointments;
-        if (appointmentsLoading) {
-            appointmentsLoading.setAttribute('aria-hidden', 'true');
-            appointmentsLoading.classList.add('is-hidden');
-        }
+        hideAppointmentsLoading();
         renderUpcomingPanel(upcomingRoot, appointments);
         renderHistoryPanel(historyRoot, appointments);
     };
@@ -635,6 +675,18 @@ auth.onAuthStateChanged((user) => {
         updateConfirmButtonState();
     });
 });
+
+/** Last resort if Firestore and timers never complete (extreme throttling / broken transport). */
+const APPOINTMENTS_LOADING_FALLBACK_MS = 25000;
+setTimeout(() => {
+    if (!appointmentsLoading || appointmentsLoading.classList.contains('is-hidden')) return;
+    console.warn('Appointments: loading UI fallback — hiding spinner.');
+    hideAppointmentsLoading();
+    if (!window._appointmentsCache) {
+        renderUpcomingPanel(upcomingRoot, []);
+        renderHistoryPanel(historyRoot, []);
+    }
+}, APPOINTMENTS_LOADING_FALLBACK_MS);
 
 /* Form submit */
 form?.addEventListener('submit', async (e) => {

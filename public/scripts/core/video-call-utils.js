@@ -66,6 +66,21 @@ export function isVideoSessionEnded(apt) {
 }
 
 /**
+ * True when the teleconsultation has finished (vet ended session / room closed / appointment completed).
+ * Used to show "Download consultation PDF" only after a real session, not for future or in-progress bookings.
+ * @param {Object} [apt] - Appointment document data
+ * @param {{ status?: string }} [videoCall] - `appointments/{id}/videoCall/room` doc when available
+ */
+export function isConsultationPdfAvailable(apt, videoCall) {
+    if (!apt) return false;
+    if (videoCall && videoCall.status === 'ended') return true;
+    if (isVideoSessionEnded(apt)) return true;
+    const st = String(apt.status || '').toLowerCase();
+    if (st === 'completed') return true;
+    return false;
+}
+
+/**
  * Returns label/title for the Join button based on current time vs appointment slot.
  * Short format: today "Join at (time)", tomorrow "Tom at (time)", other "(date) at (time)".
  * @param {Object} apt - Appointment-like object

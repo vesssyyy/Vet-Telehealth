@@ -55,7 +55,9 @@ import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-
         sessionStorage.setItem(FIRST_LOAD_KEY, 'false');
     }
 
-    onAuthStateChanged(auth, async (user) => {
+    onAuthStateChanged(auth, async () => {
+        await auth.authStateReady();
+        const user = auth.currentUser;
         if (!user) {
             const goTo = sessionStorage.getItem('telehealthLoggedOut') === 'true' ? '../index.html' : '../auth.html#login';
             return window.location.replace(goTo);
@@ -101,6 +103,6 @@ import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-
     setTimeout(() => {
         profileReadyDone = true;
         petsReadyDone = true;
-        if (isDashboard()) tryRemoveLoading();
+        tryRemoveLoading();
     }, FALLBACK_REVEAL_MS);
 })();
