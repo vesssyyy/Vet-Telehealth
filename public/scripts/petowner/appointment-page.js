@@ -374,6 +374,11 @@ let currentDetailsApt = null;
 let detailsJoinCheckTimer = null;
 
 function updateDetailsJoinButton(apt, videoCall) {
+    if (detailsDownloadPdfBtn && apt) {
+        const showPdf = isConsultationPdfAvailable(apt, videoCall);
+        detailsDownloadPdfBtn.classList.toggle('is-hidden', !showPdf);
+        detailsDownloadPdfBtn.toggleAttribute('hidden', !showPdf);
+    }
     if (!detailsJoinBtn || !apt) return;
     const sessionEnded = videoCall?.status === 'ended' || isVideoSessionEnded(apt);
     const within = !sessionEnded && isWithinAppointmentTime(apt);
@@ -384,11 +389,6 @@ function updateDetailsJoinButton(apt, videoCall) {
     detailsJoinBtn.innerHTML = `<i class="fa fa-video-camera" aria-hidden="true"></i><span class="details-join-btn-text">${label}</span>`;
     detailsJoinBtn.classList.toggle('is-past', !within || sessionEnded);
     detailsJoinBtn.classList.toggle('is-session-ended', sessionEnded);
-    if (detailsDownloadPdfBtn) {
-        const show = isConsultationPdfAvailable(apt, videoCall);
-        detailsDownloadPdfBtn.classList.toggle('is-hidden', !show);
-        detailsDownloadPdfBtn.toggleAttribute('hidden', !show);
-    }
 }
 
 function closeDetailsModal() {
@@ -549,12 +549,15 @@ detailsDownloadPdfBtn?.addEventListener('click', () => {
     downloadConsultationReportForAppointment(currentDetailsApt.id, detailsDownloadPdfBtn);
 });
 detailsMessageBtn?.addEventListener('click', () => {
-    if (!currentDetailsApt?.vetId || !currentDetailsApt?.petId) return;
+    const vetId = currentDetailsApt?.vetId || currentDetailsApt?.vetID || '';
+    const petId = currentDetailsApt?.petId || currentDetailsApt?.petID || '';
+    if (!vetId || !petId) return;
     closeDetailsModal();
     const params = new URLSearchParams({
-        vetId: currentDetailsApt.vetId,
-        petId: currentDetailsApt.petId,
+        vetId,
+        petId,
     });
+    if (currentDetailsApt?.id) params.set('appointmentId', currentDetailsApt.id);
     if (currentDetailsApt.petName) params.set('petName', currentDetailsApt.petName);
     if (currentDetailsApt.vetName) params.set('vetName', currentDetailsApt.vetName);
     window.location.href = `messages.html?${params.toString()}`;

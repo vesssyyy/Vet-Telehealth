@@ -2,12 +2,13 @@
  * Televet Health — Video call room (WebRTC + Firestore signaling)
  * Shared by petowner/video-call.html and vet/video-call.html
  */
-import { auth, db } from './firebase-config.js';
-import { escapeHtml, formatMessageTimeWithDate, formatAppointmentDividerDateTime, timestampToMs } from './utils.js';
+import { app, auth, db } from './firebase-config.js';
+import { escapeHtml } from './utils.js';
 import { generateConsultationPDF } from './consultation-pdf.js';
 import { renderAttachment, uploadMessageAttachment, validateAttachment } from './message-attachments.js';
 import { isVideoSessionEnded } from './video-call-utils.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js';
+import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-functions.js';
 import {
     doc,
     getDoc,
@@ -39,16 +40,21 @@ async function clearSignalingCollection(db, appointmentId) {
     }
 }
 
-/* Multiple STUN servers improve connectivity; TURN would help symmetric NATs but requires a server */
-const ICE_SERVERS = [
+/* Default ICE servers; TURN can be loaded dynamically from Cloud Functions. */
+const DEFAULT_ICE_SERVERS = [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
 ];
 
+const DEFAULT_RTC_CONFIG = {
+    iceServers: DEFAULT_ICE_SERVERS,
+};
+
 const $ = id => document.getElementById(id);
 
 const getAppointmentId = () => new URLSearchParams(window.location.search).get('appointmentId') || '';
+const shouldForceRelay = () => new URLSearchParams(window.location.search).get('forceRelay') === '1';
 
 /** Firestore may return plain strings or DocumentReference for id fields; rules and paths need the uid string. */
 function idFromFirestoreField(value) {
@@ -461,6 +467,32 @@ export function initVideoCallPage(options = {}) {
         let currentConvId = null;
         let messagesUnsubscribe = null;
         let appointmentData = null;
+        let rtcConfig = { ...DEFAULT_RTC_CONFIG };
+
+        async function loadRtcConfig() {
+            const forceRelay = shouldForceRelay();
+            try {
+                const callable = httpsCallable(getFunctions(app, 'us-central1'), 'getRtcIceServers');
+                const result = await callable();
+                const servers = result?.data?.iceServers;
+                if (Array.isArray(servers) && servers.length > 0) {
+                    rtcConfig = forceRelay ? { iceServers: servers, iceTransportPolicy: 'relay' } : { iceServers: servers };
+                    const hasRelay = servers.some((s) => {
+                        const urls = Array.isArray(s?.urls) ? s.urls : [s?.urls];
+                        return urls.some((u) => typeof u === 'string' && /^turns?:/i.test(u));
+                    });
+                    console.info('RTC ICE loaded from backend.', { hasRelay, serverCount: servers.length, forceRelay });
+                } else {
+                    rtcConfig = forceRelay ? { ...DEFAULT_RTC_CONFIG, iceTransportPolicy: 'relay' } : { ...DEFAULT_RTC_CONFIG };
+                }
+            } catch (e) {
+                console.warn(
+                    'RTC ICE config fallback (using STUN-only). Ensure getRtcIceServers is deployed and callable (CORS/auth).',
+                    e
+                );
+                rtcConfig = forceRelay ? { ...DEFAULT_RTC_CONFIG, iceTransportPolicy: 'relay' } : { ...DEFAULT_RTC_CONFIG };
+            }
+        }
 
         try {
             const aptSnap = await getDoc(appointmentRef);
@@ -750,8 +782,12 @@ export function initVideoCallPage(options = {}) {
             const ownerUid = ownerId;
             const vetUid = vetId;
             try {
-                const convsSnap = await getDocs(query(collection(db, 'conversations'), where('participants', 'array-contains', user.uid)));
-                const conv = convsSnap.docs
+                const [ownerConvsSnap, vetConvsSnap] = await Promise.all([
+                    getDocs(query(collection(db, 'conversations'), where('ownerId', '==', user.uid))),
+                    getDocs(query(collection(db, 'conversations'), where('vetId', '==', user.uid))),
+                ]);
+                const convDocs = [...ownerConvsSnap.docs, ...vetConvsSnap.docs];
+                const conv = convDocs
                     .map(d => ({ id: d.id, ...d.data() }))
                     .find((c) => {
                         const o = idFromFirestoreField(c.ownerId);
@@ -788,66 +824,18 @@ export function initVideoCallPage(options = {}) {
             return;
         }
 
-        const appointmentTitle = (appointmentData?.title && String(appointmentData.title).trim()) || `${appointmentData?.petName || 'Pet'} — Consultation`;
-        const appointmentDateTime = appointmentData?.dateStr || appointmentData?.timeDisplay
-            ? [appointmentData?.dateStr || '', appointmentData?.timeDisplay || ''].filter(Boolean).join(' · ')
-            : '';
-
-        /** Consultation start time in ms (from dateStr + slotStart) for placing the divider in the timeline. */
-        const dateStr = appointmentData?.dateStr || appointmentData?.date || '';
-        const slotStart = appointmentData?.slotStart || appointmentData?.timeStart || '';
-        const consultationStartMs = dateStr && slotStart
-            ? (() => {
-                const d = new Date(`${dateStr}T${slotStart}`);
-                return isNaN(d.getTime()) ? null : d.getTime();
-            })()
-            : null;
-
-        function renderConvoMessages(messages, appointmentTitleText, appointmentDateTimeStr) {
+        function renderConvoMessages(messages) {
             if (!convoMessagesList) return;
             convoMessagesList.innerHTML = '';
             const uid = user.uid;
             const sentAvatarIcon = isVet ? 'fa-user-md' : 'fa-user';
             const receivedAvatarIcon = isVet ? 'fa-user' : 'fa-user-md';
 
-            const appendDivider = () => {
-                const dateTimeLabel = (dateStr && slotStart) ? formatAppointmentDividerDateTime(dateStr, slotStart) : appointmentDateTimeStr || '';
-                const titleLabel = appointmentTitleText || '';
-                if (!dateTimeLabel && !titleLabel) return;
-                const div = document.createElement('div');
-                div.className = 'video-call-convo-appointment-divider';
-                div.innerHTML = `
-                    <div class="video-call-convo-appointment-divider-line">
-                        <span class="video-call-convo-appointment-divider-text">${escapeHtml(dateTimeLabel)}</span>
-                    </div>
-                    ${titleLabel ? `<div class="video-call-convo-appointment-divider-line">
-                        <span class="video-call-convo-appointment-divider-text">${escapeHtml(titleLabel)}</span>
-                    </div>` : ''}`;
-                convoMessagesList.appendChild(div);
-            };
-
-            const appendSessionEndedDivider = (msg) => {
-                const titleLabel = (msg.appointmentTitle && String(msg.appointmentTitle).trim()) || 'Consultation';
-                const endedAt = msg.endedAt && typeof msg.endedAt.toDate === 'function'
-                    ? formatMessageTimeWithDate(msg.endedAt)
-                    : (msg.endedAt && typeof msg.endedAt.toMillis === 'function'
-                        ? new Date(msg.endedAt.toMillis()).toLocaleString()
-                        : '—');
-                const endedLabel = `Session ended at ${endedAt}`;
-                const div = document.createElement('div');
-                div.className = 'video-call-convo-appointment-divider video-call-convo-session-ended-divider';
-                div.innerHTML = `
-                    <div class="video-call-convo-appointment-divider-line">
-                        <span class="video-call-convo-appointment-divider-text">${escapeHtml(titleLabel)}</span>
-                    </div>
-                    <div class="video-call-convo-appointment-divider-line">
-                        <span class="video-call-convo-appointment-divider-text">${escapeHtml(endedLabel)}</span>
-                    </div>`;
-                convoMessagesList.appendChild(div);
-            };
-
             const appendMessage = (msg) => {
-                if (msg.type === 'session_ended') { appendSessionEndedDivider(msg); return; }
+                // System message for terminated calls — do not render in the UI.
+                if (msg.type === 'session_ended') return;
+
+                const text = msg.text || '';
                 const isSent = msg.senderId === uid;
                 const side   = isSent ? 'sent' : 'received';
                 const bubble = document.createElement('div');
@@ -856,26 +844,13 @@ export function initVideoCallPage(options = {}) {
                     <span class="video-call-msg-avatar"><i class="fa ${isSent ? sentAvatarIcon : receivedAvatarIcon}" aria-hidden="true"></i></span>
                     <div class="video-call-msg-bubble">
                         ${msg.attachment ? renderAttachment(msg.attachment, msg.status === 'sending') : ''}
-                        ${msg.text ? `<span class="video-call-msg-text">${escapeHtml(msg.text)}</span>` : ''}
-                        <span class="video-call-msg-time">${escapeHtml(formatMessageTimeWithDate(msg.sentAt))}</span>
+                        ${text ? `<span class="video-call-msg-text">${escapeHtml(text)}</span>` : ''}
                     </div>`;
                 convoMessagesList.appendChild(bubble);
             };
 
             const list = messages || [];
-            if (consultationStartMs != null && (appointmentTitleText || appointmentDateTimeStr)) {
-                let dividerInserted = false;
-                for (const msg of list) {
-                    if (!dividerInserted && timestampToMs(msg.sentAt) >= consultationStartMs) {
-                        appendDivider(); dividerInserted = true;
-                    }
-                    appendMessage(msg);
-                }
-                if (!dividerInserted) appendDivider();
-            } else {
-                if (appointmentTitleText || appointmentDateTimeStr) appendDivider();
-                list.forEach(appendMessage);
-            }
+            list.forEach(appendMessage);
             // Reveal image attachments once loaded
             convoMessagesList?.querySelectorAll('.message-attachment-img').forEach(img => {
                 const wrap = img.closest('.message-attachment--image');
@@ -893,7 +868,7 @@ export function initVideoCallPage(options = {}) {
             if (messagesUnsubscribe) messagesUnsubscribe();
             messagesUnsubscribe = onSnapshot(
                 query(collection(db, 'conversations', currentConvId, 'messages'), orderBy('sentAt', 'asc')),
-                snap => renderConvoMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })), appointmentTitle, appointmentDateTime),
+                snap => renderConvoMessages(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
                 err => console.warn('Video call messages listener:', err)
             );
         } else if (convoMessagesList) {
@@ -985,11 +960,26 @@ export function initVideoCallPage(options = {}) {
         let connectionEstablished = false;
         let establishTimeoutId = null;
         let reconnectBtnEl = null;
-        const ESTABLISH_TIMEOUT_MS = 35000;
+        const ESTABLISH_TIMEOUT_MS = 50000;
+        let currentSignalingSessionId = null;
+        let autoReconnectAttempts = 0;
+        let autoReconnectTimerId = null;
+        const MAX_AUTO_RECONNECT_ATTEMPTS = 5;
+        const AUTO_RECONNECT_BASE_MS = 1200;
+        let preferRelayTransport = false;
+
+        function nextSignalingSessionId() {
+            return `${user.uid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        }
 
         function setWaiting(show) {
             waitingEl?.classList.toggle('is-hidden', !show);
             connectedEl?.classList.toggle('is-hidden', show);
+        }
+
+        function setVisiblePhaseMessage(text, iconClass = 'fa-clock-o') {
+            if (!waitingEl) return;
+            waitingEl.innerHTML = `<i class="fa ${iconClass}" aria-hidden="true"></i> ${escapeHtml(text)}`;
         }
 
         function showReconnectUI(show) {
@@ -1017,15 +1007,50 @@ export function initVideoCallPage(options = {}) {
             }
         }
 
+        function clearAutoReconnectTimer() {
+            if (autoReconnectTimerId) {
+                clearTimeout(autoReconnectTimerId);
+                autoReconnectTimerId = null;
+            }
+        }
+
+        function scheduleAutoReconnect(reason = 'network') {
+            if (sessionEndedHandled) return;
+            if (autoReconnectAttempts >= MAX_AUTO_RECONNECT_ATTEMPTS) {
+                setStatus('Connection unstable. Tap reconnect to try again.');
+                showReconnectUI(true);
+                return;
+            }
+            if (autoReconnectTimerId) return;
+            const waitMs = Math.min(
+                AUTO_RECONNECT_BASE_MS * Math.pow(2, autoReconnectAttempts),
+                10000
+            );
+            autoReconnectAttempts += 1;
+            setStatus(`Reconnecting (${reason})…`);
+            autoReconnectTimerId = setTimeout(() => {
+                autoReconnectTimerId = null;
+                triggerReconnect();
+            }, waitMs);
+        }
+
         async function triggerReconnect() {
             if (sessionEndedHandled) return;
             try {
+                clearAutoReconnectTimer();
                 if (peerConnection) { peerConnection.close(); peerConnection = null; }
                 pendingIceCandidates.length = 0;
                 connectionEstablished = false;
+                currentSignalingSessionId = nextSignalingSessionId();
                 if (remoteVideo) remoteVideo.srcObject = null;
-                await updateDoc(videoCallRef, { offer: deleteField(), answer: deleteField(), updatedAt: serverTimestamp() }).catch(() => {});
+                await updateDoc(videoCallRef, {
+                    offer: deleteField(),
+                    answer: deleteField(),
+                    sessionId: currentSignalingSessionId,
+                    updatedAt: serverTimestamp(),
+                }).catch(() => {});
                 setStatus('Reconnecting…');
+                setVisiblePhaseMessage('Connecting…', 'fa-spinner fa-spin');
                 setWaiting(true);
                 showReconnectUI(false);
                 /* Offerer's onSnapshot will fire and create new offer; answerer will handle it */
@@ -1037,45 +1062,70 @@ export function initVideoCallPage(options = {}) {
         }
 
         function createPeerConnection() {
-            const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+            const effectiveRtcConfig = preferRelayTransport
+                ? { ...rtcConfig, iceTransportPolicy: 'relay' }
+                : rtcConfig;
+            const pc = new RTCPeerConnection(effectiveRtcConfig);
             localStream?.getTracks().forEach(track => pc.addTrack(track, localStream));
             pc.ontrack = ev => {
                 if (remoteVideo && ev.streams?.[0]) remoteVideo.srcObject = ev.streams[0];
             };
             pc.onicecandidate = ev => {
                 if (ev.candidate) {
-                    addDoc(signalingRef, { from: user.uid, candidate: JSON.stringify(ev.candidate), createdAt: serverTimestamp() })
+                    addDoc(signalingRef, {
+                        from: user.uid,
+                        candidate: JSON.stringify(ev.candidate),
+                        sessionId: currentSignalingSessionId || null,
+                        createdAt: serverTimestamp(),
+                    })
                         .catch(err => console.warn('ICE send error', err));
                 }
+            };
+            pc.onicegatheringstatechange = () => {
+                console.info('ICE gathering state:', pc.iceGatheringState);
             };
             pc.oniceconnectionstatechange = () => {
                 const state = pc.iceConnectionState;
                 if (state === 'connected' || state === 'completed') {
                     connectionEstablished = true;
+                    autoReconnectAttempts = 0;
+                    clearAutoReconnectTimer();
                     if (establishTimeoutId) { clearTimeout(establishTimeoutId); establishTimeoutId = null; }
                     setStatus('Connected');
                     setWaiting(false);
                     showReconnectUI(false);
                 } else if (state === 'failed' || state === 'disconnected') {
                     if (state === 'failed') {
-                        setStatus('Connection failed. Trying to reconnect…');
+                        preferRelayTransport = true;
+                        setStatus('Connection failed. Network path blocked (likely no relay). Trying to reconnect…');
+                        setVisiblePhaseMessage('Connecting…', 'fa-spinner fa-spin');
                         showReconnectUI(true);
+                        scheduleAutoReconnect('failed');
                     } else if (state === 'disconnected' && connectionEstablished) {
                         setStatus('Connection unstable. Trying to reconnect…');
+                        setVisiblePhaseMessage('Connecting…', 'fa-spinner fa-spin');
+                        try { pc.restartIce(); } catch (_) {}
+                        scheduleAutoReconnect('unstable');
                     }
                 }
             };
             pc.onconnectionstatechange = () => {
                 const state = pc.connectionState;
+                console.info('Peer connection state:', state);
                 if (state === 'connected') {
                     connectionEstablished = true;
+                    autoReconnectAttempts = 0;
+                    clearAutoReconnectTimer();
                     if (establishTimeoutId) { clearTimeout(establishTimeoutId); establishTimeoutId = null; }
                     setStatus('Connected');
                     setWaiting(false);
                     showReconnectUI(false);
                 } else if (state === 'failed') {
-                    setStatus('Connection failed. Trying to reconnect…');
+                    preferRelayTransport = true;
+                    setStatus('Connection failed. Network path blocked (likely no relay). Trying to reconnect…');
+                    setVisiblePhaseMessage('Connecting…', 'fa-spinner fa-spin');
                     showReconnectUI(true);
+                    scheduleAutoReconnect('failed');
                 }
             };
             return pc;
@@ -1096,7 +1146,13 @@ export function initVideoCallPage(options = {}) {
             if (!peerConnection) peerConnection = createPeerConnection();
             const offer = await peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
-            await setDoc(videoCallRef, { offer: JSON.stringify(offer), offererUid: user.uid, updatedAt: serverTimestamp() }, { merge: true });
+            if (!currentSignalingSessionId) currentSignalingSessionId = nextSignalingSessionId();
+            await setDoc(videoCallRef, {
+                offer: JSON.stringify(offer),
+                offererUid: user.uid,
+                sessionId: currentSignalingSessionId,
+                updatedAt: serverTimestamp(),
+            }, { merge: true });
         }
 
         async function drainPendingIceCandidates() {
@@ -1109,18 +1165,28 @@ export function initVideoCallPage(options = {}) {
             }
         }
 
-        async function handleOffer(offerStr) {
+        async function handleOffer(offerStr, sessionId) {
             if (!offerStr || peerConnection) return;
+            const activeSessionId = sessionId || currentSignalingSessionId || nextSignalingSessionId();
+            currentSignalingSessionId = activeSessionId;
+            if (!sessionId) {
+                await updateDoc(videoCallRef, { sessionId: activeSessionId, updatedAt: serverTimestamp() }).catch(() => {});
+            }
             peerConnection = createPeerConnection();
             await peerConnection.setRemoteDescription(new RTCSessionDescription(JSON.parse(offerStr)));
             await drainPendingIceCandidates();
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
-            await updateDoc(videoCallRef, { answer: JSON.stringify(answer), updatedAt: serverTimestamp() });
+            await updateDoc(videoCallRef, {
+                answer: JSON.stringify(answer),
+                sessionId: activeSessionId,
+                updatedAt: serverTimestamp(),
+            });
         }
 
-        async function handleAnswer(answerStr) {
+        async function handleAnswer(answerStr, sessionId) {
             if (!answerStr || !peerConnection || peerConnection.signalingState !== 'have-local-offer') return;
+            if (sessionId && currentSignalingSessionId && sessionId !== currentSignalingSessionId) return;
             try {
                 await peerConnection.setRemoteDescription(new RTCSessionDescription(JSON.parse(answerStr)));
                 await drainPendingIceCandidates();
@@ -1129,6 +1195,7 @@ export function initVideoCallPage(options = {}) {
 
         async function handleIceCandidate(data) {
             if (data.from === user.uid) return;
+            if (currentSignalingSessionId && data.sessionId !== currentSignalingSessionId) return;
             if (!peerConnection || peerConnection.remoteDescription === null) {
                 pendingIceCandidates.push(data); return;
             }
@@ -1146,7 +1213,14 @@ export function initVideoCallPage(options = {}) {
             const participants   = { ...(data.participants || {}), [user.uid]: true };
             const participantIds = Object.keys(participants);
             const offererUid     = data.offererUid || participantIds[0];
-            await setDoc(videoCallRef, { participants, status: 'waiting', offererUid, updatedAt: serverTimestamp() }, { merge: true });
+            currentSignalingSessionId = data.sessionId || nextSignalingSessionId();
+            await setDoc(videoCallRef, {
+                participants,
+                status: 'waiting',
+                offererUid,
+                sessionId: currentSignalingSessionId,
+                updatedAt: serverTimestamp(),
+            }, { merge: true });
             return true;
         }
 
@@ -1170,6 +1244,7 @@ export function initVideoCallPage(options = {}) {
         /** Stop media tracks, close peer connection, clear videos, clear timer. */
         function cleanupLocalMedia() {
             if (establishTimeoutId) { clearTimeout(establishTimeoutId); establishTimeoutId = null; }
+            clearAutoReconnectTimer();
             if (callDurationInterval) { clearInterval(callDurationInterval); callDurationInterval = null; }
             if (peerConnection) { peerConnection.close(); peerConnection = null; }
             if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
@@ -1455,14 +1530,27 @@ export function initVideoCallPage(options = {}) {
         /** Pet or vet temporarily leaves; session stays active, they can rejoin via same link. */
         function leaveTemporary() {
             cleanupLocalMedia();
-            if (signalingUnsubscribe) signalingUnsubscribe();
+            if (signalingUnsubscribe) { signalingUnsubscribe(); signalingUnsubscribe = null; }
+            if (videoCallUnsubscribe) { videoCallUnsubscribe(); videoCallUnsubscribe = null; }
+            if (appointmentUnsubscribe) { appointmentUnsubscribe(); appointmentUnsubscribe = null; }
             const targetUrl = `${backUrl}${backUrl.includes('?') ? '&' : '?'}leftCall=1`;
+            let redirected = false;
+            const go = () => {
+                if (redirected) return;
+                redirected = true;
+                window.location.href = targetUrl;
+            };
+            const forceRedirectTimer = setTimeout(go, 1500);
             updateDoc(videoCallRef, {
                 [`participants.${user.uid}`]: deleteField(),
                 offer: deleteField(),
                 answer: deleteField(),
+                sessionId: nextSignalingSessionId(),
                 updatedAt: serverTimestamp(),
-            }).catch(() => {}).finally(() => { window.location.href = targetUrl; });
+            }).catch(() => {}).finally(() => {
+                clearTimeout(forceRedirectTimer);
+                go();
+            });
         }
 
         /** Vet only: show Leave Only / Terminate Call popup. */
@@ -1550,23 +1638,7 @@ export function initVideoCallPage(options = {}) {
                         console.warn('Could not mark appointment/slot completed:', e);
                     }
                 }
-                if (currentConvId && appointmentTitle != null) {
-                    try {
-                        await addDoc(collection(db, 'conversations', currentConvId, 'messages'), {
-                            type: 'session_ended',
-                            appointmentTitle: appointmentTitle || '',
-                            appointmentId,
-                            endedAt,
-                            sentAt: serverTimestamp(),
-                        });
-                        await updateDoc(doc(db, 'conversations', currentConvId), {
-                            lastMessageAt: serverTimestamp(),
-                            lastMessage: 'Session ended',
-                        }).catch(() => {});
-                    } catch (e) {
-                        console.warn('Could not add session-ended message', e);
-                    }
-                }
+                // Session-ended system message docs are intentionally not written to the convo.
                 const updatedSnap = await getDoc(videoCallRef);
                 const updatedData = updatedSnap.exists() ? updatedSnap.data() : {};
                 leaveRoom('callEnded=1', {
@@ -1630,6 +1702,7 @@ export function initVideoCallPage(options = {}) {
             return;
         }
 
+        await loadRtcConfig();
         await getLocalStream();
         let joined = false;
         try {
@@ -1676,17 +1749,33 @@ export function initVideoCallPage(options = {}) {
             const pids = Object.keys(participants).filter(k => participants[k]);
             remoteUid = pids.find(id => id !== user.uid) || null;
             isOfferer = (data.offererUid || pids[0]) === user.uid;
+            if (data.sessionId) currentSignalingSessionId = data.sessionId;
 
             if (pids.length < 2) {
                 setStatus('Waiting for the other participant…');
+                setVisiblePhaseMessage('Waiting for the other participant…', 'fa-clock-o');
                 setWaiting(true);
                 showReconnectUI(false);
                 if (establishTimeoutId) { clearTimeout(establishTimeoutId); establishTimeoutId = null; }
                 pendingIceCandidates.length = 0;
+                currentSignalingSessionId = nextSignalingSessionId();
                 if (peerConnection) { peerConnection.close(); peerConnection = null; }
                 if (remoteVideo) remoteVideo.srcObject = null;
-                updateDoc(videoCallRef, { offer: deleteField(), answer: deleteField(), updatedAt: serverTimestamp() }).catch(() => {});
+                preferRelayTransport = false;
+                updateDoc(videoCallRef, {
+                    offer: deleteField(),
+                    answer: deleteField(),
+                    sessionId: currentSignalingSessionId,
+                    updatedAt: serverTimestamp(),
+                }).catch(() => {});
                 return;
+            }
+
+            // Both participants are present; show an explicit in-between state before media connects.
+            if (!connectionEstablished) {
+                setStatus('Connecting…');
+                setVisiblePhaseMessage('Connecting…', 'fa-spinner fa-spin');
+                setWaiting(true);
             }
 
             /* Mark slot as ongoing when both participants are in the call (one-time) */
@@ -1718,6 +1807,7 @@ export function initVideoCallPage(options = {}) {
             if (isOfferer && !data.offer) {
                 connectionEstablished = false;
                 setStatus('Establishing video…');
+                setVisiblePhaseMessage('Connecting…', 'fa-spinner fa-spin');
                 setWaiting(true);
                 await createOffer();
                 establishTimeoutId = setTimeout(() => {
@@ -1732,8 +1822,9 @@ export function initVideoCallPage(options = {}) {
             if (!isOfferer && data.offer && !peerConnection) {
                 connectionEstablished = false;
                 setStatus('Establishing video…');
+                setVisiblePhaseMessage('Connecting…', 'fa-spinner fa-spin');
                 setWaiting(true);
-                await handleOffer(data.offer);
+                await handleOffer(data.offer, data.sessionId || null);
                 establishTimeoutId = setTimeout(() => {
                     if (!connectionEstablished && peerConnection) {
                         setStatus('Video taking longer than usual. You can try reconnecting.');
@@ -1744,9 +1835,10 @@ export function initVideoCallPage(options = {}) {
                 return;
             }
             if (isOfferer && data.answer && peerConnection) {
-                await handleAnswer(data.answer);
+                await handleAnswer(data.answer, data.sessionId || null);
                 if (!connectionEstablished) {
                     setStatus('Establishing video…');
+                    setVisiblePhaseMessage('Connecting…', 'fa-spinner fa-spin');
                     setWaiting(true);
                 }
             }

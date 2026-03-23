@@ -179,6 +179,49 @@
             user-select: none; padding: 0 2px;
         }
         .payment-field-cvc { margin-bottom: 0; }
+        .payment-method-switch {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            margin: 0 0 16px;
+        }
+        .payment-method-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid var(--border-color, #cbd5e0);
+            border-radius: 8px;
+            padding: 10px 12px;
+            cursor: pointer;
+            background: var(--bg-card, #fff);
+        }
+        .payment-method-option input { margin: 0; }
+        .payment-method-option.is-disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .payment-qr-panel {
+            display: none;
+            border: 1px solid var(--border-color, #e2e8f0);
+            border-radius: 10px;
+            padding: 14px;
+            margin-top: 14px;
+            background: var(--bg-light, #f7fafc);
+            text-align: center;
+        }
+        .payment-qr-panel.is-visible { display: block; }
+        .payment-qr-panel img {
+            width: min(100%, 280px);
+            border-radius: 8px;
+            background: #fff;
+            padding: 8px;
+            border: 1px solid var(--border-color, #e2e8f0);
+        }
+        .payment-qr-note {
+            margin: 8px 0 0;
+            font-size: 0.8125rem;
+            color: var(--text-light, #718096);
+        }
         .payment-config-warning { padding: 12px 14px; background: #fffbeb; border: 1px solid #f59e0b; border-radius: 8px; font-size: 0.8125rem; color: #92400e; margin-bottom: 14px; }
         .payment-status-wait { font-size: 0.875rem; color: var(--text-light, #718096); margin-bottom: 14px; }
         .payment-intent-ref { font-size: 0.75rem; color: var(--text-light, #a0aec0); margin: 0 0 12px 0; line-height: 1.45; word-break: break-all; }
@@ -296,22 +339,38 @@
                     <p class="payment-status-wait" id="payment-status-wait" style="display: none;" aria-live="polite">Confirming payment…</p>
                     <form class="payment-card-form" id="payment-card-form" novalidate>
                         <p class="payment-sandbox-hint" id="payment-sandbox-hint">Test: <code>4343 4343 4343 4345</code> or <code>5555 4444 4444 4457</code> · future MM/YY · any CVC</p>
-                        <label class="payment-field"><span>Cardholder name</span><input type="text" id="pm-name" name="cc-name" autocomplete="cc-name" required placeholder="Name on card"></label>
-                        <label class="payment-field"><span>Email</span><input type="email" id="pm-email" name="email" autocomplete="email" required placeholder="you@example.com"></label>
-                        <label class="payment-field"><span>Card number</span><input type="text" id="pm-number" name="cc-number" autocomplete="cc-number" inputmode="numeric" required placeholder="1234 5678 9012 3456"></label>
-                        <div class="payment-field-row">
-                            <label class="payment-field payment-expiry-group">
-                                <span>Expiry (MM / YY)</span>
-                                <div class="payment-expiry-inputs" role="group" aria-label="Card expiry">
-                                    <input type="text" id="pm-exp-month" name="cc-exp-month" inputmode="numeric" autocomplete="cc-exp-month" required placeholder="MM" maxlength="2" pattern="[0-9]{1,2}" aria-label="Expiry month">
-                                    <span class="payment-expiry-sep" aria-hidden="true">/</span>
-                                    <input type="text" id="pm-exp-year" name="cc-exp-year" inputmode="numeric" autocomplete="cc-exp-year" required placeholder="YY" maxlength="4" pattern="[0-9]{2,4}" aria-label="Expiry year">
-                                </div>
+                        <div class="payment-method-switch" role="radiogroup" aria-label="Payment method">
+                            <label class="payment-method-option">
+                                <input type="radio" name="payment-method" value="card" checked>
+                                <span>Card</span>
                             </label>
-                            <label class="payment-field payment-field-cvc"><span>CVC</span><input type="text" id="pm-cvc" name="cc-csc" autocomplete="cc-csc" required placeholder="123" maxlength="4" inputmode="numeric"></label>
+                            <label class="payment-method-option">
+                                <input type="radio" name="payment-method" value="qrph">
+                                <span>QRPh</span>
+                            </label>
+                        </div>
+                        <label class="payment-field"><span id="pm-name-label">Cardholder name</span><input type="text" id="pm-name" name="cc-name" autocomplete="cc-name" required placeholder="Name on card"></label>
+                        <label class="payment-field"><span id="pm-email-label">Email</span><input type="email" id="pm-email" name="email" autocomplete="email" required placeholder="you@example.com"></label>
+                        <div id="payment-card-fields">
+                            <label class="payment-field"><span>Card number</span><input type="text" id="pm-number" name="cc-number" autocomplete="cc-number" inputmode="numeric" required placeholder="1234 5678 9012 3456"></label>
+                            <div class="payment-field-row">
+                                <label class="payment-field payment-expiry-group">
+                                    <span>Expiry (MM / YY)</span>
+                                    <div class="payment-expiry-inputs" role="group" aria-label="Card expiry">
+                                        <input type="text" id="pm-exp-month" name="cc-exp-month" inputmode="numeric" autocomplete="cc-exp-month" required placeholder="MM" maxlength="2" pattern="[0-9]{1,2}" aria-label="Expiry month">
+                                        <span class="payment-expiry-sep" aria-hidden="true">/</span>
+                                        <input type="text" id="pm-exp-year" name="cc-exp-year" inputmode="numeric" autocomplete="cc-exp-year" required placeholder="YY" maxlength="4" pattern="[0-9]{2,4}" aria-label="Expiry year">
+                                    </div>
+                                </label>
+                                <label class="payment-field payment-field-cvc"><span>CVC</span><input type="text" id="pm-cvc" name="cc-csc" autocomplete="cc-csc" required placeholder="123" maxlength="4" inputmode="numeric"></label>
+                            </div>
                         </div>
                         <button type="submit" class="btn-confirm-pay" id="btn-confirm-pay"><i class="fa fa-lock" aria-hidden="true"></i> Pay securely</button>
                     </form>
+                    <div class="payment-qr-panel" id="payment-qr-panel" aria-live="polite">
+                        <img id="payment-qr-image" alt="QRPh code">
+                        <p class="payment-qr-note" id="payment-qr-note">Scan this QRPh code using your banking or e-wallet app to complete payment.</p>
+                    </div>
                         </div>
                     </div>
                     <div class="payment-actions" id="payment-actions-secondary">
@@ -340,7 +399,7 @@
         import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js';
         import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-functions.js';
         import { createAppointment, markAppointmentPaid } from '../scripts/petowner/appointment-manager.js';
-        import { createCardPaymentMethod } from '../scripts/core/paymongo-client.js';
+        import { createCardPaymentMethod, createQrPhPaymentMethod } from '../scripts/core/paymongo-client.js';
 
         var BOOKING_MEDIA_DB = 'televet_booking_media';
         var BOOKING_MEDIA_STORE = 'files';
@@ -429,6 +488,10 @@
 
         function formatPaymentError(err) {
             if (!err) return 'Something went wrong.';
+            var rawMessage = String(err.message || err.details || '');
+            if (rawMessage.indexOf('is not allowed for payment intent') !== -1) {
+                return 'Selected payment method is not enabled on the server yet. Deploy latest Cloud Functions, then try again.';
+            }
             var c = err.code;
             if (c === 'functions/failed-precondition' || c === 'functions/permission-denied' || c === 'functions/unauthenticated') {
                 return err.message || err.details || 'Request was rejected.';
@@ -453,6 +516,15 @@
         var configWarning = document.getElementById('payment-config-warning');
         var statusWait = document.getElementById('payment-status-wait');
         var feeLine = document.getElementById('payment-fee-line');
+        var qrPanel = document.getElementById('payment-qr-panel');
+        var qrImage = document.getElementById('payment-qr-image');
+        var qrNote = document.getElementById('payment-qr-note');
+        var cardFields = document.getElementById('payment-card-fields');
+        var paymentHint = document.getElementById('payment-sandbox-hint');
+        var nameLabel = document.getElementById('pm-name-label');
+        var emailLabel = document.getElementById('pm-email-label');
+        var qrPollTimer = null;
+        var qrSessionLocked = false;
 
         var functions = getFunctions(app);
         var createPaymentIntent = httpsCallable(functions, 'payMongoCreatePaymentIntent');
@@ -494,12 +566,19 @@
             if (loading) {
                 btnConfirmPay.textContent = label || 'Processing…';
             } else {
-                btnConfirmPay.innerHTML = '<i class="fa fa-lock" aria-hidden="true"></i> Pay securely';
+                updateMethodUi();
             }
         }
 
-        async function pollPaymentSucceeded(paymentIntentId) {
-            for (var i = 0; i < 15; i++) {
+        async function pollPaymentSucceeded(paymentIntentId, options) {
+            var opts = options || {};
+            var maxWaitMs = Number.isFinite(opts.maxWaitMs) ? opts.maxWaitMs : 6 * 60 * 1000;
+            var initialDelayMs = Number.isFinite(opts.initialDelayMs) ? opts.initialDelayMs : 1500;
+            var maxDelayMs = Number.isFinite(opts.maxDelayMs) ? opts.maxDelayMs : 8000;
+            var startedAt = Date.now();
+            var delay = initialDelayMs;
+
+            while ((Date.now() - startedAt) < maxWaitMs) {
                 var res = await getPaymentIntentStatus({ paymentIntentId: paymentIntentId });
                 var st = res.data && res.data.status;
                 if (st === 'succeeded') return true;
@@ -507,9 +586,92 @@
                     var le = res.data && res.data.lastPaymentError;
                     throw new Error((le && le.detail) || (le && le.title) || 'Payment was declined.');
                 }
-                await new Promise(function (r) { setTimeout(r, 2000); });
+
+                await new Promise(function (r) { setTimeout(r, delay); });
+                delay = Math.min(maxDelayMs, Math.round(delay * 1.35));
             }
-            throw new Error('Payment is still processing. Check Appointments in a few minutes or contact support.');
+
+            throw new Error('Payment is still processing. Keep this page open while we continue checking your payment.');
+        }
+
+        function selectedPaymentMethod() {
+            var checked = document.querySelector('input[name="payment-method"]:checked');
+            return checked && checked.value === 'qrph' ? 'qrph' : 'card';
+        }
+
+        function lockPaymentMethodSwitch(locked) {
+            var methodInputs = document.querySelectorAll('input[name="payment-method"]');
+            for (var i = 0; i < methodInputs.length; i++) {
+                methodInputs[i].disabled = locked;
+                var option = methodInputs[i].closest('.payment-method-option');
+                if (option) {
+                    option.classList.toggle('is-disabled', locked);
+                }
+            }
+        }
+
+        function updateMethodUi() {
+            var method = selectedPaymentMethod();
+            if (cardFields) cardFields.style.display = method === 'card' ? 'block' : 'none';
+            var cardInputIds = ['pm-number', 'pm-exp-month', 'pm-exp-year', 'pm-cvc'];
+            for (var i = 0; i < cardInputIds.length; i++) {
+                var cardInput = document.getElementById(cardInputIds[i]);
+                if (!cardInput) continue;
+                cardInput.required = method === 'card';
+                if (method !== 'card') cardInput.setCustomValidity('');
+            }
+            if (paymentHint) {
+                paymentHint.innerHTML = method === 'card'
+                    ? 'Test: <code>4343 4343 4343 4345</code> or <code>5555 4444 4444 4457</code> · future MM/YY · any CVC'
+                    : 'QRPh test mode: generate and display QR only. Avoid making real transfers while testing.';
+            }
+            if (nameLabel) nameLabel.textContent = method === 'card' ? 'Cardholder name' : 'Payer name';
+            if (emailLabel) emailLabel.textContent = method === 'card' ? 'Email' : 'Payer email';
+            if (btnConfirmPay) {
+                btnConfirmPay.innerHTML = method === 'card'
+                    ? '<i class="fa fa-lock" aria-hidden="true"></i> Pay securely'
+                    : '<i class="fa fa-qrcode" aria-hidden="true"></i> Generate QR';
+            }
+        }
+
+        function clearQrPanel() {
+            if (qrPanel) qrPanel.classList.remove('is-visible');
+            if (qrImage) qrImage.removeAttribute('src');
+            if (qrNote) qrNote.textContent = 'Scan this QRPh code using your banking or e-wallet app to complete payment.';
+            qrSessionLocked = false;
+            lockPaymentMethodSwitch(false);
+            if (qrPollTimer) {
+                clearInterval(qrPollTimer);
+                qrPollTimer = null;
+            }
+        }
+
+        function startQrPolling(paymentIntentId, booking) {
+            if (statusWait) {
+                statusWait.style.display = 'block';
+                statusWait.textContent = 'Waiting for QRPh payment confirmation…';
+            }
+            if (qrPollTimer) clearInterval(qrPollTimer);
+            qrPollTimer = setInterval(async function () {
+                try {
+                    var res = await getPaymentIntentStatus({ paymentIntentId: paymentIntentId });
+                    var st = res.data && res.data.status;
+                    if (st === 'succeeded') {
+                        clearInterval(qrPollTimer);
+                        qrPollTimer = null;
+                        await completeBookingAfterPayment(booking);
+                    } else if (st === 'awaiting_payment_method') {
+                        clearInterval(qrPollTimer);
+                        qrPollTimer = null;
+                        qrSessionLocked = false;
+                        lockPaymentMethodSwitch(false);
+                        if (qrNote) qrNote.textContent = 'This QR is no longer payable (expired/failed). Click Generate QR to create a new one.';
+                        if (statusWait) statusWait.style.display = 'none';
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            }, 3000);
         }
 
         async function completeBookingAfterPayment(booking) {
@@ -539,6 +701,7 @@
             await deleteBookingMediaFromIndexedDB(booking.mediaKey);
             sessionStorage.removeItem('televet_booking');
             sessionStorage.removeItem('paymongo_pi_id');
+            clearQrPanel();
             if (summaryEl) summaryEl.style.display = 'none';
             if (paymentForm) paymentForm.classList.remove('is-visible');
             if (placeholderText) placeholderText.style.display = 'none';
@@ -554,6 +717,8 @@
         async function runPayMongoThenBook(booking) {
             var user = auth.currentUser;
             if (!user) throw new Error('You must be signed in.');
+            clearQrPanel();
+            var method = selectedPaymentMethod();
 
             var consultationTitle =
                 (booking.title && String(booking.title).trim()) ||
@@ -561,21 +726,34 @@
                 '';
             var piRes = await createPaymentIntent({
                 amount: DEFAULT_AMOUNT_CENTAVOS,
+                paymentMethod: method,
                 consultationTitle: consultationTitle,
                 vetName: booking.vetName || '',
                 clinicName: booking.clinicName || '',
                 petName: booking.petName || '',
             });
+            var resolvedMethod = (piRes.data && piRes.data.paymentMethod) ? String(piRes.data.paymentMethod).toLowerCase() : '';
+            if (resolvedMethod && resolvedMethod !== method) {
+                throw new Error('Payment backend is outdated (method mismatch). Please deploy latest Cloud Functions and try again.');
+            }
             var pid = piRes.data.paymentIntentId;
-            var exp = parseCardExpiry();
-            var pmId = await createCardPaymentMethod(paymongoPublicKey, {
-                cardNumber: document.getElementById('pm-number').value,
-                expMonth: exp.expMonth,
-                expYear: exp.expYear,
-                cvc: document.getElementById('pm-cvc').value,
-                name: document.getElementById('pm-name').value,
-                email: document.getElementById('pm-email').value || (user.email || ''),
-            });
+            var pmId;
+            if (method === 'qrph') {
+                pmId = await createQrPhPaymentMethod(paymongoPublicKey, {
+                    name: document.getElementById('pm-name').value,
+                    email: document.getElementById('pm-email').value || (user.email || ''),
+                });
+            } else {
+                var exp = parseCardExpiry();
+                pmId = await createCardPaymentMethod(paymongoPublicKey, {
+                    cardNumber: document.getElementById('pm-number').value,
+                    expMonth: exp.expMonth,
+                    expYear: exp.expYear,
+                    cvc: document.getElementById('pm-cvc').value,
+                    name: document.getElementById('pm-name').value,
+                    email: document.getElementById('pm-email').value || (user.email || ''),
+                });
+            }
 
             sessionStorage.setItem('paymongo_pi_id', pid);
             if (feeLine && piRes.data.amount != null) {
@@ -588,6 +766,15 @@
                 returnUrl: payMongoReturnUrl(),
             });
             var d = attachRes.data || {};
+            if (method === 'qrph' && d.nextActionType === 'consume_qr' && d.qrImageUrl) {
+                if (qrImage) qrImage.src = d.qrImageUrl;
+                if (qrPanel) qrPanel.classList.add('is-visible');
+                if (qrNote) qrNote.textContent = 'QR generated. It expires in about 30 minutes and is one-time use.';
+                qrSessionLocked = true;
+                lockPaymentMethodSwitch(true);
+                startQrPolling(pid, booking);
+                return;
+            }
             if (d.status === 'succeeded') {
                 await completeBookingAfterPayment(booking);
                 return;
@@ -597,7 +784,15 @@
                 return;
             }
             if (d.status === 'processing' || d.status === 'awaiting_next_action') {
-                var ok = await pollPaymentSucceeded(pid);
+                if (statusWait) {
+                    statusWait.style.display = 'block';
+                    statusWait.textContent = method === 'qrph'
+                        ? 'Waiting for QRPh payment confirmation…'
+                        : 'Confirming card payment… this may take up to a few minutes.';
+                }
+                var ok = await pollPaymentSucceeded(pid, method === 'qrph'
+                    ? { maxWaitMs: 10 * 60 * 1000, initialDelayMs: 3000, maxDelayMs: 6000 }
+                    : { maxWaitMs: 6 * 60 * 1000, initialDelayMs: 1200, maxDelayMs: 8000 });
                 if (ok) await completeBookingAfterPayment(booking);
                 return;
             }
@@ -621,7 +816,11 @@
             }
             var booking = JSON.parse(stored);
             try {
-                await pollPaymentSucceeded(piStored);
+                if (statusWait) {
+                    statusWait.style.display = 'block';
+                    statusWait.textContent = 'Finalizing payment after PayMongo return…';
+                }
+                await pollPaymentSucceeded(piStored, { maxWaitMs: 8 * 60 * 1000, initialDelayMs: 1200, maxDelayMs: 8000 });
                 await completeBookingAfterPayment(booking);
             } catch (e) {
                 console.error(e);
@@ -656,6 +855,21 @@
                             if (feeLine) feeLine.textContent = formatPhpCentavos(DEFAULT_AMOUNT_CENTAVOS);
                             if (paymentForm) paymentForm.classList.add('is-visible');
                             if (paymentForm) {
+                                var methodInputs = document.querySelectorAll('input[name="payment-method"]');
+                                for (var i = 0; i < methodInputs.length; i++) {
+                                    methodInputs[i].addEventListener('change', function () {
+                                        if (qrSessionLocked && this.value !== 'qrph') {
+                                            this.checked = false;
+                                            var qrRadio = document.querySelector('input[name="payment-method"][value="qrph"]');
+                                            if (qrRadio) qrRadio.checked = true;
+                                            alert('QR payment is still active. Please wait for success or expiration before switching methods.');
+                                            return;
+                                        }
+                                        clearQrPanel();
+                                        updateMethodUi();
+                                    });
+                                }
+                                updateMethodUi();
                                 var expM = document.getElementById('pm-exp-month');
                                 var expY = document.getElementById('pm-exp-year');
                                 if (expM && expY) {
@@ -675,7 +889,7 @@
                                         alert('PayMongo public key is not set. See firebase-config.js.');
                                         return;
                                     }
-                                    setPayButtonLoading(true, 'Processing…');
+                                    setPayButtonLoading(true, selectedPaymentMethod() === 'qrph' ? 'Generating QR…' : 'Processing…');
                                     try {
                                         await runPayMongoThenBook(booking);
                                     } catch (e) {

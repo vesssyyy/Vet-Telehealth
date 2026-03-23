@@ -51,6 +51,10 @@ const { refs, state, setListState, renderChatMessages,
 
 const $ = id => document.getElementById(id);
 
+function normalizeId(value) {
+    return typeof value === 'string' ? value.trim() : '';
+}
+
 /* ── Display name helpers ──────────────────────────────────────────── */
 function ownerDisplayName(data) {
     return (data?.displayName || '').trim()
@@ -171,7 +175,7 @@ function subscribeToConversations() {
     if (!user) return;
     setListState(true, false, false);
     return onSnapshot(
-        query(collection(db, 'conversations'), where('participants', 'array-contains', user.uid), orderBy('lastMessageAt', 'desc')),
+        query(collection(db, 'conversations'), where('vetId', '==', user.uid), orderBy('lastMessageAt', 'desc')),
         async snap => {
             const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             state.conversations = [...new Map(docs.map(c => [c.id, c])).values()];
@@ -197,7 +201,12 @@ function subscribeToConversations() {
             }
             tryOpenConversationFromParams();
         },
-        err => { console.error('Conversations listener error:', err); setListState(false, true, false); }
+        err => {
+            console.error('Conversations listener error:', err);
+            setListState(false, true, false);
+            // Still allow deep-link conversation create/open even if list listener fails.
+            tryOpenConversationFromParams();
+        }
     );
 }
 
@@ -206,12 +215,23 @@ let hasHandledParams = false;
 async function tryOpenConversationFromParams() {
     if (hasHandledParams) return;
     const params = new URLSearchParams(location.search);
-    const ownerId = params.get('ownerId');
-    const petId = params.get('petId');
+    let ownerId = normalizeId(params.get('ownerId') || '');
+    let petId = normalizeId(params.get('petId') || '');
+    const appointmentId = params.get('appointmentId') || '';
+    if ((!ownerId || !petId) && appointmentId) {
+        try {
+            const aptSnap = await getDoc(doc(db, 'appointments', appointmentId));
+            if (aptSnap.exists()) {
+                const apt = aptSnap.data() || {};
+                ownerId = ownerId || normalizeId(apt.ownerId || apt.ownerID || '');
+                petId = petId || normalizeId(apt.petId || apt.petID || '');
+            }
+        } catch (_) {}
+    }
     if (!ownerId || !petId || !auth.currentUser) return;
     hasHandledParams = true;
     const user = auth.currentUser;
-    let conv = state.conversations.find(c => c.ownerId === ownerId && c.petId === petId);
+    let conv = state.conversations.find(c => String(c.ownerId) === String(ownerId) && String(c.petId) === String(petId));
     if (conv) {
         if (!conv.ownerName && conv.ownerId) await ensureOwnerNames([conv]);
         openConversation(conv);
@@ -219,8 +239,11 @@ async function tryOpenConversationFromParams() {
         return;
     }
     try {
-        const existingSnap = await getDocs(query(collection(db, 'conversations'), where('participants', 'array-contains', user.uid)));
-        const existingDoc = existingSnap.docs.find(d => { const data = d.data(); return data.ownerId === ownerId && data.petId === petId; });
+        const existingSnap = await getDocs(query(collection(db, 'conversations'), where('vetId', '==', user.uid)));
+        const existingDoc = existingSnap.docs.find(d => {
+            const data = d.data();
+            return String(data.ownerId) === String(ownerId) && String(data.petId) === String(petId);
+        });
         if (existingDoc) {
             conv = { id: existingDoc.id, ...existingDoc.data() };
             if (!state.conversations.find(c => c.id === conv.id)) {
@@ -233,8 +256,11 @@ async function tryOpenConversationFromParams() {
             history.replaceState(null, '', location.pathname);
             return;
         }
-        const ownerSnap = await getDoc(doc(db, 'users', ownerId));
-        const ownerName = ownerDisplayName(ownerSnap.exists() ? ownerSnap.data() : {});
+        let ownerName = params.get('ownerName') || 'Pet Owner';
+        try {
+            const ownerSnap = await getDoc(doc(db, 'users', ownerId));
+            ownerName = ownerDisplayName(ownerSnap.exists() ? ownerSnap.data() : {});
+        } catch (_) {}
         const vetSnap = await getDoc(doc(db, 'users', user.uid));
         const vetData = vetSnap.exists() ? vetSnap.data() : {};
         const vetName = withDr(
@@ -243,8 +269,11 @@ async function tryOpenConversationFromParams() {
             || (vetData.email || '').split('@')[0]
             || 'Veterinarian'
         );
-        const petSnap = await getDoc(doc(db, 'users', ownerId, 'pets', petId));
-        const petName = petSnap.exists() && petSnap.data()?.name ? petSnap.data().name : 'Pet';
+        let petName = params.get('petName') || 'Pet';
+        try {
+            const petSnap = await getDoc(doc(db, 'users', ownerId, 'pets', petId));
+            if (petSnap.exists() && petSnap.data()?.name) petName = petSnap.data().name;
+        } catch (_) {}
         const convRef = await addDoc(collection(db, 'conversations'), {
             ownerId, ownerName, vetId: user.uid, petId,
             petName, vetName, vetSpecialty: '',
@@ -271,8 +300,8 @@ async function tryOpenConversationFromParams() {
 /* ── Form submit ───────────────────────────────────────────────────── */
 async function handleFormSubmit(e) {
     e.preventDefault();
-    const ownerId = $('new-conv-owner')?.value;
-    const petId   = $('new-conv-pet')?.value;
+    const ownerId = normalizeId($('new-conv-owner')?.value);
+    const petId   = normalizeId($('new-conv-pet')?.value);
     if (!ownerId || !petId) { showModalError('Please select both a pet owner and a pet.'); return; }
 
     const submitBtn = $('new-conversation-submit');
@@ -282,7 +311,7 @@ async function handleFormSubmit(e) {
     if (!user) { if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Start Chat'; } return; }
 
     try {
-        const existingSnap = await getDocs(query(collection(db, 'conversations'), where('participants', 'array-contains', user.uid)));
+        const existingSnap = await getDocs(query(collection(db, 'conversations'), where('vetId', '==', user.uid)));
         const existingDoc  = existingSnap.docs.find(d => { const data = d.data(); return data.ownerId === ownerId && data.petId === petId; });
         if (existingDoc) {
             doCloseModal();
@@ -350,7 +379,12 @@ function init() {
     });
 
     onAuthStateChanged(auth, user => {
-        if (user) subscribeToConversations();
+        if (user) {
+            subscribeToConversations();
+            tryOpenConversationFromParams();
+            // One short retry handles delayed auth/profile hydration on slower devices.
+            setTimeout(() => { tryOpenConversationFromParams(); }, 1500);
+        }
         else setListState(false, true, false);
     });
 }

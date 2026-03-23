@@ -458,7 +458,10 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
                 const ownerName = escapeHtml((s.ownerName || s.owner || '').slice(0, 80));
                 const petName = escapeHtml((s.petName || s.pet || '').slice(0, 80));
                 const reason = escapeHtml((s.reason || '').slice(0, 400));
-                return `<div class="schedules-slot-item schedules-slot-item--booked${extraClass}" data-status="${status}" data-date="${escapeHtml(dateStr)}" data-start="${escapeHtml(s.start)}" data-appointment-id="${escapeHtml(aptId)}" data-owner-name="${ownerName}" data-pet-name="${petName}" data-reason="${reason}" data-time-start="${escapeHtml(s.start || '')}" data-time-end="${escapeHtml(s.end || '')}" data-expired="${isExpired}">
+                const ownerId = escapeHtml(String(s.ownerId || ''));
+                const petId = escapeHtml(String(s.petId || ''));
+                const vetId = escapeHtml(String(s.vetId || auth.currentUser?.uid || ''));
+                return `<div class="schedules-slot-item schedules-slot-item--booked${extraClass}" data-status="${status}" data-date="${escapeHtml(dateStr)}" data-start="${escapeHtml(s.start)}" data-appointment-id="${escapeHtml(aptId)}" data-owner-name="${ownerName}" data-owner-id="${ownerId}" data-pet-name="${petName}" data-pet-id="${petId}" data-vet-id="${vetId}" data-reason="${reason}" data-time-start="${escapeHtml(s.start || '')}" data-time-end="${escapeHtml(s.end || '')}" data-expired="${isExpired}">
                     <span class="schedules-slot-indicator ${status}" aria-hidden="true"></span>
                     <span class="schedules-slot-time schedules-slot-time--left">${timeRange}</span>
                     <button type="button" class="slot-details-view-btn" data-appointment-id="${escapeHtml(aptId)}" aria-label="View appointment details"><i class="fa fa-eye" aria-hidden="true"></i> View Details</button>
@@ -519,6 +522,11 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
     function updateDetailsJoinButton(apt, videoCall) {
         const joinBtn = $('details-join-btn');
         const pdfBtn = $('details-download-pdf-btn');
+        if (pdfBtn && apt) {
+            const showPdf = isConsultationPdfAvailable(apt, videoCall);
+            pdfBtn.classList.toggle('is-hidden', !showPdf);
+            pdfBtn.toggleAttribute('hidden', !showPdf);
+        }
         if (!joinBtn || !apt) return;
         const sessionEnded = videoCall?.status === 'ended' || isVideoSessionEnded(apt);
         const within = !sessionEnded && isWithinAppointmentTime(apt);
@@ -529,11 +537,6 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
         joinBtn.innerHTML = `<i class="fa fa-video-camera" aria-hidden="true"></i><span class="details-join-btn-text">${label}</span>`;
         joinBtn.classList.toggle('is-past', !within || sessionEnded);
         joinBtn.classList.toggle('is-session-ended', sessionEnded);
-        if (pdfBtn) {
-            const show = isConsultationPdfAvailable(apt, videoCall);
-            pdfBtn.classList.toggle('is-hidden', !show);
-            pdfBtn.toggleAttribute('hidden', !show);
-        }
     }
 
     function closeSlotDetailsModal() {
@@ -718,6 +721,9 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
         fillDetailsModalFromApt({
             id: appointmentId,
             title: null,
+            ownerId: slotData.ownerId || '',
+            petId: slotData.petId || '',
+            vetId: slotData.vetId || auth.currentUser?.uid || '',
             ownerName: slotData.ownerName || '—',
             owner: slotData.ownerName || '—',
             petName: slotData.petName || '—',
@@ -914,6 +920,9 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
             if (hasAppointment) {
                 const aptId = (slot.appointmentId || '').trim();
                 eventEl.dataset.dateStr = dateStr;
+                eventEl.dataset.ownerId = slot.ownerId || '';
+                eventEl.dataset.petId = slot.petId || '';
+                eventEl.dataset.vetId = slot.vetId || auth.currentUser?.uid || '';
                 eventEl.dataset.ownerName = (slot.ownerName || slot.owner || '').slice(0, 80);
                 eventEl.dataset.petName = (slot.petName || slot.pet || '').slice(0, 80);
                 eventEl.dataset.reason = (slot.reason || '').slice(0, 400);
@@ -931,6 +940,9 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
                     if (!aptId) return;
                     const slotData = {
                         dateStr: eventEl.dataset.dateStr || '',
+                        ownerId: eventEl.dataset.ownerId || '',
+                        petId: eventEl.dataset.petId || '',
+                        vetId: eventEl.dataset.vetId || '',
                         ownerName: eventEl.dataset.ownerName || '',
                         petName: eventEl.dataset.petName || '',
                         reason: eventEl.dataset.reason || '',
@@ -1922,11 +1934,15 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
             if (e.key === 'Escape' && detailsOverlay()?.classList.contains('is-open')) closeSlotDetailsModal();
         });
         $('details-message-btn')?.addEventListener('click', () => {
-            if (currentDetailsApt?.ownerId && currentDetailsApt?.petId) {
-                closeSlotDetailsModal();
-                const params = new URLSearchParams({ ownerId: currentDetailsApt.ownerId, petId: currentDetailsApt.petId });
-                window.location.href = `messages.html?${params.toString()}`;
-            }
+            const ownerId = currentDetailsApt?.ownerId || currentDetailsApt?.ownerID || '';
+            const petId = currentDetailsApt?.petId || currentDetailsApt?.petID || '';
+            if (!ownerId || !petId) return;
+            closeSlotDetailsModal();
+            const params = new URLSearchParams({ ownerId, petId });
+            if (currentDetailsApt?.id) params.set('appointmentId', currentDetailsApt.id);
+            if (currentDetailsApt?.ownerName) params.set('ownerName', currentDetailsApt.ownerName);
+            if (currentDetailsApt?.petName) params.set('petName', currentDetailsApt.petName);
+            window.location.href = `messages.html?${params.toString()}`;
         });
         $('details-download-pdf-btn')?.addEventListener('click', () => {
             if (!currentDetailsApt?.id) return;
@@ -1991,6 +2007,9 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
                 const row = viewDetailsBtn.closest('.schedules-slot-item--booked');
                 const slotData = row ? {
                     dateStr: row.dataset.date || '',
+                    ownerId: row.dataset.ownerId || '',
+                    petId: row.dataset.petId || '',
+                    vetId: row.dataset.vetId || '',
                     ownerName: row.dataset.ownerName || '',
                     petName: row.dataset.petName || '',
                     reason: row.dataset.reason || '',

@@ -562,6 +562,8 @@ export async function createAppointment(data) {
                 status: 'booked',
                 appointmentId: aptRef.id,
                 ownerId: user.uid,
+                vetId,
+                petId,
                 ownerName: (user.displayName || '').trim() || 'Pet Owner',
                 petName: petName || '',
                 title: titleVal,

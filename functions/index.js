@@ -8,6 +8,10 @@ const gmailUser = defineString('GMAIL_USER');
 const gmailAppPassword = defineString('GMAIL_APP_PASSWORD');
 /** Test: sk_test_… from PayMongo Dashboard → Developers (test mode). Set in functions/.env locally or Firebase params when deployed. */
 const paymongoSecretKey = defineString('PAYMONGO_SECRET_KEY', { default: '' });
+/** Optional TURN config for WebRTC cross-network reliability. */
+const rtcTurnUrls = defineString('RTC_TURN_URLS', { default: '' });
+const rtcTurnUsername = defineString('RTC_TURN_USERNAME', { default: '' });
+const rtcTurnCredential = defineString('RTC_TURN_CREDENTIAL', { default: '' });
 
 const PAYMONGO_API = 'https://api.paymongo.com/v1';
 
@@ -61,6 +65,52 @@ try {
 
 /** Allow all origins so callables work from web.app, firebaseapp.com, localhost, and custom domains. */
 const callableOptions = { cors: true };
+
+function parseCsvParam(raw) {
+  return String(raw || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+exports.getRtcIceServers = onCall(callableOptions, async (request) => {
+  if (!request.auth?.uid) {
+    throw new HttpsError('unauthenticated', 'Must be logged in.');
+  }
+  const iceServers = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+  ];
+  const urls = parseCsvParam(rtcTurnUrls.value());
+  const username = String(rtcTurnUsername.value() || '').trim();
+  const credential = String(rtcTurnCredential.value() || '').trim();
+
+  if (urls.length && username && credential) {
+    iceServers.push({
+      urls,
+      username,
+      credential,
+    });
+  } else {
+    // Temporary fallback TURN for development/testing across strict mobile networks.
+    // Replace with your own TURN in RTC_TURN_* params for production reliability/privacy.
+    iceServers.push({
+      urls: [
+        'turn:openrelay.metered.ca:80',
+        'turn:openrelay.metered.ca:443',
+        'turn:openrelay.metered.ca:443?transport=tcp',
+      ],
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    });
+  }
+
+  return {
+    iceServers,
+    hasTurn: urls.length > 0 && !!(username && credential),
+  };
+});
 
 function isValidEmail(email) {
   if (!email || typeof email !== 'string' || email.length > 254) return false;
@@ -434,7 +484,7 @@ function paymongoIntentMetadataFromDescription(description) {
   return { description: v };
 }
 
-/** Sandbox: create a Payment Intent (PHP, card). Amount in centavos; minimum 10000 (PHP 100). */
+/** Sandbox: create a Payment Intent (PHP). Amount in centavos. */
 exports.payMongoCreatePaymentIntent = onCall(callableOptions, async (request) => {
   if (!request.auth?.uid) {
     throw new HttpsError('unauthenticated', 'Must be logged in.');
@@ -442,11 +492,19 @@ exports.payMongoCreatePaymentIntent = onCall(callableOptions, async (request) =>
   const secret = await requirePaymongoSecret();
   const data = request.data || {};
   const { amount: amountRaw } = data;
+  const paymentMethod = String(data?.paymentMethod || 'card').trim().toLowerCase();
+  if (!['card', 'qrph'].includes(paymentMethod)) {
+    throw new HttpsError('invalid-argument', 'paymentMethod must be card or qrph.');
+  }
   const amount = typeof amountRaw === 'number' && Number.isFinite(amountRaw)
     ? Math.floor(amountRaw)
     : 10000;
-  if (amount < 10000) {
-    throw new HttpsError('invalid-argument', 'Amount must be at least 10000 (PHP 100.00).');
+  const minAmount = paymentMethod === 'qrph' ? 2000 : 10000;
+  if (amount < minAmount) {
+    throw new HttpsError(
+      'invalid-argument',
+      `Amount must be at least ${minAmount} (${paymentMethod === 'qrph' ? 'PHP 20.00' : 'PHP 100.00'}).`,
+    );
   }
   const uid = request.auth.uid;
   const description = await buildPaymongoConsultationDescription(request, data);
@@ -455,7 +513,7 @@ exports.payMongoCreatePaymentIntent = onCall(callableOptions, async (request) =>
     const attributes = {
       amount,
       currency: 'PHP',
-      payment_method_allowed: ['card'],
+      payment_method_allowed: [paymentMethod],
       description,
     };
     if (metadata) {
@@ -476,12 +534,14 @@ exports.payMongoCreatePaymentIntent = onCall(callableOptions, async (request) =>
     await db.collection('paymongo_intents').doc(piId).set({
       uid,
       description,
+      paymentMethod,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
     return {
       paymentIntentId: piId,
       clientKey: d.attributes.client_key,
       amount: d.attributes.amount,
+      paymentMethod,
     };
   } catch (e) {
     if (e instanceof HttpsError) throw e;
@@ -533,10 +593,14 @@ exports.payMongoAttachPayment = onCall(callableOptions, async (request) => {
         || next.url
         || null;
     }
+    const code = next && next.code ? next.code : null;
     return {
       status: attrs.status,
       nextActionType: next && next.type,
       redirectUrl,
+      qrImageUrl: code && code.image_url ? code.image_url : null,
+      qrLabel: code && code.label ? code.label : null,
+      qrCodeId: code && code.id ? code.id : null,
       lastPaymentError: attrs.last_payment_error || null,
     };
   } catch (e) {

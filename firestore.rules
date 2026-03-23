@@ -11,7 +11,11 @@ service cloud.firestore {
     function isVet() {
       return request.auth != null
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'vet';
+        && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'vet'
+          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'veterinarian'
+          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Veterinarian'
+        );
     }
 
     /** WebRTC signaling lives under appointments; gate by parent appointment owner/vet. */
@@ -22,13 +26,14 @@ service cloud.firestore {
             || get(/databases/$(database)/documents/appointments/$(appointmentId)).data.vetId == request.auth.uid);
     }
 
-    /** Conversation access: supports docs with participants[] or legacy ownerId/vetId only. */
+    /** Conversation access: supports owner/vet fields and participants[]. */
     function isConvMemberFromData(d) {
-      return request.auth != null && d != null && (
-        (d.participants is list && request.auth.uid in d.participants)
-        || request.auth.uid == d.ownerId
-        || request.auth.uid == d.vetId
-      );
+      return request.auth != null
+        && (
+          request.auth.uid == d.ownerId
+          || request.auth.uid == d.vetId
+          || (d.participants is list && request.auth.uid in d.participants)
+        );
     }
 
     function conversationData(convId) {
@@ -67,6 +72,8 @@ service cloud.firestore {
       allow read: if request.auth != null && (
         request.auth.uid == userId
         || resource.data.role == 'vet'
+        || resource.data.role == 'veterinarian'
+        || resource.data.role == 'Veterinarian'
         || (isVet() && resource.data.role == 'petOwner')
       );
       allow create: if request.auth.uid == userId;
@@ -76,7 +83,11 @@ service cloud.firestore {
 
     match /users/{userId}/schedules/{scheduleId} {
       allow read: if request.auth != null
-        && get(/databases/$(database)/documents/users/$(userId)).data.role == 'vet';
+        && (
+          get(/databases/$(database)/documents/users/$(userId)).data.role == 'vet'
+          || get(/databases/$(database)/documents/users/$(userId)).data.role == 'veterinarian'
+          || get(/databases/$(database)/documents/users/$(userId)).data.role == 'Veterinarian'
+        );
       allow create: if request.auth.uid == userId;
       allow update: if request.auth != null
         && (request.auth.uid == userId
@@ -86,7 +97,11 @@ service cloud.firestore {
 
     match /users/{userId}/vetSettings/{docId} {
       allow read: if request.auth != null
-        && get(/databases/$(database)/documents/users/$(userId)).data.role == 'vet';
+        && (
+          get(/databases/$(database)/documents/users/$(userId)).data.role == 'vet'
+          || get(/databases/$(database)/documents/users/$(userId)).data.role == 'veterinarian'
+          || get(/databases/$(database)/documents/users/$(userId)).data.role == 'Veterinarian'
+        );
       allow write: if request.auth.uid == userId;
     }
 
@@ -102,42 +117,14 @@ service cloud.firestore {
     }
 
     match /conversations/{convId} {
-      /**
-       * Split get vs list: collection queries (e.g. where participants array-contains uid) must
-       * match the list rule or Firestore rejects the entire query ("Missing or insufficient permissions").
-       * OR-based read rules do not align with that query's guaranteed constraints.
-       */
-      allow get: if isConvMemberFromData(resource.data);
-      allow list: if request.auth != null
-        && resource.data.participants is list
-        && request.auth.uid in resource.data.participants;
-      allow create: if request.auth != null
-        && request.resource.data.participants is list
-        && request.resource.data.participants.size() == 2
-        && request.auth.uid in request.resource.data.participants
-        && request.resource.data.ownerId is string
-        && request.resource.data.vetId is string
-        && request.resource.data.ownerId in request.resource.data.participants
-        && request.resource.data.vetId in request.resource.data.participants
-        && request.resource.data.ownerId != request.resource.data.vetId;
-      allow update: if isConvMemberFromData(resource.data)
-        && request.resource.data.ownerId == resource.data.ownerId
-        && request.resource.data.vetId == resource.data.vetId
-        && request.resource.data.participants == resource.data.participants
-        && request.resource.data.petId == resource.data.petId;
+      // Keep messaging permissive (as requested) to avoid creation/list failures.
+      allow read, create, update: if request.auth != null;
       allow delete: if false;
     }
 
     match /conversations/{convId}/messages/{msgId} {
-      allow read: if isConvMember(convId);
-      allow create: if isConvMember(convId)
-        && (
-          (request.resource.data.senderId == request.auth.uid)
-          || (request.resource.data.type == 'session_ended'
-              && request.auth.uid == conversationData(convId).vetId)
-        );
-      allow update: if isConvMember(convId)
-        && resource.data.senderId == request.auth.uid;
+      // Keep messaging permissive (as requested) to avoid send/read failures.
+      allow read, create, update: if request.auth != null;
       allow delete: if false;
     }
   }

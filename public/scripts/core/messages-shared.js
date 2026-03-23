@@ -14,13 +14,13 @@
  */
 
 import { auth, db } from './firebase-config.js';
-import { escapeHtml, formatConversationMeta, formatMessageTimeWithDate, timestampToMs, getConsultationStartMs, formatAppointmentDividerDateTime } from './utils.js';
+import { escapeHtml, timestampToMs } from './utils.js';
 import {
     validateAttachment, getAttachmentKind,
     uploadMessageAttachment, renderAttachment,
 } from './message-attachments.js';
 import {
-    collection, doc, addDoc, updateDoc,
+    collection, doc, getDoc, addDoc, updateDoc,
     query, orderBy, onSnapshot, serverTimestamp,
 } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 
@@ -70,8 +70,8 @@ export function createMessaging(config) {
         lastRenderedMessages:       [],
         currentConvData:            undefined,
         deliveredUpdateTimeouts:    new Map(),
-        timeVisibleMessageId:       null, // message id whose timestamp is shown (survives re-renders)
-        appointmentsForCurrentConv: null, // appointments for timeline dividers (set when opening conv)
+        selectedTimestampMessageId: null,
+        defaultTimestampMessageId:  null,
     };
 
     /* ── List / chat view ──────────────────────────────────────────── */
@@ -108,43 +108,6 @@ export function createMessaging(config) {
         return '<span class="message-status message-status--sent" aria-label="Sent"><i class="fa fa-check"></i></span>';
     }
 
-    function appendAppointmentDivider(body, apt) {
-        const dateStr = apt?.dateStr || apt?.date || '';
-        const slotStart = apt?.slotStart || apt?.timeStart || '';
-        const dateTimeLabel = formatAppointmentDividerDateTime(dateStr, slotStart);
-        const titleLabel = (apt?.title && String(apt.title).trim()) || `${apt?.petName || 'Pet'} — Consultation`;
-        const div = document.createElement('div');
-        div.className = 'message-appointment-divider';
-        div.innerHTML = `
-            <div class="message-appointment-divider-line">
-                <span class="message-appointment-divider-text">${escapeHtml(dateTimeLabel)}</span>
-            </div>
-            <div class="message-appointment-divider-line">
-                <span class="message-appointment-divider-text">${escapeHtml(titleLabel)}</span>
-            </div>`;
-        body.appendChild(div);
-    }
-
-    function appendSessionEndedDivider(body, msg) {
-        const titleLabel = (msg.appointmentTitle && String(msg.appointmentTitle).trim()) || 'Consultation';
-        let endedAt = '—';
-        if (msg.endedAt) {
-            if (typeof msg.endedAt.toDate === 'function') endedAt = formatMessageTimeWithDate(msg.endedAt);
-            else if (typeof msg.endedAt.toMillis === 'function') endedAt = new Date(msg.endedAt.toMillis()).toLocaleString();
-        }
-        const endedLabel = `Session ended at ${endedAt}`;
-        const div = document.createElement('div');
-        div.className = 'message-appointment-divider message-session-ended-divider';
-        div.innerHTML = `
-            <div class="message-appointment-divider-line">
-                <span class="message-appointment-divider-text">${escapeHtml(titleLabel)}</span>
-            </div>
-            <div class="message-appointment-divider-line">
-                <span class="message-appointment-divider-text">${escapeHtml(endedLabel)}</span>
-            </div>`;
-        body.appendChild(div);
-    }
-
     function renderChatMessages(messages, conv) {
         const body = $('messages-chat-body');
         if (!body) return;
@@ -155,91 +118,55 @@ export function createMessaging(config) {
         body.innerHTML = '';
         const uid      = auth.currentUser?.uid;
         const convData = conv || state.currentConvData || {};
+        const visibleMessages = messages.filter(m => m.type !== 'session_ended');
+        const defaultTimestampMsg = visibleMessages.length ? visibleMessages[visibleMessages.length - 1] : null;
+        state.defaultTimestampMessageId = defaultTimestampMsg?.id || null;
+        if (
+            state.selectedTimestampMessageId &&
+            !visibleMessages.some(m => m.id === state.selectedTimestampMessageId)
+        ) {
+            state.selectedTimestampMessageId = null;
+        }
 
         let lastSentId = null;
         for (let i = messages.length - 1; i >= 0; i--) {
             if (messages[i].senderId === uid) { lastSentId = messages[i].id; break; }
         }
 
-        const appointments = (state.appointmentsForCurrentConv || [])
-            .map(apt => ({ apt, startMs: getConsultationStartMs(apt) }))
-            .filter(({ startMs }) => startMs != null)
-            .sort((a, b) => a.startMs - b.startMs);
-        let nextAptIndex = 0;
-
         messages.forEach((msg, index) => {
-            const msgMs = timestampToMs(msg.sentAt);
-            while (nextAptIndex < appointments.length && appointments[nextAptIndex].startMs <= msgMs) {
-                appendAppointmentDivider(body, appointments[nextAptIndex].apt);
-                nextAptIndex++;
-            }
-            if (msg.type === 'session_ended') {
-                appendSessionEndedDivider(body, msg);
-                return;
-            }
+            // System message for terminated calls — do not render in the UI.
+            if (msg.type === 'session_ended') return;
+
+            const bubbleText = msg.text || '';
             const isSent     = msg.senderId === uid;
             const isSending  = msg.status === 'sending';
             const side       = isSent ? 'sent' : 'received';
-            const isLast     = index === messages.length - 1;
-            const showTime   = isLast || msg.id === state.timeVisibleMessageId;
             const avatarIcon = isSent ? sentAvatarIcon : receivedAvatarIcon;
-            const timeLabel  = formatMessageTimeWithDate(msg.sentAt);
+            const statusIcon = isSent ? renderMessageStatusIcon(msg, convData, msg.id === lastSentId) : '';
+            const showTime   = msg.id === state.defaultTimestampMessageId || msg.id === state.selectedTimestampMessageId;
+            const timeText   = showTime ? formatBubbleTimestamp(msg.sentAt) : '';
+            const footerHtml = (timeText || statusIcon)
+                ? `<div class="message-bubble-footer">
+                    ${timeText ? `<span class="message-bubble-time">${escapeHtml(timeText)}</span>` : ''}
+                    ${statusIcon}
+                </div>`
+                : '';
             const row        = document.createElement('div');
-            row.className    = `message-row message-row--${side} message-row--clickable${isLast ? ' message-row--last' : ''}${showTime ? ' message-row--time-visible' : ''}`;
-            row.dataset.messageId = msg.id;
-            row.setAttribute('role', 'button');
-            row.setAttribute('tabindex', '0');
-            row.setAttribute('aria-label', isLast ? 'Last message' : 'Message, click to show time');
+            row.className    = `message-row message-row--${side}`;
+            row.setAttribute('role', 'article');
+            row.setAttribute('aria-label', 'Message');
             row.innerHTML = `
                 <div class="message-row-avatar"><i class="fa ${avatarIcon}" aria-hidden="true"></i></div>
-                <div class="message-bubble message-bubble--${side}">
+                <div class="message-bubble message-bubble--${side}" data-message-id="${escapeHtml(msg.id)}">
                     ${msg.attachment ? renderAttachment(msg.attachment, isSending) : ''}
-                    ${msg.text ? `<div>${escapeHtml(msg.text)}</div>` : ''}
-                    <div class="message-bubble-footer">
-                        <span class="message-bubble-time message-bubble-time--reveal" title="${escapeHtml(timeLabel)}">${escapeHtml(timeLabel)}</span>
-                        ${isSent ? renderMessageStatusIcon(msg, convData, msg.id === lastSentId) : ''}
-                    </div>
+                    ${bubbleText ? `<div>${escapeHtml(bubbleText)}</div>` : ''}
+                    ${footerHtml}
                 </div>
             `;
-            row.addEventListener('click', (e) => {
-                if (e.target.closest('a, button')) return;
-                if (row.classList.contains('message-row--last')) return;
-                if (row.classList.contains('message-row--time-visible')) {
-                    state.timeVisibleMessageId = null;
-                    row.classList.remove('message-row--time-visible');
-                    return;
-                }
-                state.timeVisibleMessageId = msg.id;
-                body.querySelectorAll('.message-row:not(.message-row--last)').forEach(r => r.classList.remove('message-row--time-visible'));
-                row.classList.add('message-row--time-visible');
-                e.stopPropagation();
-            });
-            row.addEventListener('keydown', (e) => {
-                if (e.key !== 'Enter' && e.key !== ' ') return;
-                e.preventDefault();
-                if (row.classList.contains('message-row--last')) return;
-                if (row.classList.contains('message-row--time-visible')) {
-                    state.timeVisibleMessageId = null;
-                    row.classList.remove('message-row--time-visible');
-                    return;
-                }
-                state.timeVisibleMessageId = msg.id;
-                body.querySelectorAll('.message-row:not(.message-row--last)').forEach(r => r.classList.remove('message-row--time-visible'));
-                row.classList.add('message-row--time-visible');
-            });
             body.appendChild(row);
         });
-        while (nextAptIndex < appointments.length) {
-            appendAppointmentDivider(body, appointments[nextAptIndex].apt);
-            nextAptIndex++;
-        }
 
-        body.addEventListener('click', (e) => {
-            if (e.target.closest('a, button')) return;
-            if (e.target.closest('.message-row')) return;
-            state.timeVisibleMessageId = null;
-            body.querySelectorAll('.message-row:not(.message-row--last)').forEach(r => r.classList.remove('message-row--time-visible'));
-        });
+        // Intentionally no click-to-reveal timestamp behavior.
 
         body.querySelectorAll('.message-attachment-img').forEach(img => {
             const wrap = img.closest('.message-attachment--image');
@@ -258,6 +185,31 @@ export function createMessaging(config) {
                 body.scrollTop = targetScrollTop;
             });
         }
+    }
+
+    function formatBubbleTimestamp(ts) {
+        if (!ts?.toDate) return '';
+        const d = ts.toDate();
+        if (!(d instanceof Date) || Number.isNaN(d.getTime())) return '';
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const msgDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const weekStart = new Date(today);
+        const day = weekStart.getDay(); // Sunday=0
+        const diffToMonday = day === 0 ? 6 : day - 1;
+        weekStart.setDate(weekStart.getDate() - diffToMonday);
+        const timePart = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+
+        if (msgDay.getTime() === today.getTime()) return timePart;
+        if (msgDay.getTime() === yesterday.getTime()) return `Yesterday - ${timePart}`;
+        if (msgDay >= weekStart) {
+            const weekday = d.toLocaleDateString(undefined, { weekday: 'long' });
+            return `${weekday} - ${timePart}`;
+        }
+        const datePart = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+        return `${datePart} - ${timePart}`;
     }
 
     function renderConversationList() {
@@ -284,14 +236,6 @@ export function createMessaging(config) {
      * @param {function} markReadFn   async () → updateDoc for lastReadAt
      */
     function subscribeMessages(conv, myId, markReadFn) {
-        state.timeVisibleMessageId = null;
-        state.appointmentsForCurrentConv = [];
-        if (typeof getAppointmentsForConv === 'function') {
-            getAppointmentsForConv(conv).then(apts => {
-                state.appointmentsForCurrentConv = apts || [];
-                renderChatMessages(state.lastRenderedMessages, state.currentConvData || conv);
-            }).catch(() => { state.appointmentsForCurrentConv = []; });
-        }
         if (state.conversationDocUnsubscribe) state.conversationDocUnsubscribe();
         state.conversationDocUnsubscribe = onSnapshot(
             doc(db, 'conversations', conv.id),
@@ -323,7 +267,6 @@ export function createMessaging(config) {
         refs.composeInput?.blur();
         document.body.classList.remove('messages-input-focused');
         state.currentConvId = null;
-        state.timeVisibleMessageId = null;
         for (const key of ['conversationDocUnsubscribe', 'messagesUnsubscribe']) {
             if (state[key]) { state[key](); state[key] = null; }
         }
@@ -622,6 +565,21 @@ export function createMessaging(config) {
 
         /* Lightbox */
         initLightbox();
+
+        /* Click-to-reveal message timestamp
+         * - Last message timestamp stays visible by default.
+         * - One additional clicked message can show its timestamp.
+         */
+        $('messages-chat-body')?.addEventListener('click', e => {
+            const bubble = e.target.closest('.message-bubble');
+            if (!bubble) return;
+            const messageId = bubble.dataset.messageId;
+            if (!messageId) return;
+            if (messageId === state.defaultTimestampMessageId) return;
+            state.selectedTimestampMessageId =
+                state.selectedTimestampMessageId === messageId ? null : messageId;
+            renderChatMessages(state.lastRenderedMessages, state.currentConvData);
+        });
 
         /* Form */
         refs.form?.addEventListener('submit', onFormSubmit);

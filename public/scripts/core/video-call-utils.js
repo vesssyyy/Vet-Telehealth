@@ -65,6 +65,16 @@ export function isVideoSessionEnded(apt) {
     return !!(apt && apt.videoSessionEndedAt != null);
 }
 
+/** True when local time is still before the appointment slot start (same date/slot fields as Join). */
+function isAppointmentSlotNotYetStarted(apt) {
+    const dateStr = apt?.date || apt?.dateStr;
+    const slotStart = apt?.slotStart || apt?.timeStart;
+    if (!dateStr || !slotStart) return false;
+    const start = new Date(`${dateStr}T${slotStart}`);
+    if (isNaN(start.getTime())) return false;
+    return new Date() < start;
+}
+
 /**
  * True when the teleconsultation has finished (vet ended session / room closed / appointment completed).
  * Used to show "Download consultation PDF" only after a real session, not for future or in-progress bookings.
@@ -75,6 +85,7 @@ export function isConsultationPdfAvailable(apt, videoCall) {
     if (!apt) return false;
     if (videoCall && videoCall.status === 'ended') return true;
     if (isVideoSessionEnded(apt)) return true;
+    if (isAppointmentSlotNotYetStarted(apt)) return false;
     const st = String(apt.status || '').toLowerCase();
     if (st === 'completed') return true;
     return false;

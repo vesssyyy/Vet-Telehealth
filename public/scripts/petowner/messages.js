@@ -52,6 +52,10 @@ const { refs, state, setListState, showChat, renderChatMessages,
 
 const $ = id => document.getElementById(id);
 
+function normalizeId(value) {
+    return typeof value === 'string' ? value.trim() : '';
+}
+
 /* ── Chat header ───────────────────────────────────────────────────── */
 function updateChatHeader(conv) {
     const vetNameEl   = $('messages-chat-vet-name');
@@ -130,7 +134,7 @@ function subscribeToConversations() {
     if (!user) return;
     setListState(true, false, false);
     return onSnapshot(
-        query(collection(db, 'conversations'), where('participants', 'array-contains', user.uid), orderBy('lastMessageAt', 'desc')),
+        query(collection(db, 'conversations'), where('ownerId', '==', user.uid), orderBy('lastMessageAt', 'desc')),
         snap => {
             const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             state.conversations = [...new Map(docs.map(c => [c.id, c])).values()];
@@ -155,15 +159,20 @@ function subscribeToConversations() {
             }
             tryOpenConversationFromParams();
         },
-        err => { console.error('Conversations listener error:', err); setListState(false, true, false); }
+        err => {
+            console.error('Conversations listener error:', err);
+            setListState(false, true, false);
+            // Still allow deep-link conversation create/open even if list listener fails.
+            tryOpenConversationFromParams();
+        }
     );
 }
 
 /* ── Form submit ───────────────────────────────────────────────────── */
 async function handleFormSubmit(e) {
     e.preventDefault();
-    const petId = $('new-conv-pet')?.value;
-    const vetId = $('new-conv-vet')?.value;
+    const petId = normalizeId($('new-conv-pet')?.value);
+    const vetId = normalizeId($('new-conv-vet')?.value);
     if (!petId || !vetId) { showModalError('Please select both a pet and a veterinarian.'); return; }
 
     const submitBtn = $('new-conversation-submit');
@@ -173,7 +182,7 @@ async function handleFormSubmit(e) {
     if (!user) { if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Start Chat'; } return; }
 
     try {
-        const existingSnap = await getDocs(query(collection(db, 'conversations'), where('participants', 'array-contains', user.uid)));
+        const existingSnap = await getDocs(query(collection(db, 'conversations'), where('ownerId', '==', user.uid)));
         const existingDoc  = existingSnap.docs.find(d => { const data = d.data(); return data.vetId === vetId && data.petId === petId; });
         if (existingDoc) {
             doCloseModal();
@@ -231,22 +240,36 @@ let hasHandledParams = false;
 async function tryOpenConversationFromParams() {
     if (hasHandledParams) return;
     const params = new URLSearchParams(location.search);
-    const vetId = params.get('vetId');
-    const petId = params.get('petId');
+    let vetId = normalizeId(params.get('vetId') || '');
+    let petId = normalizeId(params.get('petId') || '');
+    const appointmentId = params.get('appointmentId') || '';
+    if ((!vetId || !petId) && appointmentId) {
+        try {
+            const aptSnap = await getDoc(doc(db, 'appointments', appointmentId));
+            if (aptSnap.exists()) {
+                const apt = aptSnap.data() || {};
+                vetId = vetId || normalizeId(apt.vetId || apt.vetID || '');
+                petId = petId || normalizeId(apt.petId || apt.petID || '');
+            }
+        } catch (_) {}
+    }
     if (!vetId || !petId || !auth.currentUser) return;
     hasHandledParams = true;
     const user = auth.currentUser;
     const petName = params.get('petName') || 'Pet';
     const vetName = params.get('vetName') || 'Vet';
-    let conv = state.conversations.find(c => c.vetId === vetId && c.petId === petId);
+    let conv = state.conversations.find(c => String(c.vetId) === String(vetId) && String(c.petId) === String(petId));
     if (conv) {
         openConversation(conv);
         history.replaceState(null, '', location.pathname);
         return;
     }
     try {
-        const existingSnap = await getDocs(query(collection(db, 'conversations'), where('participants', 'array-contains', user.uid)));
-        const existingDoc = existingSnap.docs.find(d => { const data = d.data(); return data.vetId === vetId && data.petId === petId; });
+        const existingSnap = await getDocs(query(collection(db, 'conversations'), where('ownerId', '==', user.uid)));
+        const existingDoc = existingSnap.docs.find(d => {
+            const data = d.data();
+            return String(data.vetId) === String(vetId) && String(data.petId) === String(petId);
+        });
         if (existingDoc) {
             conv = { id: existingDoc.id, ...existingDoc.data() };
             if (!state.conversations.find(c => c.id === conv.id)) {
@@ -299,7 +322,12 @@ function init() {
     });
 
     onAuthStateChanged(auth, user => {
-        if (user) subscribeToConversations();
+        if (user) {
+            subscribeToConversations();
+            tryOpenConversationFromParams();
+            // One short retry handles delayed auth/profile hydration on slower devices.
+            setTimeout(() => { tryOpenConversationFromParams(); }, 1500);
+        }
         else setListState(false, true, false);
     });
 }

@@ -559,45 +559,8 @@ body.video-call-fullscreen .video-call-controls {
     word-break: break-word;
     min-width: 0;
 }
-.video-call-msg-time {
-    font-size: 0.65rem;
-    opacity: 0.8;
-    align-self: flex-end;
-}
 .video-call-convo-messages.is-hidden {
     display: none !important;
-}
-.video-call-convo-appointment-divider {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    padding: 10px 0;
-    flex-shrink: 0;
-}
-.video-call-convo-appointment-divider-line {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-}
-.video-call-convo-appointment-divider-line::before,
-.video-call-convo-appointment-divider-line::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--w-2);
-}
-.video-call-convo-appointment-divider-text {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: rgba(255, 255, 255, 0.9);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 85%;
 }
 .video-call-convo-empty {
     padding: 16px;

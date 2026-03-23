@@ -48,3 +48,37 @@ export async function createCardPaymentMethod(publicKey, details) {
     }
     return json.data.id;
 }
+
+/**
+ * @param {string} publicKey
+ * @param {{ name: string, email: string, phone?: string }} details
+ * @returns {Promise<string>} payment method id (pm_…)
+ */
+export async function createQrPhPaymentMethod(publicKey, details) {
+    const body = {
+        data: {
+            attributes: {
+                type: 'qrph',
+                billing: {
+                    name: String(details.name || '').trim(),
+                    email: String(details.email || '').trim(),
+                    phone: String(details.phone || '').trim(),
+                },
+            },
+        },
+    };
+    const res = await fetch(`${PAYMONGO_API}/payment_methods`, {
+        method: 'POST',
+        headers: {
+            Authorization: authHeader(publicKey),
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        const e = json.errors && json.errors[0];
+        throw new Error((e && (e.detail || e.title)) || 'QRPh method could not be created.');
+    }
+    return json.data.id;
+}

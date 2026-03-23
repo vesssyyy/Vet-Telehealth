@@ -454,40 +454,6 @@
     margin: auto;
 }
 
-/* Appointment divider in chat (same 2-line as video call convo) */
-.message-appointment-divider {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    padding: 10px 0;
-    flex-shrink: 0;
-}
-.message-appointment-divider-line {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-}
-.message-appointment-divider-line::before,
-.message-appointment-divider-line::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--border-color, rgba(0, 0, 0, 0.15));
-}
-.message-appointment-divider-text {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--text-light, #64748b);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 85%;
-}
-
 .message-row {
     display: flex;
     align-items: flex-end;
@@ -533,32 +499,6 @@
     color: var(--text-dark);
     border: 1px solid var(--border-color);
 }
-.message-bubble-time { font-size: 11px; opacity: 0.85; margin-top: 4px; }
-.message-bubble--received .message-bubble-time { color: var(--text-light); }
-.message-bubble--sent .message-bubble-time { color: rgba(255, 255, 255, 0.9); }
-.message-row--clickable { cursor: pointer; }
-.message-bubble-time--reveal {
-    opacity: 0;
-    max-width: 0;
-    height: 0;
-    overflow: hidden;
-    white-space: nowrap;
-    transition: opacity 0.15s ease, max-width 0.2s ease, height 0.2s ease;
-    margin-top: 0;
-    display: inline-block;
-    vertical-align: bottom;
-}
-.message-row--time-visible .message-bubble-time--reveal {
-    opacity: 1;
-    max-width: 220px;
-    height: auto;
-}
-.message-bubble {
-    transition: padding-bottom 0.2s ease;
-}
-.message-row--time-visible .message-bubble {
-    padding-bottom: 10px;
-}
 .message-bubble-footer {
     min-height: 0;
     display: flex;
@@ -567,7 +507,13 @@
     gap: 6px;
     margin-top: 4px;
 }
-.message-bubble-footer .message-bubble-time { margin-top: 0; margin-right: auto; }
+.message-bubble-time {
+    font-size: 11px;
+    opacity: 0.78;
+    line-height: 1;
+}
+.message-bubble--sent .message-bubble-time { color: rgba(255, 255, 255, 0.92); }
+.message-bubble--received .message-bubble-time { color: var(--text-light); }
 .message-status {
     font-size: 12px;
     opacity: 0.9;
