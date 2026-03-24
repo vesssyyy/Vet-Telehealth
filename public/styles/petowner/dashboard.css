@@ -252,6 +252,7 @@ body.dashboard-ready .dashboard-content { display: flex !important; }
 .add-pet-image-placeholder .add-pet-image-box,
 .add-pet-image-field .add-pet-image-box {
     position: relative;
+    box-sizing: border-box;
     border: 2px dashed var(--border-color);
     border-radius: 8px;
     min-height: 140px;
@@ -284,14 +285,40 @@ body.dashboard-ready .dashboard-content { display: flex !important; }
 .add-pet-image-box-circle:hover { border-color: var(--primary-color); background: rgba(44, 95, 125, 0.04); }
 .add-pet-image-placeholder .add-pet-image-box:hover,
 .add-pet-image-field .add-pet-image-box:hover { border-color: var(--primary-color); background: rgba(44, 95, 125, 0.04); }
-.add-pet-image-placeholder-inner { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.add-pet-image-box-circle .add-pet-image-placeholder-inner span { font-size: 12px; text-align: center; line-height: 1.2; }
-.add-pet-image-box-circle .add-pet-image-placeholder-inner i { font-size: 24px; }
+.add-pet-image-placeholder-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+/* Fill the circle so label + icon stay centered; padding keeps text inside the rounded clip */
+.add-pet-image-box-circle .add-pet-image-placeholder-inner {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    max-width: 100%;
+    padding: 10px 8px;
+    box-sizing: border-box;
+    text-align: center;
+}
+.add-pet-image-box-circle .add-pet-image-placeholder-inner span {
+    font-size: 11px;
+    text-align: center;
+    line-height: 1.25;
+    max-width: 100%;
+    word-wrap: break-word;
+}
+.add-pet-image-box-circle .add-pet-image-placeholder-inner i { font-size: 22px; flex-shrink: 0; }
 .add-pet-image-placeholder .add-pet-image-box i,
 .add-pet-image-field .add-pet-image-box i { font-size: 28px; opacity: 0.6; }
 .add-pet-image-preview {
     position: absolute;
     inset: 0;
+    z-index: 2;
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -299,6 +326,10 @@ body.dashboard-ready .dashboard-content { display: flex !important; }
 }
 .add-pet-image-box-circle .add-pet-image-preview {
     border-radius: 50%;
+}
+.add-pet-image-preview.is-loading {
+    opacity: 0;
+    pointer-events: none;
 }
 .add-pet-image-preview.is-hidden { display: none; }
 .add-pet-image-placeholder-inner.is-hidden { display: none; }

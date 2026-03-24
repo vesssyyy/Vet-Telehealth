@@ -1,4 +1,6 @@
 /* Profile page — shared layout (used by petowner and vet) */
+@import './password-toggle.css';
+
 body { background: #f0f2f5; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
 .main-content { padding: 0 28px 32px; }
 .content-wrapper.profile-page { display: flex; flex-direction: column; gap: 28px; width: 100%; max-width: 960px; }

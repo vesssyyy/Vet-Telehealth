@@ -15,7 +15,7 @@
 
 /* Page header */
 .appointments-page-header {
-    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+    display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap;
     gap: clamp(12px, 2.5vw, 16px);
     margin-bottom: var(--apt-spacing);
     padding-bottom: clamp(16px, 3vw, 24px);
@@ -28,12 +28,6 @@
     margin: 0; letter-spacing: -.02em; flex-wrap: wrap;
 }
 .appointments-section-title i { color: var(--primary-color, #2c5f7d); font-size: clamp(1rem, 1.8vw, 1.25rem); opacity: .95; }
-.appointments-page-desc {
-    margin: .25rem 0 0;
-    font-size: clamp(0.8125rem, 1.5vw, 0.9rem);
-    color: var(--text-muted, #64748b);
-    line-height: 1.5;
-}
 .appointments-book-btn {
     display: inline-flex; align-items: center; justify-content: center; gap: clamp(6px, 1vw, 8px);
     padding: clamp(10px, 2vw, 12px) clamp(16px, 3vw, 22px);
@@ -849,7 +843,6 @@ button.details-shared-image-link { padding: 0; }
         text-align: center;
         margin-bottom: 20px;
     }
-    .appointments-page-header > div { display: flex; flex-direction: column; align-items: center; }
     .appointments-book-btn { justify-content: center; width: 100%; max-width: 320px; align-self: center; }
     .appointments-tabs {
         overflow-x: auto;
@@ -947,7 +940,6 @@ button.details-shared-image-link { padding: 0; }
 
 @media (max-width: 480px) {
     .appointments-section-title { font-size: 1.125rem; }
-    .appointments-page-desc { font-size: 0.8125rem; }
     .appointments-book-btn { max-width: 100%; }
     .appointment-card { padding: 14px; gap: 12px; }
     .appointment-card-pet-img { width: 44px; height: 44px; font-size: 18px; }

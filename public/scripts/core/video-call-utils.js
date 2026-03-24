@@ -1,8 +1,176 @@
 /**
- * Televet Health — Video call time window helpers
- * Used by pet owner and vet to enable/disable Join button based on appointment slot.
+ * Televet Health — Shared video call helpers.
+ * Pure utilities used by the video call page and appointment actions.
  */
-import { formatTime12h } from './utils.js';
+import { escapeHtml, formatTime12h } from './utils.js';
+
+export const NOTES_DASH = '– ';
+export const CONSULTATION_NOTES_FIELDS = [
+    { id: 'notes-observation', key: 'observation', label: 'Observation', maxLength: 1500 },
+    { id: 'notes-assessment', key: 'assessment', label: 'Assessment', maxLength: 800 },
+    { id: 'notes-prescription', key: 'prescription', label: 'Prescription', maxLength: 1500 },
+    { id: 'notes-care-instruction', key: 'careInstruction', label: 'Care instruction', maxLength: 1000 },
+    { id: 'notes-follow-up', key: 'followUp', label: 'Follow up', maxLength: 800 },
+];
+
+function getLineAtCursor(value, cursorIndex) {
+    const lines = value.split('\n');
+    let lineStart = 0;
+    let lineIndex = 0;
+    for (let i = 0; i < lines.length; i += 1) {
+        const lineEnd = lineStart + lines[i].length;
+        if (cursorIndex <= lineEnd) {
+            lineIndex = i;
+            break;
+        }
+        lineStart = lineEnd + 1;
+    }
+    return {
+        lines,
+        lineIndex,
+        lineStart,
+        line: lines[lineIndex] || '',
+        isFirstLine: lineIndex === 0,
+    };
+}
+
+function removeCurrentLine(value, lineIndex) {
+    const lines = value.split('\n');
+    const nextLines = lines.slice(0, lineIndex).concat(lines.slice(lineIndex + 1));
+    return nextLines.join('\n');
+}
+
+export function attachNotesDashTextarea(textarea, { onFocusExtra } = {}) {
+    if (!textarea) return;
+
+    let justAddedLine = false;
+
+    textarea.addEventListener('keydown', (event) => {
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const value = textarea.value;
+        const { line, lineIndex, lineStart, isFirstLine } = getLineAtCursor(value, start);
+
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            justAddedLine = true;
+            const nextValue = `${value.slice(0, start)}\n${NOTES_DASH}${value.slice(end)}`;
+            const cursorPos = start + 1 + NOTES_DASH.length;
+            textarea.value = nextValue;
+            textarea.setSelectionRange(cursorPos, cursorPos);
+            textarea.dispatchEvent(new Event('input', { bubbles: true }));
+            return;
+        }
+
+        if (isFirstLine && line.startsWith(NOTES_DASH)) {
+            if (event.key === 'Backspace' && start <= NOTES_DASH.length) {
+                event.preventDefault();
+                return;
+            }
+            if (event.key === 'Delete' && start < NOTES_DASH.length) {
+                event.preventDefault();
+                return;
+            }
+        }
+
+        const isPlaceholderLine = line === NOTES_DASH.trim() || line === NOTES_DASH || line === '';
+        if (!isFirstLine && isPlaceholderLine && event.key === 'Backspace') {
+            event.preventDefault();
+            const nextValue = removeCurrentLine(value, lineIndex);
+            const cursorPos = Math.max(0, lineStart - 1);
+            textarea.value = nextValue;
+            textarea.setSelectionRange(cursorPos, cursorPos);
+            textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    });
+
+    textarea.addEventListener('focus', () => {
+        if (!textarea.value.trim()) {
+            textarea.value = NOTES_DASH;
+            textarea.setSelectionRange(NOTES_DASH.length, NOTES_DASH.length);
+        }
+        onFocusExtra?.();
+    });
+
+    textarea.addEventListener('input', () => {
+        if (justAddedLine) {
+            justAddedLine = false;
+            return;
+        }
+
+        const start = textarea.selectionStart;
+        const value = textarea.value;
+        const { line, lineIndex, lineStart } = getLineAtCursor(value, start);
+        const isPlaceholderLine = line === NOTES_DASH || line === NOTES_DASH.trim() || line === '';
+        if (lineIndex > 0 && isPlaceholderLine) {
+            const nextValue = removeCurrentLine(value, lineIndex);
+            const cursorPos = Math.max(0, lineStart - 1);
+            textarea.value = nextValue;
+            textarea.setSelectionRange(cursorPos, cursorPos);
+            textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    });
+}
+
+export function getMappedFieldValues(fields, getElement = (id) => document.getElementById(id)) {
+    return fields.reduce((values, field) => {
+        values[field.key] = (getElement(field.id)?.value || '').trim();
+        return values;
+    }, {});
+}
+
+export function setMappedFieldValues(fields, values, getElement = (id) => document.getElementById(id)) {
+    if (!values || typeof values !== 'object') return;
+    fields.forEach(({ id, key }) => {
+        const element = getElement(id);
+        if (element && values[key] != null) {
+            element.value = String(values[key]);
+        }
+    });
+}
+
+export function buildSharedMediaMarkup(mediaUrls = []) {
+    return mediaUrls.map((url, index) => {
+        const ext = (url || '').split('.').pop()?.toLowerCase();
+        const isImage = /^(jpg|jpeg|png|gif|webp|bmp)$/.test(ext || '');
+        if (isImage) {
+            return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="sidebar-pet-shared-thumb"><img src="${escapeHtml(url)}" alt="Shared image ${index + 1}" loading="lazy"></a>`;
+        }
+        return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="sidebar-pet-shared-file"><i class="fa fa-file-o"></i> File ${index + 1}</a>`;
+    }).join('');
+}
+
+export function formatFirestoreDateTime(value) {
+    if (!value) return '—';
+    try {
+        const date = typeof value.toDate === 'function'
+            ? value.toDate()
+            : typeof value.toMillis === 'function'
+                ? new Date(value.toMillis())
+                : new Date(value);
+        return isNaN(date.getTime())
+            ? '—'
+            : date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+    } catch (_) {
+        return '—';
+    }
+}
+
+export function normalizeTimeString(value) {
+    if (!value || typeof value !== 'string') return '';
+    const [hoursText, minutesText] = value.trim().split(':');
+    const hours = parseInt(hoursText, 10);
+    const minutes = minutesText != null ? parseInt(minutesText, 10) : 0;
+    if (isNaN(hours)) return '';
+    return `${String(hours).padStart(2, '0')}:${String(isNaN(minutes) ? 0 : minutes).padStart(2, '0')}`;
+}
+
+export function formatAppointmentStartLabel(appointment) {
+    const dateStr = appointment?.dateStr || appointment?.date || '';
+    const timeStr = appointment?.slotStart || appointment?.timeStart || '';
+    if (!dateStr || !timeStr) return '—';
+    return formatFirestoreDateTime(new Date(`${dateStr}T${timeStr}`));
+}
 
 const DEFAULT_SLOT_DURATION_MINUTES = 30;
 
@@ -37,6 +205,21 @@ export function isWithinAppointmentTime(apt) {
     return now >= start && now < end;
 }
 
+/**
+ * End instant of the booked slot (local date + slotEnd time). Null if date/start missing or invalid.
+ * @param {Object} apt - Appointment-like object
+ * @returns {Date|null}
+ */
+export function getAppointmentSlotEndDate(apt) {
+    const dateStr = apt?.date || apt?.dateStr;
+    const slotStart = apt?.slotStart || apt?.timeStart;
+    if (!dateStr || !slotStart) return null;
+    const slotEnd = apt?.slotEnd || apt?.timeEnd || addMinutesToTime(slotStart, DEFAULT_SLOT_DURATION_MINUTES);
+    if (!slotEnd) return null;
+    const end = new Date(`${dateStr}T${slotEnd}`);
+    return isNaN(end.getTime()) ? null : end;
+}
+
 function getDateString(offsetDays = 0) {
     const d = new Date();
     if (offsetDays) d.setDate(d.getDate() + offsetDays);
@@ -66,13 +249,31 @@ export function isVideoSessionEnded(apt) {
 }
 
 /** True when local time is still before the appointment slot start (same date/slot fields as Join). */
-function isAppointmentSlotNotYetStarted(apt) {
+export function isAppointmentSlotNotYetStarted(apt) {
     const dateStr = apt?.date || apt?.dateStr;
     const slotStart = apt?.slotStart || apt?.timeStart;
     if (!dateStr || !slotStart) return false;
     const start = new Date(`${dateStr}T${slotStart}`);
     if (isNaN(start.getTime())) return false;
     return new Date() < start;
+}
+
+/**
+ * True when the video consultation is fully over for join-button purposes (room ended, session timestamp, or appointment completed).
+ * Past slot time alone does not close rejoin while the booking is still active.
+ */
+export function isVideoJoinClosed(apt, videoCall) {
+    if (videoCall && String(videoCall.status || '').toLowerCase() === 'ended') return true;
+    if (isVideoSessionEnded(apt)) return true;
+    if (String(apt?.status || '').toLowerCase() === 'completed') return true;
+    return false;
+}
+
+/** True when the user may open the video call link (after slot start, before consultation is fully finished). */
+export function canRejoinVideoConsultation(apt, videoCall) {
+    if (isVideoJoinClosed(apt, videoCall)) return false;
+    if (isAppointmentSlotNotYetStarted(apt)) return false;
+    return true;
 }
 
 /**
@@ -98,7 +299,7 @@ export function isConsultationPdfAvailable(apt, videoCall) {
  * @param {{ status?: string }} [videoCall] - If videoCall.status === 'ended', returns 'Session Ended'
  */
 export function getJoinAvailableLabel(apt, videoCall) {
-    if (videoCall?.status === 'ended' || isVideoSessionEnded(apt)) return 'Session Ended';
+    if (isVideoJoinClosed(apt, videoCall)) return 'Session Ended';
 
     const dateStr = apt?.date || apt?.dateStr;
     const slotStart = apt?.slotStart || apt?.timeStart;
@@ -118,7 +319,8 @@ export function getJoinAvailableLabel(apt, videoCall) {
         if (dateStr === tomorrow) return `Tom-${timePart}`;
         return `${formatDateForLabel(dateStr)}-${timePart}`;
     }
-    if (slotEnd && now >= new Date(`${dateStr}T${slotEnd}`)) return 'Call has ended';
+    // Past slot window but consultation not finished — allow rejoin (other party may still be in or slot ended without completion).
+    if (slotEnd && now >= new Date(`${dateStr}T${slotEnd}`)) return 'Rejoin Video Call';
     if (dateStr === today) return `Join-${timePart}`;
     return 'Join Video Call';
 }

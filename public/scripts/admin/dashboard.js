@@ -1,10 +1,12 @@
 /** Televet Health — Admin dashboard: list users, reports, disable/enable/delete via Cloud Functions */
 import { app, auth } from '../core/firebase-config.js';
 import { escapeHtml } from '../core/utils.js';
+import { initPasswordToggleFields } from '../core/password-toggle.js';
 import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-functions.js';
 
 (function () {
     'use strict';
+    initPasswordToggleFields();
     const $ = id => document.getElementById(id);
     const functions = getFunctions(app);
     const callables = {

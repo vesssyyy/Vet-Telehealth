@@ -7,9 +7,12 @@ import {
     GoogleAuthProvider, sendEmailVerification, sendPasswordResetEmail, onAuthStateChanged, signOut
 } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
+import { initPasswordToggleFields } from './password-toggle.js';
 
 (function () {
     'use strict';
+
+    initPasswordToggleFields();
 
     const $ = id => document.getElementById(id);
     const AUTH_ERRORS = {

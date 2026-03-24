@@ -1,17 +1,27 @@
 /** Cloud Functions: admin user ops, reports, vet onboarding email, self-delete. */
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { defineString } = require('firebase-functions/params');
+const { runAutoEndPastConsultations } = require('./scheduled-consultation-end');
 const admin = require('firebase-admin');
 const logger = require('firebase-functions/logger');
 
 const gmailUser = defineString('GMAIL_USER');
 const gmailAppPassword = defineString('GMAIL_APP_PASSWORD');
-/** Test: sk_test_… from PayMongo Dashboard → Developers (test mode). Set in functions/.env locally or Firebase params when deployed. */
-const paymongoSecretKey = defineString('PAYMONGO_SECRET_KEY', { default: '' });
+/** Test route secret key for card/debit flow (sk_test_…). */
+const paymongoSecretKeyTest = defineString('PAYMONGO_SECRET_KEY_TEST', { default: '' });
+/** Live route secret key for QRPh flow (sk_live_…). */
+const paymongoSecretKeyLive = defineString('PAYMONGO_SECRET_KEY_LIVE', { default: '' });
+/** Publishable key used by frontend for card/debit test payment method creation (pk_test_…). */
+const paymongoPublicKeyTest = defineString('PAYMONGO_PK_TEST', { default: '' });
+/** Publishable key used by frontend for QRPh live payment method creation (pk_live_…). */
+const paymongoPublicKeyLive = defineString('PAYMONGO_PK_LIVE', { default: '' });
 /** Optional TURN config for WebRTC cross-network reliability. */
 const rtcTurnUrls = defineString('RTC_TURN_URLS', { default: '' });
 const rtcTurnUsername = defineString('RTC_TURN_USERNAME', { default: '' });
 const rtcTurnCredential = defineString('RTC_TURN_CREDENTIAL', { default: '' });
+/** Interpret appointment dateStr + slot times as this UTC offset (e.g. +08:00 for Philippines). Must match how the web app treats local slots. */
+const appointmentSlotIsoOffset = defineString('APPOINTMENT_SLOT_ISO_OFFSET', { default: '+08:00' });
 
 const PAYMONGO_API = 'https://api.paymongo.com/v1';
 
@@ -38,15 +48,38 @@ async function paymongoRequest(secret, method, path, body) {
   return json;
 }
 
-async function requirePaymongoSecret() {
-  const v = paymongoSecretKey.value();
-  if (!v || !String(v).trim()) {
+function resolvePaymongoKeyMode(paymentMethod) {
+  return paymentMethod === 'qrph' ? 'live' : 'test';
+}
+
+function requirePaymongoSecretByMode(keyMode) {
+  const isLive = keyMode === 'live';
+  const raw = isLive ? paymongoSecretKeyLive.value() : paymongoSecretKeyTest.value();
+  const v = String(raw || '').trim();
+  if (!v) {
     throw new HttpsError(
       'failed-precondition',
-      'PayMongo is not configured. Set PAYMONGO_SECRET_KEY (sk_test_…) for the Functions emulator or production.',
+      isLive
+        ? 'PayMongo live route is not configured. Set PAYMONGO_SECRET_KEY_LIVE (sk_live_…).'
+        : 'PayMongo test route is not configured. Set PAYMONGO_SECRET_KEY_TEST (sk_test_…).',
     );
   }
-  return String(v).trim();
+  return v;
+}
+
+function requirePaymongoPublicKeyByMode(keyMode) {
+  const isLive = keyMode === 'live';
+  const raw = isLive ? paymongoPublicKeyLive.value() : paymongoPublicKeyTest.value();
+  const v = String(raw || '').trim();
+  if (!v) {
+    throw new HttpsError(
+      'failed-precondition',
+      isLive
+        ? 'PayMongo live publishable key is not configured. Set PAYMONGO_PK_LIVE (pk_live_…).'
+        : 'PayMongo test publishable key is not configured. Set PAYMONGO_PK_TEST (pk_test_…).',
+    );
+  }
+  return v;
 }
 
 admin.initializeApp();
@@ -489,13 +522,14 @@ exports.payMongoCreatePaymentIntent = onCall(callableOptions, async (request) =>
   if (!request.auth?.uid) {
     throw new HttpsError('unauthenticated', 'Must be logged in.');
   }
-  const secret = await requirePaymongoSecret();
   const data = request.data || {};
   const { amount: amountRaw } = data;
   const paymentMethod = String(data?.paymentMethod || 'card').trim().toLowerCase();
   if (!['card', 'qrph'].includes(paymentMethod)) {
     throw new HttpsError('invalid-argument', 'paymentMethod must be card or qrph.');
   }
+  const keyMode = resolvePaymongoKeyMode(paymentMethod);
+  const secret = requirePaymongoSecretByMode(keyMode);
   const amount = typeof amountRaw === 'number' && Number.isFinite(amountRaw)
     ? Math.floor(amountRaw)
     : 10000;
@@ -535,6 +569,7 @@ exports.payMongoCreatePaymentIntent = onCall(callableOptions, async (request) =>
       uid,
       description,
       paymentMethod,
+      keyMode,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
     return {
@@ -555,7 +590,6 @@ exports.payMongoAttachPayment = onCall(callableOptions, async (request) => {
   if (!request.auth?.uid) {
     throw new HttpsError('unauthenticated', 'Must be logged in.');
   }
-  const secret = await requirePaymongoSecret();
   const { paymentIntentId, paymentMethodId, returnUrl } = request.data || {};
   if (!paymentIntentId || !paymentMethodId) {
     throw new HttpsError('invalid-argument', 'paymentIntentId and paymentMethodId are required.');
@@ -568,6 +602,8 @@ exports.payMongoAttachPayment = onCall(callableOptions, async (request) => {
     if (!claim.exists || claim.data().uid !== request.auth.uid) {
       throw new HttpsError('permission-denied', 'Invalid payment intent.');
     }
+    const keyMode = String(claim.data().keyMode || resolvePaymongoKeyMode(claim.data().paymentMethod || 'card'));
+    const secret = requirePaymongoSecretByMode(keyMode);
 
     const json = await paymongoRequest(
       secret,
@@ -615,7 +651,6 @@ exports.payMongoGetPaymentIntentStatus = onCall(callableOptions, async (request)
   if (!request.auth?.uid) {
     throw new HttpsError('unauthenticated', 'Must be logged in.');
   }
-  const secret = await requirePaymongoSecret();
   const { paymentIntentId } = request.data || {};
   if (!paymentIntentId || typeof paymentIntentId !== 'string') {
     throw new HttpsError('invalid-argument', 'paymentIntentId is required.');
@@ -625,6 +660,8 @@ exports.payMongoGetPaymentIntentStatus = onCall(callableOptions, async (request)
     if (!claim.exists || claim.data().uid !== request.auth.uid) {
       throw new HttpsError('permission-denied', 'This payment does not belong to your account.');
     }
+    const keyMode = String(claim.data().keyMode || resolvePaymongoKeyMode(claim.data().paymentMethod || 'card'));
+    const secret = requirePaymongoSecretByMode(keyMode);
 
     const json = await paymongoRequest(
       secret,
@@ -643,3 +680,34 @@ exports.payMongoGetPaymentIntentStatus = onCall(callableOptions, async (request)
     throw new HttpsError('internal', e.message || 'Could not read payment status.');
   }
 });
+
+/** Return method-specific publishable keys so frontend can keep live keys out of static files. */
+exports.payMongoGetClientConfig = onCall(callableOptions, async (request) => {
+  if (!request.auth?.uid) {
+    throw new HttpsError('unauthenticated', 'Must be logged in.');
+  }
+  const pkTest = requirePaymongoPublicKeyByMode('test');
+  const pkLive = requirePaymongoPublicKeyByMode('live');
+  return {
+    publishableKeys: {
+      card: pkTest,
+      qrph: pkLive,
+    },
+  };
+});
+
+/**
+ * Every minute: mark appointments completed when slot end has passed and the video room has no active
+ * participants (both parties left). Does not complete while anyone is still in the call past the slot end.
+ */
+exports.scheduledAutoEndPastConsultations = onSchedule(
+  {
+    schedule: 'every 1 minutes',
+    timeZone: 'Asia/Manila',
+    memory: '256MiB',
+    timeoutSeconds: 300,
+  },
+  async () => {
+    await runAutoEndPastConsultations(db, admin, logger, appointmentSlotIsoOffset.value());
+  },
+);

@@ -4,9 +4,9 @@
  */
 import { auth, db } from '../core/firebase-config.js';
 import { escapeHtml } from '../core/utils.js';
-import { isWithinAppointmentTime, getJoinAvailableLabel, isVideoSessionEnded, isConsultationPdfAvailable } from '../core/video-call-utils.js';
+import { getJoinAvailableLabel, isVideoSessionEnded, isConsultationPdfAvailable, normalizeTimeString, getAppointmentSlotEndDate, canRejoinVideoConsultation, isVideoJoinClosed } from '../core/video-call-utils.js';
 import { downloadConsultationReportForAppointment } from '../core/consultation-pdf-download.js';
-import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
+import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 
 (function () {
     'use strict';
@@ -393,6 +393,104 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
         });
     }
 
+    /** Display/filter status when appointment doc is completed but schedule slot was not synced yet. */
+    function slotEffectiveStatus(s) {
+        return (s && s.__displayStatus) || (s && s.status) || 'available';
+    }
+
+    function cloneSchedulesShallow(schedules) {
+        return (schedules || []).map((sch) => ({
+            ...sch,
+            slots: (sch.slots || []).map((slot) => ({ ...slot })),
+        }));
+    }
+
+    function isAptCompletedInFirestore(aptData) {
+        if (!aptData || typeof aptData !== 'object') return false;
+        if (isVideoSessionEnded(aptData)) return true;
+        return String(aptData.status || '').toLowerCase() === 'completed';
+    }
+
+    /** Match Join button: after slot end, show as finished in the list even if schedule doc still says booked. */
+    function isPastAppointmentSlotEndForDisplay(aptData) {
+        const endAt = getAppointmentSlotEndDate(aptData);
+        return !!(endAt && Date.now() >= endAt.getTime());
+    }
+
+    const scheduleRepairInFlight = new Set();
+
+    async function repairVetScheduleSlotToCompleted(vetUid, dateStr, appointmentId, slotStart) {
+        if (!vetUid || !dateStr || !appointmentId) return;
+        const ref = scheduleDoc(vetUid, dateStr);
+        const snap = await getDoc(ref);
+        if (!snap.exists()) return;
+        const norm = (t) => normalizeTimeString(String(t || ''));
+        const normStart = normalizeTimeString(slotStart || '');
+        const slots = (snap.data().slots || []).map((slot) => {
+            const matchById = String(slot.appointmentId || '') === String(appointmentId);
+            const matchBySlot = normStart && norm(slot.start) === normStart;
+            const cur = slot.status || 'booked';
+            if ((matchById || matchBySlot) && (cur === 'booked' || cur === 'ongoing')) {
+                return { ...slot, status: 'completed' };
+            }
+            return slot;
+        });
+        await updateDoc(ref, { slots, updatedAt: serverTimestamp() });
+    }
+
+    function queueScheduleSlotRepairIfNeeded(vetUid, dateStr, appointmentId, slotStart) {
+        const k = `${dateStr}|${appointmentId}`;
+        if (scheduleRepairInFlight.has(k)) return;
+        scheduleRepairInFlight.add(k);
+        repairVetScheduleSlotToCompleted(vetUid, dateStr, appointmentId, slotStart)
+            .catch((e) => console.warn('Schedule slot repair:', e))
+            .finally(() => setTimeout(() => scheduleRepairInFlight.delete(k), 8000));
+    }
+
+    /**
+     * For booked/ongoing slots with an appointmentId, load appointment docs and mark display (and optionally repair Firestore) when the appointment is already completed.
+     */
+    async function enrichSchedulesWithAppointmentStatus(schedules) {
+        const cloned = cloneSchedulesShallow(schedules);
+        const ids = new Set();
+        cloned.forEach((sch) => {
+            (sch.slots || []).forEach((s) => {
+                const st = s.status || 'available';
+                const aid = (s.appointmentId || '').trim();
+                if (aid && (st === 'booked' || st === 'ongoing')) ids.add(aid);
+            });
+        });
+        if (!ids.size) return cloned;
+
+        const aptMap = new Map();
+        await Promise.all(
+            [...ids].map(async (id) => {
+                try {
+                    const snap = await getDoc(appointmentDoc(id));
+                    if (snap.exists()) aptMap.set(id, snap.data());
+                } catch (_) { /* ignore */ }
+            }),
+        );
+
+        const vetUid = auth.currentUser?.uid || '';
+        cloned.forEach((sch) => {
+            const dateStr = sch.date || sch.id || '';
+            (sch.slots || []).forEach((s) => {
+                const st = s.status || 'available';
+                const aid = (s.appointmentId || '').trim();
+                if (!aid || (st !== 'booked' && st !== 'ongoing')) return;
+                const data = aptMap.get(aid);
+                if (isAptCompletedInFirestore(data)) {
+                    s.__displayStatus = 'completed';
+                    if (vetUid && dateStr) queueScheduleSlotRepairIfNeeded(vetUid, dateStr, aid, s.start || '');
+                } else if (data && isPastAppointmentSlotEndForDisplay(data)) {
+                    s.__displayStatus = 'completed';
+                }
+            });
+        });
+        return cloned;
+    }
+
     const formatDisplayDate = (dateStr) => !dateStr ? '—' : new Date(dateStr + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
     function parseTimeParts(timeStr) {
@@ -449,7 +547,7 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
         const filter = slotFilter || 'all';
         const showExpiredView = filter === 'expired';
         const renderSlot = (s, dateStr, isExpired = false) => {
-            const status = s.status || 'available';
+            const status = slotEffectiveStatus(s);
             const extraClass = isExpired ? ' schedules-slot-item-expired' : '';
             const hasAppointment = status === 'booked' || status === 'ongoing' || status === 'completed';
             if (hasAppointment) {
@@ -475,14 +573,14 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
             const dateStr = sch.date || sch.id || '';
             const slots = dedupeSlots((sch.slots || []).map((s) => ensureSlotExpiry(s, dateStr, minAdvance)), dateStr);
             const slotsFilteredByExpiry = slots.filter((s) => {
-                const status = s.status || 'available';
+                const status = slotEffectiveStatus(s);
                 if (showExpiredView) return isSlotExpired(s, nowMs);
                 if (status === 'booked' || status === 'ongoing' || status === 'completed') return true;
                 return !isSlotExpired(s, nowMs);
             });
-            const filtered = filter === 'available' ? slotsFilteredByExpiry.filter((s) => (s.status || 'available') === 'available')
-                : filter === 'booked' ? slotsFilteredByExpiry.filter((s) => s.status === 'booked' || s.status === 'ongoing')
-                : filter === 'completed' ? slotsFilteredByExpiry.filter((s) => s.status === 'completed')
+            const filtered = filter === 'available' ? slotsFilteredByExpiry.filter((s) => slotEffectiveStatus(s) === 'available')
+                : filter === 'booked' ? slotsFilteredByExpiry.filter((s) => { const st = slotEffectiveStatus(s); return st === 'booked' || st === 'ongoing'; })
+                : filter === 'completed' ? slotsFilteredByExpiry.filter((s) => slotEffectiveStatus(s) === 'completed')
                 : filter === 'expired' ? slotsFilteredByExpiry.filter((s) => isSlotExpired(s, nowMs))
                 : slotsFilteredByExpiry;
             if (!filtered.length) return '';
@@ -509,6 +607,9 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
     function setDetailsModalVisible(visible) {
         const overlay = detailsOverlay();
         const modal = detailsModalEl();
+        if (!visible && overlay && document.activeElement && overlay.contains(document.activeElement)) {
+            document.activeElement.blur();
+        }
         if (overlay) {
             overlay.classList.toggle('is-open', visible);
             overlay.setAttribute('aria-hidden', String(!visible));
@@ -528,15 +629,15 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
             pdfBtn.toggleAttribute('hidden', !showPdf);
         }
         if (!joinBtn || !apt) return;
-        const sessionEnded = videoCall?.status === 'ended' || isVideoSessionEnded(apt);
-        const within = !sessionEnded && isWithinAppointmentTime(apt);
-        joinBtn.disabled = sessionEnded || !within;
+        const closed = isVideoJoinClosed(apt, videoCall);
+        const canJoin = canRejoinVideoConsultation(apt, videoCall);
+        joinBtn.disabled = !canJoin;
         joinBtn.setAttribute('aria-disabled', joinBtn.disabled ? 'true' : 'false');
         const label = getJoinAvailableLabel(apt, videoCall);
         joinBtn.title = label;
         joinBtn.innerHTML = `<i class="fa fa-video-camera" aria-hidden="true"></i><span class="details-join-btn-text">${label}</span>`;
-        joinBtn.classList.toggle('is-past', !within || sessionEnded);
-        joinBtn.classList.toggle('is-session-ended', sessionEnded);
+        joinBtn.classList.toggle('is-past', closed);
+        joinBtn.classList.toggle('is-session-ended', closed);
     }
 
     function closeSlotDetailsModal() {
@@ -773,7 +874,8 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
         const slotFilter = getActiveSlotFilter();
         const all = await ensureSchedulesLoaded();
         const filtered = filterSchedules(all, filterMode, specificDate);
-        renderSchedulesView(filtered, slotFilter);
+        const enriched = await enrichSchedulesWithAppointmentStatus(filtered);
+        renderSchedulesView(enriched, slotFilter);
     }
 
     // === Weekly schedule grid ===
@@ -835,9 +937,9 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
         const endFmt = weekRange.endDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 
         const filter = slotFilter || 'all';
-        const filtered = filter === 'available' ? weekSlots.filter((x) => (x.slot.status || 'available') === 'available')
-            : filter === 'booked' ? weekSlots.filter((x) => x.slot.status === 'booked' || x.slot.status === 'ongoing')
-            : filter === 'completed' ? weekSlots.filter((x) => x.slot.status === 'completed')
+        const filtered = filter === 'available' ? weekSlots.filter((x) => slotEffectiveStatus(x.slot) === 'available')
+            : filter === 'booked' ? weekSlots.filter((x) => { const st = slotEffectiveStatus(x.slot); return st === 'booked' || st === 'ongoing'; })
+            : filter === 'completed' ? weekSlots.filter((x) => slotEffectiveStatus(x.slot) === 'completed')
             : filter === 'expired' ? weekSlots.filter((x) => x.isExpired)
             : weekSlots;
 
@@ -893,7 +995,7 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
 
         filtered.forEach((item) => {
             const { dateStr, slot } = item;
-            const status = slot.status || 'available';
+            const status = slotEffectiveStatus(slot);
             const dayIdx = getDateStrDayIndex(dateStr);
             const startMins = parseTimeToMinutes(slot.start);
             const startHour = Math.floor(startMins / 60);
@@ -985,6 +1087,7 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
         const slotFilter = getActiveSlotFilter();
 
         const all = await ensureSchedulesLoaded();
+        const enrichedAll = await enrichSchedulesWithAppointmentStatus(all);
         const weekSlots = [];
         const nowMs = Date.now();
         const showExpired = getActiveSlotFilter() === 'expired';
@@ -994,11 +1097,11 @@ import { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
         const endDay = new Date(weekRange.endDate);
         while (current <= endDay) {
             const dateStr = toLocalDateString(current);
-            const sch = all.find((s) => (s.date || s.id) === dateStr);
+            const sch = enrichedAll.find((s) => (s.date || s.id) === dateStr);
             if (sch && sch.blocked !== true && Array.isArray(sch.slots)) {
                 const daySlots = dedupeSlots((sch.slots || []).map((s) => ensureSlotExpiry(s, dateStr, minAdvance)), dateStr);
                 daySlots.forEach((slot) => {
-                    const slotStatus = slot.status || 'available';
+                    const slotStatus = slotEffectiveStatus(slot);
                     if (showExpired) {
                         if (slotStatus === 'available' && isSlotExpired(slot, nowMs)) weekSlots.push({ dateStr, slot, isExpired: true });
                     } else {

@@ -21,7 +21,7 @@ import { auth, db } from '../core/firebase-config.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js';
 import { formatTime12h } from '../core/utils.js';
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
-import { isWithinAppointmentTime, getJoinAvailableLabel, isVideoSessionEnded, isConsultationPdfAvailable } from '../core/video-call-utils.js';
+import { getJoinAvailableLabel, isConsultationPdfAvailable, canRejoinVideoConsultation, isVideoJoinClosed } from '../core/video-call-utils.js';
 import { downloadConsultationReportForAppointment } from '../core/consultation-pdf-download.js';
 
 const $ = (id) => document.getElementById(id);
@@ -101,6 +101,7 @@ function validateAndHighlightFields() {
     clearFieldErrors();
     const petInput = $('booking-pet');
     const vetInput = $('booking-vet');
+    const titleInput = $('booking-title');
     const reasonInput = $('booking-reason');
     const dateEl = $('booking-date');
     const timeEl = $('booking-time');
@@ -108,6 +109,7 @@ function validateAndHighlightFields() {
     const petNameVal = petInput?.dataset?.petName;
     const vetVal = vetInput?.value;
     const vetNameVal = vetInput?.dataset?.vetName;
+    const titleVal = titleInput?.value?.trim();
     const reasonVal = reasonInput?.value?.trim();
     const dateVal = dateEl?.value;
     const timeVal = timeEl?.value;
@@ -115,6 +117,7 @@ function validateAndHighlightFields() {
     let hasError = false;
     if (!petVal || !petNameVal) { setFieldError($('booking-pet-dropdown')); hasError = true; }
     if (!vetVal || !vetNameVal) { setFieldError($('booking-vet-dropdown')); hasError = true; }
+    if (!titleVal) { setFieldError(titleInput); hasError = true; }
     if (!reasonVal) { setFieldError(reasonInput); hasError = true; }
     if (!dateVal || !timeVal) {
         if (!dateVal) setFieldError(dateEl);
@@ -184,6 +187,21 @@ function updateConfirmButtonState() {
     const petCount = window._bookingPetsCount ?? 0;
     const fileCount = fileInput?.files?.length ?? 0;
     if (confirmBtn) confirmBtn.disabled = petCount === 0 || fileCount > MAX_MEDIA_FILES;
+}
+
+function resetBookingFormState() {
+    form?.reset();
+    if (bookingDate) { bookingDate.innerHTML = '<option value="">Select a vet first</option>'; bookingDate.disabled = true; }
+    if (bookingTime) { bookingTime.innerHTML = '<option value="">Select a date first</option>'; bookingTime.disabled = true; }
+    const petTriggerText = document.querySelector('.booking-pet-trigger-text');
+    if (petTriggerText) petTriggerText.textContent = 'Select Pet';
+    const vetTriggerText = document.querySelector('.booking-vet-trigger-text');
+    if (vetTriggerText) vetTriggerText.textContent = 'Select Vet';
+    cachedAvailability = { dates: [], slotsByDate: {} };
+    bookingMediaFiles = [];
+    syncFileInputFromBookingMedia();
+    updateFileList();
+    updateConfirmButtonState();
 }
 
 function updateFileList() {
@@ -314,7 +332,7 @@ if (bookingVetDropdown) window._onVetChange = onVetChange;
 bookingDate?.addEventListener('change', onDateChange);
 
 const onFieldInteraction = (e) => e.target?.closest('.booking-form-group')?.classList.remove('has-error');
-form?.querySelectorAll('#booking-pet-dropdown, #booking-vet-dropdown, #booking-reason, #booking-date, #booking-time').forEach((el) => {
+form?.querySelectorAll('#booking-title, #booking-pet-dropdown, #booking-vet-dropdown, #booking-reason, #booking-date, #booking-time').forEach((el) => {
     if (el) {
         el.addEventListener('change', onFieldInteraction);
         el.addEventListener('input', onFieldInteraction);
@@ -380,21 +398,24 @@ function updateDetailsJoinButton(apt, videoCall) {
         detailsDownloadPdfBtn.toggleAttribute('hidden', !showPdf);
     }
     if (!detailsJoinBtn || !apt) return;
-    const sessionEnded = videoCall?.status === 'ended' || isVideoSessionEnded(apt);
-    const within = !sessionEnded && isWithinAppointmentTime(apt);
-    detailsJoinBtn.disabled = sessionEnded || !within;
+    const closed = isVideoJoinClosed(apt, videoCall);
+    const canJoin = canRejoinVideoConsultation(apt, videoCall);
+    detailsJoinBtn.disabled = !canJoin;
     detailsJoinBtn.setAttribute('aria-disabled', detailsJoinBtn.disabled ? 'true' : 'false');
     const label = getJoinAvailableLabel(apt, videoCall);
     detailsJoinBtn.title = label;
     detailsJoinBtn.innerHTML = `<i class="fa fa-video-camera" aria-hidden="true"></i><span class="details-join-btn-text">${label}</span>`;
-    detailsJoinBtn.classList.toggle('is-past', !within || sessionEnded);
-    detailsJoinBtn.classList.toggle('is-session-ended', sessionEnded);
+    detailsJoinBtn.classList.toggle('is-past', closed);
+    detailsJoinBtn.classList.toggle('is-session-ended', closed);
 }
 
 function closeDetailsModal() {
     if (detailsJoinCheckTimer) {
         clearInterval(detailsJoinCheckTimer);
         detailsJoinCheckTimer = null;
+    }
+    if (detailsOverlay && document.activeElement && detailsOverlay.contains(document.activeElement)) {
+        document.activeElement.blur();
     }
     if (detailsOverlay) {
         detailsOverlay.classList.remove('is-open');
@@ -751,7 +772,7 @@ form?.addEventListener('submit', async (e) => {
         }
         if (confirmBtn) confirmBtn.querySelector('.booking-confirm-text').textContent = 'Booking consultation…';
         const booking = {
-            title: title || null,
+            title,
             petId,
             petName,
             petSpecies: petSpecies || '',
@@ -767,13 +788,7 @@ form?.addEventListener('submit', async (e) => {
         };
         sessionStorage.setItem('televet_booking', JSON.stringify(booking));
         closeModal();
-        form.reset();
-        document.querySelector('.booking-pet-trigger-text') && (document.querySelector('.booking-pet-trigger-text').textContent = 'Select Pet');
-        document.querySelector('.booking-vet-trigger-text') && (document.querySelector('.booking-vet-trigger-text').textContent = 'Select Vet');
-        if (bookingDate) { bookingDate.innerHTML = '<option value="">Select a vet first</option>'; bookingDate.disabled = true; }
-        if (bookingTime) { bookingTime.innerHTML = '<option value="">Select a date first</option>'; bookingTime.disabled = true; }
-        cachedAvailability = { dates: [], slotsByDate: {} };
-        if (fileListEl && typeof updateFileList === 'function') updateFileList();
+        resetBookingFormState();
         window.location.href = 'payment.html?booking=1';
     } catch (err) {
         showFormError(err?.message || 'Failed to continue. Please try again.');

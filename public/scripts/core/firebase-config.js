@@ -35,8 +35,7 @@ export const db = initializeFirestore(app, {
 });
 export const storage = getStorage(app);
 
-/** PayMongo publishable key (pk_test_…). Safe in the browser; Dashboard → Developers (test mode). */
-export const paymongoPublicKey = 'pk_test_7XnWztuZbEe2bE4t7hQLAdXa';
+/** PayMongo publishable keys are served via callable (payMongoGetClientConfig) from Functions params. */
 
 if (typeof window !== 'undefined' && /ngrok/i.test(window.location.hostname)) {
     const h = window.location.hostname;

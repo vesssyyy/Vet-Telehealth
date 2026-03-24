@@ -188,14 +188,83 @@
         .payment-method-option {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
             border: 1px solid var(--border-color, #cbd5e0);
             border-radius: 8px;
             padding: 10px 12px;
             cursor: pointer;
             background: var(--bg-card, #fff);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
-        .payment-method-option input { margin: 0; }
+        .payment-method-option:has(input:checked) {
+            border-color: var(--primary-color, #2c5f7d);
+            box-shadow: 0 0 0 2px rgba(44, 95, 125, 0.12);
+        }
+        .payment-method-option input { margin: 0; flex-shrink: 0; }
+        .payment-method-icon-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.25rem;
+            height: 2.25rem;
+            border-radius: 8px;
+            background: var(--bg-light, #edf2f7);
+            color: var(--primary-color, #2c5f7d);
+            flex-shrink: 0;
+        }
+        .payment-method-icon-wrap .fa { font-size: 1.05rem; }
+        .payment-method-icon-wrap--qrph {
+            width: auto;
+            min-width: 4.5rem;
+            max-width: 6rem;
+            height: 2.25rem;
+            padding: 3px 8px;
+            background: #fff;
+            border: 1px solid var(--border-color, #e2e8f0);
+        }
+        .payment-method-qrph-logo {
+            display: block;
+            height: 100%;
+            width: auto;
+            max-width: 100%;
+            object-fit: contain;
+            object-position: left center;
+        }
+        .payment-method-text {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 6px;
+            min-width: 0;
+            flex: 1;
+        }
+        .payment-method-title {
+            font-weight: 600;
+            font-size: 0.9375rem;
+            color: var(--text-dark, #1a202c);
+        }
+        .payment-mode-pill {
+            display: inline-flex;
+            align-items: center;
+            font-size: 0.625rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 4px 9px;
+            border-radius: 999px;
+            line-height: 1.2;
+        }
+        .payment-mode-pill--test {
+            background: #fef3c7;
+            color: #b45309;
+            border: 1px solid #fbbf24;
+        }
+        .payment-mode-pill--live {
+            background: #d1fae5;
+            color: #047857;
+            border: 1px solid #34d399;
+        }
+        .payment-sandbox-hint .payment-mode-pill { vertical-align: middle; margin-right: 2px; }
         .payment-method-option.is-disabled {
             opacity: 0.6;
             cursor: not-allowed;
@@ -334,19 +403,29 @@
                     <p class="payment-intent-ref" id="payment-intent-ref" style="display: none;" aria-live="polite"></p>
                     <p class="payment-placeholder-text" id="payment-placeholder-text">Loading…</p>
                     <div class="payment-config-warning" id="payment-config-warning" style="display: none;" role="alert">
-                        PayMongo is not configured. Add <code>paymongoPublicKey</code> in <code>firebase-config.js</code> and <code>PAYMONGO_SECRET_KEY</code> for Cloud Functions, then deploy.
+                        PayMongo is not configured. Set <code>PAYMONGO_SECRET_KEY_TEST</code>, <code>PAYMONGO_SECRET_KEY_LIVE</code>, <code>PAYMONGO_PK_TEST</code>, and <code>PAYMONGO_PK_LIVE</code> in Cloud Functions params, then deploy.
                     </div>
                     <p class="payment-status-wait" id="payment-status-wait" style="display: none;" aria-live="polite">Confirming payment…</p>
                     <form class="payment-card-form" id="payment-card-form" novalidate>
-                        <p class="payment-sandbox-hint" id="payment-sandbox-hint">Test: <code>4343 4343 4343 4345</code> or <code>5555 4444 4444 4457</code> · future MM/YY · any CVC</p>
+                        <p class="payment-sandbox-hint" id="payment-sandbox-hint"><span class="payment-mode-pill payment-mode-pill--test">Test only</span> · <code>4343 4343 4343 4345</code> or <code>5555 4444 4444 4457</code> · future MM/YY · any CVC</p>
                         <div class="payment-method-switch" role="radiogroup" aria-label="Payment method">
                             <label class="payment-method-option">
                                 <input type="radio" name="payment-method" value="card" checked>
-                                <span>Card</span>
+                                <span class="payment-method-icon-wrap" aria-hidden="true"><i class="fa fa-credit-card"></i></span>
+                                <span class="payment-method-text">
+                                    <span class="payment-method-title">Card</span>
+                                    <span class="payment-mode-pill payment-mode-pill--test">Test only</span>
+                                </span>
                             </label>
                             <label class="payment-method-option">
                                 <input type="radio" name="payment-method" value="qrph">
-                                <span>QRPh</span>
+                                <span class="payment-method-icon-wrap payment-method-icon-wrap--qrph" aria-hidden="true">
+                                    <img src="../images/qrph-logo.png" alt="" class="payment-method-qrph-logo" width="88" height="28">
+                                </span>
+                                <span class="payment-method-text">
+                                    <span class="payment-method-title">QR Ph</span>
+                                    <span class="payment-mode-pill payment-mode-pill--live">Live</span>
+                                </span>
                             </label>
                         </div>
                         <label class="payment-field"><span id="pm-name-label">Cardholder name</span><input type="text" id="pm-name" name="cc-name" autocomplete="cc-name" required placeholder="Name on card"></label>
@@ -395,7 +474,7 @@
     <script type="module" src="../scripts/petowner/dashboard-auth.js"></script>
     <script type="module" src="../scripts/petowner/profile.js"></script>
     <script type="module">
-        import { app, auth, paymongoPublicKey } from '../scripts/core/firebase-config.js';
+        import { app, auth } from '../scripts/core/firebase-config.js';
         import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js';
         import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-functions.js';
         import { createAppointment, markAppointmentPaid } from '../scripts/petowner/appointment-manager.js';
@@ -403,7 +482,8 @@
 
         var BOOKING_MEDIA_DB = 'televet_booking_media';
         var BOOKING_MEDIA_STORE = 'files';
-        var DEFAULT_AMOUNT_CENTAVOS = 10000;
+        var CARD_TEST_AMOUNT_CENTAVOS = 10000;
+        var QR_LIVE_AMOUNT_CENTAVOS = 2000;
 
         function getBookingMediaFromIndexedDB(mediaKey) {
             return new Promise(function (resolve, reject) {
@@ -530,6 +610,9 @@
         var createPaymentIntent = httpsCallable(functions, 'payMongoCreatePaymentIntent');
         var attachPayment = httpsCallable(functions, 'payMongoAttachPayment');
         var getPaymentIntentStatus = httpsCallable(functions, 'payMongoGetPaymentIntentStatus');
+        var getPayMongoClientConfig = httpsCallable(functions, 'payMongoGetClientConfig');
+        var paymongoClientKeys = { card: '', qrph: '' };
+        var paymongoClientConfigLoading = null;
 
         onAuthStateChanged(auth, function (user) {
             var em = document.getElementById('pm-email');
@@ -599,6 +682,37 @@
             return checked && checked.value === 'qrph' ? 'qrph' : 'card';
         }
 
+        function requiredPrefixForMethod(method) {
+            return method === 'qrph' ? 'pk_live_' : 'pk_test_';
+        }
+
+        function amountForMethod(method) {
+            return method === 'qrph' ? QR_LIVE_AMOUNT_CENTAVOS : CARD_TEST_AMOUNT_CENTAVOS;
+        }
+
+        function isValidPublishableKeyForMethod(method, key) {
+            var prefix = requiredPrefixForMethod(method);
+            return typeof key === 'string' && key.trim().indexOf(prefix) === 0;
+        }
+
+        async function loadPayMongoClientConfig() {
+            if (paymongoClientConfigLoading) return paymongoClientConfigLoading;
+            paymongoClientConfigLoading = (async function () {
+                var res = await getPayMongoClientConfig({});
+                var keys = (res.data && res.data.publishableKeys) || {};
+                paymongoClientKeys.card = String(keys.card || '').trim();
+                paymongoClientKeys.qrph = String(keys.qrph || '').trim();
+                if (!isValidPublishableKeyForMethod('card', paymongoClientKeys.card)) {
+                    throw new Error('Card test key is missing or invalid (expected pk_test_…).');
+                }
+                if (!isValidPublishableKeyForMethod('qrph', paymongoClientKeys.qrph)) {
+                    throw new Error('QRPh live key is missing or invalid (expected pk_live_…).');
+                }
+                return paymongoClientKeys;
+            })();
+            return paymongoClientConfigLoading;
+        }
+
         function lockPaymentMethodSwitch(locked) {
             var methodInputs = document.querySelectorAll('input[name="payment-method"]');
             for (var i = 0; i < methodInputs.length; i++) {
@@ -613,6 +727,7 @@
         function updateMethodUi() {
             var method = selectedPaymentMethod();
             if (cardFields) cardFields.style.display = method === 'card' ? 'block' : 'none';
+            if (feeLine) feeLine.textContent = formatPhpCentavos(amountForMethod(method));
             var cardInputIds = ['pm-number', 'pm-exp-month', 'pm-exp-year', 'pm-cvc'];
             for (var i = 0; i < cardInputIds.length; i++) {
                 var cardInput = document.getElementById(cardInputIds[i]);
@@ -622,8 +737,8 @@
             }
             if (paymentHint) {
                 paymentHint.innerHTML = method === 'card'
-                    ? 'Test: <code>4343 4343 4343 4345</code> or <code>5555 4444 4444 4457</code> · future MM/YY · any CVC'
-                    : 'QRPh test mode: generate and display QR only. Avoid making real transfers while testing.';
+                    ? '<span class="payment-mode-pill payment-mode-pill--test">Test only</span> · <code>4343 4343 4343 4345</code> or <code>5555 4444 4444 4457</code> · future MM/YY · any CVC'
+                    : '<span class="payment-mode-pill payment-mode-pill--live">Live</span> · Pay exactly <code>PHP 20.00</code> using the generated QRPh code.';
             }
             if (nameLabel) nameLabel.textContent = method === 'card' ? 'Cardholder name' : 'Payer name';
             if (emailLabel) emailLabel.textContent = method === 'card' ? 'Email' : 'Payer email';
@@ -725,7 +840,7 @@
                 (booking.reason && String(booking.reason).trim()) ||
                 '';
             var piRes = await createPaymentIntent({
-                amount: DEFAULT_AMOUNT_CENTAVOS,
+                amount: amountForMethod(method),
                 paymentMethod: method,
                 consultationTitle: consultationTitle,
                 vetName: booking.vetName || '',
@@ -738,14 +853,15 @@
             }
             var pid = piRes.data.paymentIntentId;
             var pmId;
+            var methodPublicKey = method === 'qrph' ? paymongoClientKeys.qrph : paymongoClientKeys.card;
             if (method === 'qrph') {
-                pmId = await createQrPhPaymentMethod(paymongoPublicKey, {
+                pmId = await createQrPhPaymentMethod(methodPublicKey, {
                     name: document.getElementById('pm-name').value,
                     email: document.getElementById('pm-email').value || (user.email || ''),
                 });
             } else {
                 var exp = parseCardExpiry();
-                pmId = await createCardPaymentMethod(paymongoPublicKey, {
+                pmId = await createCardPaymentMethod(methodPublicKey, {
                     cardNumber: document.getElementById('pm-number').value,
                     expMonth: exp.expMonth,
                     expYear: exp.expYear,
@@ -843,16 +959,9 @@
                         if (statusWait) statusWait.style.display = 'block';
                         handlePayMongoReturn();
                     } else {
-                        var pkOk = typeof paymongoPublicKey === 'string' && paymongoPublicKey.trim().indexOf('pk_test_') === 0;
-                        if (!pkOk) {
-                            if (placeholderText) {
-                                placeholderText.textContent = 'Complete payment below once keys are configured.';
-                                placeholderText.style.display = 'block';
-                            }
-                            if (configWarning) configWarning.style.display = 'block';
-                        } else {
+                        loadPayMongoClientConfig().then(function () {
                             if (placeholderText) placeholderText.style.display = 'none';
-                            if (feeLine) feeLine.textContent = formatPhpCentavos(DEFAULT_AMOUNT_CENTAVOS);
+                            if (feeLine) feeLine.textContent = formatPhpCentavos(amountForMethod(selectedPaymentMethod()));
                             if (paymentForm) paymentForm.classList.add('is-visible');
                             if (paymentForm) {
                                 var methodInputs = document.querySelectorAll('input[name="payment-method"]');
@@ -885,11 +994,15 @@
                                     ev.preventDefault();
                                     var u = auth.currentUser;
                                     if (!u) return;
-                                    if (!(typeof paymongoPublicKey === 'string' && paymongoPublicKey.trim().indexOf('pk_test_') === 0)) {
-                                        alert('PayMongo public key is not set. See firebase-config.js.');
+                                    var method = selectedPaymentMethod();
+                                    var keyForMethod = method === 'qrph' ? paymongoClientKeys.qrph : paymongoClientKeys.card;
+                                    if (!isValidPublishableKeyForMethod(method, keyForMethod)) {
+                                        alert(method === 'qrph'
+                                            ? 'QRPh live key is not configured. Contact support.'
+                                            : 'Card test key is not configured. Contact support.');
                                         return;
                                     }
-                                    setPayButtonLoading(true, selectedPaymentMethod() === 'qrph' ? 'Generating QR…' : 'Processing…');
+                                    setPayButtonLoading(true, method === 'qrph' ? 'Generating QR…' : 'Processing…');
                                     try {
                                         await runPayMongoThenBook(booking);
                                     } catch (e) {
@@ -900,7 +1013,15 @@
                                     }
                                 });
                             }
-                        }
+                        }).catch(function (e) {
+                            if (placeholderText) {
+                                placeholderText.textContent = 'Complete payment below once PayMongo keys are configured.';
+                                placeholderText.style.display = 'block';
+                            }
+                            if (paymentForm) paymentForm.classList.remove('is-visible');
+                            if (configWarning) configWarning.style.display = 'block';
+                            alert(formatPaymentError(e) || 'PayMongo client keys are not configured.');
+                        });
                     }
                 } catch (e) {
                     console.warn('Invalid booking data:', e);

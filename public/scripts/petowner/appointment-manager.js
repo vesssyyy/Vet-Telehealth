@@ -3,6 +3,7 @@
  * Backend: Firestore (appointments, pets), optional Storage (media)
  */
 import { auth, db, storage } from '../core/firebase-config.js';
+import { getAppointmentSlotEndDate } from '../core/video-call-utils.js';
 import { escapeHtml, formatTime12h } from '../core/utils.js';
 import {
     collection,
@@ -178,7 +179,14 @@ function isUpcoming(appointment) {
     const status = (appointment.status || 'booked').toLowerCase();
     if (status === 'cancelled' || status === 'completed') return false;
     const dateStr = appointment.date || appointment.dateStr || '';
-    return !dateStr || dateStr >= getTodayDateString();
+    const today = getTodayDateString();
+    if (!dateStr) return true;
+    if (dateStr < today) return false;
+    if (dateStr > today) return true;
+    // Same calendar day: after slot end, show under History even if status is still booked (completion syncing).
+    const endAt = getAppointmentSlotEndDate(appointment);
+    if (endAt && Date.now() >= endAt.getTime()) return false;
+    return true;
 }
 
 /** Load current user's pets from Firestore */

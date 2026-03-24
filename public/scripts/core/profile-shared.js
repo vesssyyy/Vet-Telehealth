@@ -13,6 +13,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js';
 import { doc, getDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-storage.js';
+import { initPasswordToggleFields } from './password-toggle.js';
 
 const CACHE_PREFIX = 'telehealthProfileCache:';
 const LAST_UID_KEY  = 'telehealthLastUid';
@@ -75,6 +76,8 @@ export function initProfile(config) {
         getRole,
         defaultInitials = defaultName.split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2),
     } = config;
+
+    initPasswordToggleFields(document);
 
     /* ── DOM references ───────────────────────────────────────────── */
     const D = {

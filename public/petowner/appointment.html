@@ -61,12 +61,6 @@
 
         <div class="content-wrapper">
             <div class="appointments-page-header">
-                <div>
-                    <h2 class="appointments-section-title">
-                        <i class="fa fa-calendar-check-o" aria-hidden="true"></i> My Online Consultations
-                    </h2>
-                    <p class="appointments-page-desc">Schedule video consultations with veterinarians from home—no clinic visit required.</p>
-                </div>
                 <button type="button" class="appointments-book-btn" id="book-appointment-btn" aria-label="Book new online consultation">
                     <i class="fa fa-plus" aria-hidden="true"></i> Book Online Consultation
                 </button>
@@ -104,8 +98,8 @@
                         <div class="booking-form-section booking-form-section--main">
                             <h3 class="booking-form-section-title"><i class="fa fa-pencil" aria-hidden="true"></i> Online consultation details</h3>
                             <div class="booking-form-group">
-                                <label for="booking-title">Title <span class="booking-label-optional">(optional)</span></label>
-                                <input type="text" id="booking-title" name="title" maxlength="80" placeholder="e.g. Skin concern, Diet advice, Follow-up" aria-describedby="booking-title-hint">
+                                <label for="booking-title">Title <span class="required">*</span></label>
+                                <input type="text" id="booking-title" name="title" maxlength="80" placeholder="e.g. Skin concern, Diet advice, Follow-up" aria-describedby="booking-title-hint" required>
                                 <p class="booking-form-hint" id="booking-title-hint">Short subject for this online consultation.</p>
                             </div>
                             <div class="booking-form-row booking-form-row--double">

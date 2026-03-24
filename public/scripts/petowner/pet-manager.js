@@ -62,16 +62,41 @@ function updatePetImageBoxUI(displayUrl) {
     const placeholder = document.getElementById('add-pet-image-placeholder');
     const actions = document.getElementById('add-pet-image-actions');
     const hasPhoto = Boolean(displayUrl);
+    const revealPreview = () => {
+        preview?.classList.remove('is-loading');
+        if (preview) preview.onload = null;
+        placeholder?.classList.add('is-hidden');
+    };
     if (preview) {
+        preview.onload = null;
+        preview.onerror = null;
+        preview.classList.remove('is-loading');
         if (hasPhoto) {
-            preview.src = displayUrl;
             preview.classList.remove('is-hidden');
+            preview.classList.add('is-loading');
+            placeholder?.classList.remove('is-hidden');
+            preview.onload = () => {
+                revealPreview();
+            };
+            preview.onerror = () => {
+                preview.onerror = null;
+                preview.onload = null;
+                preview.classList.remove('is-loading');
+                preview.removeAttribute('src');
+                preview.classList.add('is-hidden');
+                placeholder?.classList.remove('is-hidden');
+                actions?.classList.remove('is-hidden');
+            };
+            preview.src = displayUrl;
+            if (preview.complete && preview.naturalWidth > 0) {
+                revealPreview();
+            }
         } else {
             preview.removeAttribute('src');
             preview.classList.add('is-hidden');
         }
     }
-    if (placeholder) placeholder.classList.toggle('is-hidden', hasPhoto);
+    if (placeholder && !hasPhoto) placeholder.classList.remove('is-hidden');
     if (actions) actions.classList.toggle('is-hidden', !hasPhoto);
 }
 

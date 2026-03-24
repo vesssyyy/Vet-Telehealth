@@ -6,7 +6,18 @@ import { app, auth, db } from './firebase-config.js';
 import { escapeHtml } from './utils.js';
 import { generateConsultationPDF } from './consultation-pdf.js';
 import { renderAttachment, uploadMessageAttachment, validateAttachment } from './message-attachments.js';
-import { isVideoSessionEnded } from './video-call-utils.js';
+import {
+    attachNotesDashTextarea,
+    buildSharedMediaMarkup,
+    CONSULTATION_NOTES_FIELDS,
+    formatAppointmentStartLabel,
+    formatFirestoreDateTime,
+    getMappedFieldValues,
+    isVideoSessionEnded,
+    getAppointmentSlotEndDate,
+    normalizeTimeString,
+    setMappedFieldValues,
+} from './video-call-utils.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js';
 import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-functions.js';
 import {
@@ -67,7 +78,6 @@ function idFromFirestoreField(value) {
 export function initVideoCallPage(options = {}) {
     const {
         backUrl = '../petowner/appointment.html',
-        backLabel = 'Back to Appointments',
         loginUrl = '../index.html',
         onMessageClick = null,
     } = options;
@@ -87,7 +97,6 @@ export function initVideoCallPage(options = {}) {
         const notes = $('video-call-notes-panel');
         if (open && notes) { notes.classList.add('is-hidden'); container?.classList.remove('notes-open'); }
     }
-    const openConvoPanel   = () => setConvoPanel(true);
     const closeConvoPanel  = () => setConvoPanel(false);
     const toggleConvoPanel = () => setConvoPanel(convoPanel?.classList.contains('is-hidden'));
 
@@ -113,132 +122,40 @@ export function initVideoCallPage(options = {}) {
     });
     $('notes-panel-close')?.addEventListener('click', closeNotesPanel);
 
-    /* Notes textareas: when vet focuses (enters first line), that field expands to fill remaining space */
-    const notesTextareas = ['notes-observation', 'notes-assessment', 'notes-prescription', 'notes-care-instruction', 'notes-follow-up'];
+    const notesTextareas = CONSULTATION_NOTES_FIELDS.map(({ id }) => id);
     function resizeNotesTextarea(ta) {
         if (!ta) return;
         /* Flex layout handles sizing; no manual height needed */
     }
-    function setNotesFieldExpanded(fieldEl) {
-        notesPanel?.querySelectorAll('.video-call-notes-field[data-notes-field]').forEach(f => {
-            f.classList.remove('is-expanded', 'is-collapsed');
-            const ta = f.querySelector('.video-call-notes-textarea');
-            if (ta) ta.style.height = '';
+    function resetNotesFieldExpansion() {
+        notesPanel?.querySelectorAll('.video-call-notes-field[data-notes-field]').forEach((field) => {
+            field.classList.remove('is-expanded', 'is-collapsed');
+            const textarea = field.querySelector('.video-call-notes-textarea');
+            if (textarea) textarea.style.height = '';
         });
-        notesPanel?.querySelectorAll('.video-call-notes-field[data-notes-field]').forEach(f => {
-            if (f !== fieldEl) f.classList.add('is-collapsed');
-        });
-        if (fieldEl) {
-            fieldEl.classList.add('is-expanded');
-            fieldEl.classList.remove('is-collapsed');
-            const expandedTa = fieldEl.querySelector('.video-call-notes-textarea');
-            if (expandedTa) expandedTa.style.height = '';
-        }
     }
-    const NOTES_DASH = '– '; /* en dash, ~75% of em dash */
-    const NOTES_DASH_LEN = NOTES_DASH.length;
-
-    /** Attach dash feature (Enter = new line with "– ", etc.) to any textarea. Used by notes panel and session-ended overlay.
-     *  @param {HTMLTextAreaElement} ta
-     *  @param {{ onFocusExtra?: () => void }} [opts] - Optional extra logic on focus (e.g. notes panel expand) */
-    function attachNotesDashToTextarea(ta, opts = {}) {
-        if (!ta) return;
-        let justAddedLine = false;
-        const { onFocusExtra } = opts;
-        function onKeydown(e) {
-            const start = ta.selectionStart;
-            const end = ta.selectionEnd;
-            const val = ta.value;
-            const lines = val.split('\n');
-            let lineStart = 0;
-            let lineIdx = 0;
-            for (let i = 0; i < lines.length; i++) {
-                const lineEnd = lineStart + lines[i].length;
-                if (start <= lineEnd) { lineIdx = i; break; }
-                lineStart = lineEnd + 1;
-            }
-            const line = lines[lineIdx] || '';
-            const isFirstLine = lineIdx === 0;
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                justAddedLine = true;
-                const before = val.slice(0, start);
-                const after = val.slice(end);
-                ta.value = before + '\n' + NOTES_DASH + after;
-                const newPos = start + 1 + NOTES_DASH_LEN;
-                ta.setSelectionRange(newPos, newPos);
-                ta.dispatchEvent(new Event('input', { bubbles: true }));
-                return;
-            }
-            if (isFirstLine && line.startsWith(NOTES_DASH)) {
-                if (e.key === 'Backspace' && start <= NOTES_DASH_LEN) { e.preventDefault(); return; }
-                if (e.key === 'Delete' && start < NOTES_DASH_LEN) { e.preventDefault(); return; }
-            }
-            if (!isFirstLine && (line === NOTES_DASH.trim() || line === NOTES_DASH || line === '')) {
-                if (e.key === 'Backspace') {
-                    e.preventDefault();
-                    const beforeLines = lines.slice(0, lineIdx);
-                    const afterLines = lines.slice(lineIdx + 1);
-                    const newVal = beforeLines.join('\n') + (afterLines.length ? '\n' + afterLines.join('\n') : '');
-                    ta.value = newVal;
-                    const cursorPos = Math.max(0, lineStart - 1);
-                    ta.setSelectionRange(cursorPos, cursorPos);
-                    ta.dispatchEvent(new Event('input', { bubbles: true }));
-                }
-            }
-        }
-        function onFocus() {
-            if (!ta.value.trim()) {
-                ta.value = NOTES_DASH;
-                ta.setSelectionRange(NOTES_DASH_LEN, NOTES_DASH_LEN);
-            }
-            onFocusExtra?.();
-        }
-        function onInput() {
-            if (justAddedLine) { justAddedLine = false; return; }
-            const val = ta.value;
-            const lines = val.split('\n');
-            if (lines.length <= 1) return;
-            const start = ta.selectionStart;
-            let lineStart = 0;
-            let lineIdx = 0;
-            for (let i = 0; i < lines.length; i++) {
-                const lineEnd = lineStart + lines[i].length;
-                if (start <= lineEnd) { lineIdx = i; break; }
-                lineStart = lineEnd + 1;
-            }
-            const line = lines[lineIdx] || '';
-            const isEmptyLine = line === NOTES_DASH || line === NOTES_DASH.trim() || line === '';
-            if (lineIdx > 0 && isEmptyLine) {
-                const beforeLines = lines.slice(0, lineIdx);
-                const afterLines = lines.slice(lineIdx + 1);
-                const newVal = beforeLines.join('\n') + (afterLines.length ? '\n' + afterLines.join('\n') : '');
-                ta.value = newVal;
-                const cursorPos = Math.max(0, lineStart - 1);
-                ta.setSelectionRange(cursorPos, cursorPos);
-                ta.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-        }
-        ta.addEventListener('keydown', onKeydown);
-        ta.addEventListener('focus', onFocus);
-        ta.addEventListener('input', onInput);
+    function setNotesFieldExpanded(fieldEl) {
+        resetNotesFieldExpansion();
+        notesPanel?.querySelectorAll('.video-call-notes-field[data-notes-field]').forEach((field) => {
+            if (field !== fieldEl) field.classList.add('is-collapsed');
+        });
+        if (!fieldEl) return;
+        fieldEl.classList.add('is-expanded');
+        const textarea = fieldEl.querySelector('.video-call-notes-textarea');
+        if (textarea) textarea.style.height = '';
     }
 
     notesTextareas.forEach(id => {
         const ta = $(id);
         if (ta) {
-            attachNotesDashToTextarea(ta, {
+            attachNotesDashTextarea(ta, {
                 onFocusExtra: () => setNotesFieldExpanded(ta.closest('.video-call-notes-field')),
             });
             ta.addEventListener('input', () => resizeNotesTextarea(ta));
             ta.addEventListener('blur', () => {
                 setTimeout(() => {
                     if (!notesPanel?.contains(document.activeElement)) {
-                        notesPanel?.querySelectorAll('.video-call-notes-field[data-notes-field]').forEach(f => {
-                            f.classList.remove('is-expanded', 'is-collapsed');
-                            const t = f.querySelector('.video-call-notes-textarea');
-                            if (t) t.style.height = '';
-                        });
+                        resetNotesFieldExpansion();
                     }
                 }, 0);
             });
@@ -494,6 +411,33 @@ export function initVideoCallPage(options = {}) {
             }
         }
 
+        async function updateAssignedSlotStatus(nextStatus, allowedCurrentStatuses = null) {
+            if (!appointmentData?.vetId) return;
+
+            const dateStr = appointmentData.dateStr || appointmentData.date || '';
+            const slotStart = appointmentData.slotStart || appointmentData.timeStart || '';
+            if (!dateStr || !slotStart) return;
+
+            const scheduleRef = doc(db, 'users', appointmentData.vetId, 'schedules', dateStr);
+            const scheduleSnap = await getDoc(scheduleRef);
+            if (!scheduleSnap.exists()) return;
+
+            const slots = scheduleSnap.data().slots || [];
+            const normalizedSlotStart = normalizeTimeString(slotStart);
+            const updatedSlots = slots.map((slot) => {
+                const matchById = String(slot.appointmentId || '') === String(appointmentId);
+                const matchBySlot = normalizedSlotStart && normalizeTimeString(slot.start) === normalizedSlotStart;
+                const currentStatus = slot.status || 'booked';
+                const canUpdate = !allowedCurrentStatuses || allowedCurrentStatuses.includes(currentStatus);
+                if (canUpdate && (matchById || matchBySlot)) {
+                    return { ...slot, status: nextStatus };
+                }
+                return slot;
+            });
+
+            await setDoc(scheduleRef, { date: dateStr, slots: updatedSlots });
+        }
+
         try {
             const aptSnap = await getDoc(appointmentRef);
             if (!aptSnap.exists()) {
@@ -567,10 +511,10 @@ export function initVideoCallPage(options = {}) {
             const detailsConcernEl = $('details-concern-text');
             if (detailsConcernEl) detailsConcernEl.textContent = concernText || 'No concern provided.';
 
+            const mediaUrls = Array.isArray(appointmentData.mediaUrls) ? appointmentData.mediaUrls : [];
             const sharedImagesPane = $('pet-detail-shared-images');
             if (sharedImagesPane) {
                 const placeholder = sharedImagesPane.querySelector('.sidebar-pet-detail-placeholder');
-                const mediaUrls = Array.isArray(appointmentData.mediaUrls) ? appointmentData.mediaUrls : [];
                 if (placeholder) {
                     if (mediaUrls.length === 0) {
                         placeholder.textContent = 'No images shared for this consultation.';
@@ -583,35 +527,20 @@ export function initVideoCallPage(options = {}) {
                             gallery.className = 'sidebar-pet-shared-gallery';
                             sharedImagesPane.appendChild(gallery);
                         }
-                        gallery.innerHTML = mediaUrls.map((url, idx) => {
-                            const ext = (url || '').split('.').pop()?.toLowerCase();
-                            const isImage = /^(jpg|jpeg|png|gif|webp|bmp)$/.test(ext || '');
-                            if (isImage) {
-                                return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="sidebar-pet-shared-thumb"><img src="${escapeHtml(url)}" alt="Shared image ${idx + 1}" loading="lazy"></a>`;
-                            }
-                            return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="sidebar-pet-shared-file"><i class="fa fa-file-o"></i> File ${idx + 1}</a>`;
-                        }).join('');
+                        gallery.innerHTML = buildSharedMediaMarkup(mediaUrls);
                     }
                 }
             }
             const detailsGallery = $('details-shared-gallery');
             const detailsSharedPlaceholder = $('details-shared-placeholder');
             if (detailsGallery && detailsSharedPlaceholder) {
-                const mediaUrlsForDetails = Array.isArray(appointmentData.mediaUrls) ? appointmentData.mediaUrls : [];
-                if (mediaUrlsForDetails.length === 0) {
+                if (mediaUrls.length === 0) {
                     detailsSharedPlaceholder.textContent = 'No images shared for this consultation.';
                     detailsSharedPlaceholder.classList.remove('is-hidden');
                     detailsGallery.innerHTML = '';
                 } else {
                     detailsSharedPlaceholder.classList.add('is-hidden');
-                    detailsGallery.innerHTML = mediaUrlsForDetails.map((url, idx) => {
-                        const ext = (url || '').split('.').pop()?.toLowerCase();
-                        const isImage = /^(jpg|jpeg|png|gif|webp|bmp)$/.test(ext || '');
-                        if (isImage) {
-                            return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="sidebar-pet-shared-thumb"><img src="${escapeHtml(url)}" alt="Shared image ${idx + 1}" loading="lazy"></a>`;
-                        }
-                        return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="sidebar-pet-shared-file"><i class="fa fa-file-o"></i> File ${idx + 1}</a>`;
-                    }).join('');
+                    detailsGallery.innerHTML = buildSharedMediaMarkup(mediaUrls);
                 }
             }
 
@@ -717,26 +646,15 @@ export function initVideoCallPage(options = {}) {
             }
 
             /* Vet: Clinical notes — auto-save, load saved notes, save on terminate */
-            const notesIds = ['notes-observation', 'notes-assessment', 'notes-prescription', 'notes-care-instruction', 'notes-follow-up'];
-            const notesKeys = ['observation', 'assessment', 'prescription', 'careInstruction', 'followUp'];
             const notesAutosaveEl = $('notes-autosave-status');
             let notesSaveTimeout = null;
             const NOTES_DEBOUNCE_MS = 1200;
 
             function getNotesFromForm() {
-                const out = {};
-                notesIds.forEach((id, i) => {
-                    const el = $(id);
-                    out[notesKeys[i]] = (el?.value || '').trim();
-                });
-                return out;
+                return getMappedFieldValues(CONSULTATION_NOTES_FIELDS, $);
             }
             function setNotesToForm(data) {
-                if (!data) return;
-                notesIds.forEach((id, i) => {
-                    const el = $(id);
-                    if (el && data[notesKeys[i]] != null) el.value = String(data[notesKeys[i]]);
-                });
+                setMappedFieldValues(CONSULTATION_NOTES_FIELDS, data, $);
                 notesTextareas?.forEach(id => resizeNotesTextarea($(id)));
             }
             function showNotesAutosaveStatus(text, isSuccess = true) {
@@ -770,7 +688,7 @@ export function initVideoCallPage(options = {}) {
             if (isVet) {
                 const saved = appointmentData.consultationNotes;
                 if (saved && typeof saved === 'object') setNotesToForm(saved);
-                notesIds.forEach(id => {
+                CONSULTATION_NOTES_FIELDS.forEach(({ id }) => {
                     const el = $(id);
                     if (el) {
                         el.addEventListener('input', scheduleNotesSave);
@@ -957,16 +875,23 @@ export function initVideoCallPage(options = {}) {
         let sessionEndedHandled = false;
         let sessionOngoingSlotUpdated = false;
         const pendingIceCandidates = [];
+        let remoteStream = null;
         let connectionEstablished = false;
         let establishTimeoutId = null;
+        let mediaWatchdogTimeoutId = null;
         let reconnectBtnEl = null;
         const ESTABLISH_TIMEOUT_MS = 50000;
         let currentSignalingSessionId = null;
+        let activePeerSessionId = null;
+        let createOfferInFlight = false;
+        let offeredSessionId = null;
         let autoReconnectAttempts = 0;
         let autoReconnectTimerId = null;
         const MAX_AUTO_RECONNECT_ATTEMPTS = 5;
         const AUTO_RECONNECT_BASE_MS = 1200;
         let preferRelayTransport = false;
+        let scheduleEndTimerId = null;
+        let scheduleEndPollId = null;
 
         function nextSignalingSessionId() {
             return `${user.uid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -1014,6 +939,52 @@ export function initVideoCallPage(options = {}) {
             }
         }
 
+        function clearMediaWatchdog() {
+            if (mediaWatchdogTimeoutId) {
+                clearTimeout(mediaWatchdogTimeoutId);
+                mediaWatchdogTimeoutId = null;
+            }
+        }
+
+        function hasRemoteMediaFlow() {
+            if (!remoteStream) return false;
+            const tracks = remoteStream.getTracks();
+            if (!tracks.length) return false;
+            return tracks.some((t) => t.readyState === 'live');
+        }
+
+        function armMediaWatchdog() {
+            if (sessionEndedHandled) return;
+            clearMediaWatchdog();
+            mediaWatchdogTimeoutId = setTimeout(() => {
+                mediaWatchdogTimeoutId = null;
+                if (sessionEndedHandled) return;
+                if (peerConnection && !hasRemoteMediaFlow()) {
+                    setStatus('Connected but no media yet. Reconnecting…');
+                    scheduleAutoReconnect('no-media');
+                }
+            }, 9000);
+        }
+
+        function resetPeerConnectionState() {
+            try { peerConnection?.close(); } catch (_) {}
+            peerConnection = null;
+            activePeerSessionId = null;
+            connectionEstablished = false;
+            clearMediaWatchdog();
+            pendingIceCandidates.length = 0;
+            remoteStream = null;
+            if (remoteVideo) remoteVideo.srcObject = null;
+        }
+
+        function ensureRemotePlayback() {
+            if (!remoteVideo) return;
+            const playPromise = remoteVideo.play?.();
+            if (playPromise && typeof playPromise.catch === 'function') {
+                playPromise.catch(() => {});
+            }
+        }
+
         function scheduleAutoReconnect(reason = 'network') {
             if (sessionEndedHandled) return;
             if (autoReconnectAttempts >= MAX_AUTO_RECONNECT_ATTEMPTS) {
@@ -1042,11 +1013,13 @@ export function initVideoCallPage(options = {}) {
                 pendingIceCandidates.length = 0;
                 connectionEstablished = false;
                 currentSignalingSessionId = nextSignalingSessionId();
+                offeredSessionId = null;
                 if (remoteVideo) remoteVideo.srcObject = null;
                 await updateDoc(videoCallRef, {
                     offer: deleteField(),
                     answer: deleteField(),
                     sessionId: currentSignalingSessionId,
+                    ...(appointmentData?.ownerId ? { offererUid: appointmentData.ownerId } : {}),
                     updatedAt: serverTimestamp(),
                 }).catch(() => {});
                 setStatus('Reconnecting…');
@@ -1066,9 +1039,36 @@ export function initVideoCallPage(options = {}) {
                 ? { ...rtcConfig, iceTransportPolicy: 'relay' }
                 : rtcConfig;
             const pc = new RTCPeerConnection(effectiveRtcConfig);
-            localStream?.getTracks().forEach(track => pc.addTrack(track, localStream));
+            const audioTracks = localStream?.getAudioTracks?.() || [];
+            const videoTracks = localStream?.getVideoTracks?.() || [];
+            [...audioTracks, ...videoTracks].forEach(track => pc.addTrack(track, localStream));
             pc.ontrack = ev => {
-                if (remoteVideo && ev.streams?.[0]) remoteVideo.srcObject = ev.streams[0];
+                const incomingTrack = ev.track || null;
+                const incomingStream = ev.streams?.[0] || null;
+                if (!remoteStream) remoteStream = new MediaStream();
+                if (incomingTrack && !remoteStream.getTracks().some(t => t.id === incomingTrack.id)) {
+                    remoteStream.addTrack(incomingTrack);
+                    incomingTrack.onunmute = () => ensureRemotePlayback();
+                }
+                if (incomingStream) {
+                    incomingStream.getTracks().forEach((t) => {
+                        if (!remoteStream.getTracks().some(rt => rt.id === t.id)) remoteStream.addTrack(t);
+                    });
+                }
+                if (remoteVideo) {
+                    remoteVideo.srcObject = remoteStream;
+                    ensureRemotePlayback();
+                }
+                if (remoteStream.getTracks().length > 0) {
+                    // Some browsers lag on connectionState updates; media arrival means call is effectively up.
+                    connectionEstablished = true;
+                    clearMediaWatchdog();
+                    autoReconnectAttempts = 0;
+                    clearAutoReconnectTimer();
+                    setStatus('Connected');
+                    setWaiting(false);
+                    showReconnectUI(false);
+                }
             };
             pc.onicecandidate = ev => {
                 if (ev.candidate) {
@@ -1114,6 +1114,7 @@ export function initVideoCallPage(options = {}) {
                 console.info('Peer connection state:', state);
                 if (state === 'connected') {
                     connectionEstablished = true;
+                    armMediaWatchdog();
                     autoReconnectAttempts = 0;
                     clearAutoReconnectTimer();
                     if (establishTimeoutId) { clearTimeout(establishTimeoutId); establishTimeoutId = null; }
@@ -1143,16 +1144,61 @@ export function initVideoCallPage(options = {}) {
         }
 
         async function createOffer() {
-            if (!peerConnection) peerConnection = createPeerConnection();
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
+            if (createOfferInFlight) return;
             if (!currentSignalingSessionId) currentSignalingSessionId = nextSignalingSessionId();
-            await setDoc(videoCallRef, {
-                offer: JSON.stringify(offer),
-                offererUid: user.uid,
-                sessionId: currentSignalingSessionId,
-                updatedAt: serverTimestamp(),
-            }, { merge: true });
+            if (
+                offeredSessionId === currentSignalingSessionId &&
+                peerConnection?.localDescription?.type === 'offer'
+            ) {
+                return;
+            }
+            createOfferInFlight = true;
+            const hasSessionMismatch = !!(
+                peerConnection &&
+                activePeerSessionId &&
+                currentSignalingSessionId &&
+                activePeerSessionId !== currentSignalingSessionId
+            );
+            const hasUnstableSignaling = !!(peerConnection && peerConnection.signalingState !== 'stable');
+            if (hasSessionMismatch || hasUnstableSignaling) {
+                resetPeerConnectionState();
+            }
+            if (!peerConnection) peerConnection = createPeerConnection();
+            try {
+                for (let attempt = 0; attempt < 2; attempt += 1) {
+                    try {
+                        const offer = await peerConnection.createOffer();
+                        await peerConnection.setLocalDescription(offer);
+                        activePeerSessionId = currentSignalingSessionId;
+                        offeredSessionId = currentSignalingSessionId;
+                        await setDoc(videoCallRef, {
+                            offer: JSON.stringify(offer),
+                            offererUid: user.uid,
+                            sessionId: currentSignalingSessionId,
+                            updatedAt: serverTimestamp(),
+                        }, { merge: true });
+                        return;
+                    } catch (e) {
+                        const msg = String(e?.message || '');
+                        const isMLineOrderError = e?.name === 'InvalidAccessError' && /m-lines/i.test(msg);
+                        if (!(isMLineOrderError && attempt === 0)) throw e;
+                        console.warn('Offer SDP m-line order mismatch; rebuilding peer and retrying offer once.');
+                        resetPeerConnectionState();
+                        currentSignalingSessionId = nextSignalingSessionId();
+                        offeredSessionId = null;
+                        await updateDoc(videoCallRef, {
+                            offer: deleteField(),
+                            answer: deleteField(),
+                            sessionId: currentSignalingSessionId,
+                            ...(appointmentData?.ownerId ? { offererUid: appointmentData.ownerId } : {}),
+                            updatedAt: serverTimestamp(),
+                        }).catch(() => {});
+                        peerConnection = createPeerConnection();
+                    }
+                }
+            } finally {
+                createOfferInFlight = false;
+            }
         }
 
         async function drainPendingIceCandidates() {
@@ -1166,9 +1212,21 @@ export function initVideoCallPage(options = {}) {
         }
 
         async function handleOffer(offerStr, sessionId) {
-            if (!offerStr || peerConnection) return;
+            if (!offerStr) return;
             const activeSessionId = sessionId || currentSignalingSessionId || nextSignalingSessionId();
+            if (peerConnection && activePeerSessionId && activePeerSessionId !== activeSessionId) {
+                resetPeerConnectionState();
+            }
+            if (peerConnection) {
+                // If a fresh offer arrives while an old peer lingers, rebuild so the answerer can renegotiate cleanly.
+                const sameOffer =
+                    peerConnection.remoteDescription?.type === 'offer' &&
+                    peerConnection.remoteDescription?.sdp === JSON.parse(offerStr)?.sdp;
+                if (!sameOffer) resetPeerConnectionState();
+            }
+            if (peerConnection) return;
             currentSignalingSessionId = activeSessionId;
+            activePeerSessionId = activeSessionId;
             if (!sessionId) {
                 await updateDoc(videoCallRef, { sessionId: activeSessionId, updatedAt: serverTimestamp() }).catch(() => {});
             }
@@ -1212,15 +1270,21 @@ export function initVideoCallPage(options = {}) {
             if (data.status === 'ended') return false;
             const participants   = { ...(data.participants || {}), [user.uid]: true };
             const participantIds = Object.keys(participants);
-            const offererUid     = data.offererUid || participantIds[0];
-            currentSignalingSessionId = data.sessionId || nextSignalingSessionId();
-            await setDoc(videoCallRef, {
+            /* Pet owner always initiates the WebRTC offer so role never depends on join order or stale offererUid after the vet leaves. */
+            const offererUid = appointmentData?.ownerId || data.offererUid || participantIds[0];
+            const roomPayload = {
                 participants,
                 status: 'waiting',
                 offererUid,
-                sessionId: currentSignalingSessionId,
                 updatedAt: serverTimestamp(),
-            }, { merge: true });
+            };
+            /* Only set sessionId when the room has none yet. Omitting it on merge avoids regressing the
+             * pet owner's session with a stale getDoc when the vet joins (fixes offer/SDP vs sessionId mismatch). */
+            if (!data.sessionId) {
+                roomPayload.sessionId = nextSignalingSessionId();
+            }
+            await setDoc(videoCallRef, roomPayload, { merge: true });
+            currentSignalingSessionId = data.sessionId || roomPayload.sessionId || nextSignalingSessionId();
             return true;
         }
 
@@ -1247,6 +1311,7 @@ export function initVideoCallPage(options = {}) {
             clearAutoReconnectTimer();
             if (callDurationInterval) { clearInterval(callDurationInterval); callDurationInterval = null; }
             if (peerConnection) { peerConnection.close(); peerConnection = null; }
+            activePeerSessionId = null;
             if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
             if (remoteVideo) remoteVideo.srcObject = null;
             if (localVideo)  localVideo.srcObject  = null;
@@ -1265,34 +1330,6 @@ export function initVideoCallPage(options = {}) {
             }).catch(() => {});
         }
 
-        /** Format a Date-like value as a medium locale date+time string. */
-        function formatSessionDateTime(ts) {
-            if (!ts) return '—';
-            try {
-                const d = typeof ts.toDate === 'function' ? ts.toDate()
-                    : typeof ts.toMillis === 'function' ? new Date(ts.toMillis())
-                    : new Date(ts);
-                return isNaN(d.getTime()) ? '—' : d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-            } catch (_) { return '—'; }
-        }
-
-        /** Normalize "9:00" / "09:00" to "HH:mm" for comparison */
-        function normalizeTime(t) {
-            if (!t || typeof t !== 'string') return '';
-            const parts = t.trim().split(':');
-            const h = parseInt(parts[0], 10);
-            const m = parts[1] != null ? parseInt(parts[1], 10) : 0;
-            if (isNaN(h)) return '';
-            return `${String(h).padStart(2, '0')}:${String(isNaN(m) ? 0 : m).padStart(2, '0')}`;
-        }
-
-        function formatSessionStartLabel(apt) {
-            const ds = apt?.dateStr || apt?.date || '';
-            const ts = apt?.slotStart || apt?.timeStart || '';
-            if (!ds || !ts) return '—';
-            return formatSessionDateTime(new Date(`${ds}T${ts}`));
-        }
-
         /** Full-screen "Session Ended" overlay with start/end times and role-specific button. Vet: shows consultation notes for final review + Download PDF. */
         async function showSessionEndedOverlay(redirectQuery, opts = {}) {
             const { startLabel = '—', endLabel = '—', isVet = false, consultationNotes: notesParam, appointmentRef: aptRef, appointmentData: aptData } = opts;
@@ -1306,22 +1343,15 @@ export function initVideoCallPage(options = {}) {
                 }
             }
             const notes = consultationNotes && typeof consultationNotes === 'object' ? consultationNotes : {};
-            const notesLabels = [
-                ['observation', 'Observation'],
-                ['assessment', 'Assessment'],
-                ['prescription', 'Prescription'],
-                ['careInstruction', 'Care instruction'],
-                ['followUp', 'Follow up'],
-            ];
             const notesHtml = isVet ? `
                 <div class="video-call-session-ended-notes">
                     <h3 class="video-call-session-ended-notes-title"><i class="fa fa-file-text-o" aria-hidden="true"></i> Finalize consultation notes</h3>
                     <div class="video-call-session-ended-notes-list">
-                        ${notesLabels.map(([key, label]) => {
+                        ${CONSULTATION_NOTES_FIELDS.map(({ key, label, maxLength }) => {
                             const val = (notes[key] || '').trim() || '';
                             return `<div class="video-call-session-ended-notes-row">
                                 <label for="session-ended-notes-${key}" class="video-call-session-ended-notes-label">${escapeHtml(label)}</label>
-                                <textarea id="session-ended-notes-${key}" class="video-call-session-ended-notes-textarea" rows="2" maxlength="${key === 'observation' || key === 'prescription' ? 1500 : key === 'careInstruction' ? 1000 : 800}" data-notes-key="${key}" placeholder="—">${escapeHtml(val)}</textarea>
+                                <textarea id="session-ended-notes-${key}" class="video-call-session-ended-notes-textarea" rows="2" maxlength="${maxLength}" data-notes-key="${key}" placeholder="—">${escapeHtml(val)}</textarea>
                             </div>`;
                         }).join('')}
                     </div>
@@ -1378,7 +1408,7 @@ export function initVideoCallPage(options = {}) {
             /* Attach dash feature and expand-on-focus to session-ended textareas */
             const sessionEndedTextareas = overlay.querySelectorAll('.video-call-session-ended-notes-textarea');
             sessionEndedTextareas.forEach(ta => {
-                attachNotesDashToTextarea(ta, {
+                attachNotesDashTextarea(ta, {
                     onFocusExtra: () => setSessionEndedNotesRowExpanded(ta.closest('.video-call-session-ended-notes-row')),
                 });
                 ta.addEventListener('blur', () => {
@@ -1513,7 +1543,7 @@ export function initVideoCallPage(options = {}) {
             const targetUrl = redirectQuery ? `${backUrl}${backUrl.includes('?') ? '&' : '?'}${redirectQuery.replace(/^\?/, '')}` : backUrl;
             if (opts.showSessionEnded) {
                 showSessionEndedOverlay(redirectQuery, {
-                    startLabel: opts.startLabel ?? formatSessionStartLabel(appointmentData),
+                    startLabel: opts.startLabel ?? formatAppointmentStartLabel(appointmentData),
                     endLabel: opts.endLabel ?? '—',
                     isVet: opts.isVet ?? isVet,
                     consultationNotes: opts.consultationNotes,
@@ -1527,8 +1557,147 @@ export function initVideoCallPage(options = {}) {
             });
         }
 
+        function clearScheduleEndWatchers() {
+            if (scheduleEndTimerId) {
+                clearTimeout(scheduleEndTimerId);
+                scheduleEndTimerId = null;
+            }
+            if (scheduleEndPollId) {
+                clearInterval(scheduleEndPollId);
+                scheduleEndPollId = null;
+            }
+        }
+
+        /** True if the Firestore room doc indicates someone is still in the call (not already ended). */
+        function videoRoomStillOccupiedFromSnapshot(roomData) {
+            if (!roomData || typeof roomData !== 'object') return false;
+            if (String(roomData.status || '').toLowerCase() === 'ended') return false;
+            const p = roomData.participants;
+            if (!p || typeof p !== 'object') return false;
+            return Object.keys(p).some((k) => p[k]);
+        }
+
+        /**
+         * When slot end has passed, the room is not already ended, and no participants remain: complete the
+         * appointment (same as vet terminate for history/PDF), end the room, clear signaling, update slot.
+         * @param {{ showSessionEndedOverlay?: boolean }} options - If false (e.g. last user left via "Leave only"), only writes Firestore; caller redirects.
+         * @returns {Promise<boolean>} true if completion ran successfully
+         */
+        async function performScheduleEndCompletion(options = {}) {
+            const { showSessionEndedOverlay = true } = options;
+            if (sessionEndedHandled) return false;
+
+            let aptSnap;
+            try {
+                aptSnap = await getDoc(appointmentRef);
+            } catch (e) {
+                console.warn('Schedule end: could not read appointment', e);
+                return false;
+            }
+            if (!aptSnap.exists()) return false;
+            const apt = aptSnap.data();
+            if (isVideoSessionEnded(apt)) return false;
+
+            const slotEndAt = getAppointmentSlotEndDate(apt);
+            if (!slotEndAt || Date.now() < slotEndAt.getTime()) return false;
+
+            let roomSnap;
+            try {
+                roomSnap = await getDoc(videoCallRef);
+            } catch (e) {
+                console.warn('Schedule end: could not read video room', e);
+                return false;
+            }
+            const roomData = roomSnap.exists() ? roomSnap.data() : {};
+            if (videoRoomStillOccupiedFromSnapshot(roomData)) return false;
+
+            sessionEndedHandled = true;
+            clearScheduleEndWatchers();
+
+            const endedAt = serverTimestamp();
+            const vetNotes = isVet && typeof getNotesFromForm === 'function' ? getNotesFromForm() : null;
+
+            const aptUpdate = {
+                status: 'completed',
+                completedAt: endedAt,
+                updatedAt: endedAt,
+                videoSessionEndedAt: endedAt,
+                consultationNotesAutoFinalizedAt: endedAt,
+            };
+            if (isVet && vetNotes && typeof vetNotes === 'object') {
+                aptUpdate.consultationNotes = vetNotes;
+                aptUpdate.consultationNotesUpdatedAt = endedAt;
+            }
+
+            try {
+                await updateDoc(appointmentRef, aptUpdate);
+            } catch (e) {
+                console.warn('Schedule end: could not complete appointment:', e);
+                sessionEndedHandled = false;
+                armScheduleEndCompletion();
+                return false;
+            }
+
+            await setDoc(videoCallRef, {
+                status: 'ended',
+                endedBy: 'schedule',
+                endedAt,
+                updatedAt: serverTimestamp(),
+            }, { merge: true }).catch((e) => console.warn('Schedule end: videoCall room:', e));
+
+            await clearSignalingCollection(db, appointmentId).catch((e) => console.warn('Clear signaling:', e));
+
+            try {
+                await updateAssignedSlotStatus('completed', ['booked', 'ongoing']);
+            } catch (e) {
+                console.warn('Schedule end: slot status:', e);
+            }
+
+            if (showSessionEndedOverlay) {
+                const updatedSnap = await getDoc(videoCallRef);
+                const updatedData = updatedSnap.exists() ? updatedSnap.data() : {};
+                leaveRoom('callEnded=1', {
+                    showSessionEnded: true,
+                    endLabel: formatFirestoreDateTime(updatedData.endedAt),
+                    isVet,
+                    consultationNotes: isVet ? vetNotes : undefined,
+                    appointmentRef,
+                });
+            }
+            return true;
+        }
+
+        async function finalizeConsultationForScheduleEnd() {
+            await performScheduleEndCompletion({ showSessionEndedOverlay: true });
+        }
+
+        function armScheduleEndCompletion() {
+            clearScheduleEndWatchers();
+            const endDate = getAppointmentSlotEndDate(appointmentData);
+            if (!endDate) return;
+
+            const run = () => {
+                finalizeConsultationForScheduleEnd().catch((e) => console.warn('Schedule end finalize:', e));
+            };
+
+            const ms = endDate.getTime() - Date.now();
+            if (ms <= 0) {
+                run();
+                return;
+            }
+            scheduleEndTimerId = setTimeout(run, ms);
+            scheduleEndPollId = setInterval(() => {
+                if (sessionEndedHandled) {
+                    clearScheduleEndWatchers();
+                    return;
+                }
+                if (Date.now() >= endDate.getTime()) run();
+            }, 15000);
+        }
+
         /** Pet or vet temporarily leaves; session stays active, they can rejoin via same link. */
         function leaveTemporary() {
+            clearScheduleEndWatchers();
             cleanupLocalMedia();
             if (signalingUnsubscribe) { signalingUnsubscribe(); signalingUnsubscribe = null; }
             if (videoCallUnsubscribe) { videoCallUnsubscribe(); videoCallUnsubscribe = null; }
@@ -1541,16 +1710,30 @@ export function initVideoCallPage(options = {}) {
                 window.location.href = targetUrl;
             };
             const forceRedirectTimer = setTimeout(go, 1500);
-            updateDoc(videoCallRef, {
-                [`participants.${user.uid}`]: deleteField(),
-                offer: deleteField(),
-                answer: deleteField(),
-                sessionId: nextSignalingSessionId(),
-                updatedAt: serverTimestamp(),
-            }).catch(() => {}).finally(() => {
+            (async () => {
+                try {
+                    await updateDoc(videoCallRef, {
+                        [`participants.${user.uid}`]: deleteField(),
+                        offer: deleteField(),
+                        answer: deleteField(),
+                        sessionId: nextSignalingSessionId(),
+                        ...(appointmentData?.ownerId ? { offererUid: appointmentData.ownerId } : {}),
+                        updatedAt: serverTimestamp(),
+                    });
+                } catch (e) {
+                    console.warn('Leave: could not update video room:', e);
+                }
                 clearTimeout(forceRedirectTimer);
+                try {
+                    for (let attempt = 0; attempt < 5; attempt++) {
+                        if (attempt > 0) await new Promise((r) => setTimeout(r, 300));
+                        if (await performScheduleEndCompletion({ showSessionEndedOverlay: false })) break;
+                    }
+                } catch (e) {
+                    console.warn('Schedule end on leave:', e);
+                }
                 go();
-            });
+            })();
         }
 
         /** Vet only: show Leave Only / Terminate Call popup. */
@@ -1613,27 +1796,7 @@ export function initVideoCallPage(options = {}) {
                             updatedAt: serverTimestamp(),
                             videoSessionEndedAt: endedAt,
                         });
-                        /* Update vet schedule slot to completed */
-                        const vetId = appointmentData.vetId;
-                        const dateStr = appointmentData.dateStr || appointmentData.date || '';
-                        const slotStart = appointmentData.slotStart || appointmentData.timeStart || '';
-                        if (vetId && dateStr && slotStart) {
-                            const scheduleRef = doc(db, 'users', vetId, 'schedules', dateStr);
-                            const schedSnap = await getDoc(scheduleRef);
-                            if (schedSnap.exists()) {
-                                const schedData = schedSnap.data();
-                                const slots = schedData.slots || [];
-                                const updated = slots.map((s) => {
-                                    const matchById = (s.appointmentId || '') === appointmentId;
-                                    const matchBySlot = slotStart && (normalizeTime(s.start) === normalizeTime(slotStart));
-                                    if (matchById || matchBySlot) {
-                                        return { ...s, status: 'completed' };
-                                    }
-                                    return s;
-                                });
-                                await setDoc(scheduleRef, { date: dateStr, slots: updated });
-                            }
-                        }
+                        await updateAssignedSlotStatus('completed');
                     } catch (e) {
                         console.warn('Could not mark appointment/slot completed:', e);
                     }
@@ -1643,7 +1806,7 @@ export function initVideoCallPage(options = {}) {
                 const updatedData = updatedSnap.exists() ? updatedSnap.data() : {};
                 leaveRoom('callEnded=1', {
                     showSessionEnded: true,
-                    endLabel: formatSessionDateTime(updatedData.endedAt),
+                    endLabel: formatFirestoreDateTime(updatedData.endedAt),
                     isVet: true,
                     consultationNotes: notes,
                     appointmentRef,
@@ -1687,8 +1850,8 @@ export function initVideoCallPage(options = {}) {
         if (isVideoSessionEnded(appointmentData)) {
             clearSignalingCollection(db, appointmentId).catch((e) => console.warn('Clear signaling:', e));
             showSessionEndedOverlay('callEnded=1', {
-                startLabel: formatSessionStartLabel(appointmentData),
-                endLabel: formatSessionDateTime(appointmentData.videoSessionEndedAt),
+                startLabel: formatAppointmentStartLabel(appointmentData),
+                endLabel: formatFirestoreDateTime(appointmentData.videoSessionEndedAt),
                 isVet,
                 appointmentRef,
                 appointmentData,
@@ -1698,7 +1861,7 @@ export function initVideoCallPage(options = {}) {
         const roomSnap = await getDoc(videoCallRef);
         if (roomSnap.exists() && roomSnap.data().status === 'ended') {
             clearSignalingCollection(db, appointmentId).catch((e) => console.warn('Clear signaling:', e));
-            showSessionEndedOverlay('callEnded=1', { startLabel: formatSessionStartLabel(appointmentData), endLabel: formatSessionDateTime(roomSnap.data().endedAt), isVet, appointmentRef, appointmentData });
+            showSessionEndedOverlay('callEnded=1', { startLabel: formatAppointmentStartLabel(appointmentData), endLabel: formatFirestoreDateTime(roomSnap.data().endedAt), isVet, appointmentRef, appointmentData });
             return;
         }
 
@@ -1723,11 +1886,12 @@ export function initVideoCallPage(options = {}) {
             const aptFreshData = aptFresh.exists() ? aptFresh.data() : {};
             const endedSnap = await getDoc(videoCallRef);
             const endedData = endedSnap.exists() ? endedSnap.data() : {};
-            const endLabel = formatSessionDateTime(endedData.endedAt || aptFreshData.videoSessionEndedAt);
-            showSessionEndedOverlay('callEnded=1', { startLabel: formatSessionStartLabel(appointmentData), endLabel, isVet, appointmentRef, appointmentData });
+            const endLabel = formatFirestoreDateTime(endedData.endedAt || aptFreshData.videoSessionEndedAt);
+            showSessionEndedOverlay('callEnded=1', { startLabel: formatAppointmentStartLabel(appointmentData), endLabel, isVet, appointmentRef, appointmentData });
             return;
         }
         startCallDurationTimer();
+        armScheduleEndCompletion();
 
         videoCallUnsubscribe = onSnapshot(videoCallRef, async (snap) => {
             if (!snap.exists()) return;
@@ -1738,20 +1902,36 @@ export function initVideoCallPage(options = {}) {
                 clearSignalingCollection(db, appointmentId).catch((e) => console.warn('Clear signaling:', e));
                 getDoc(appointmentRef).then((aptSnap) => {
                     const ad = aptSnap.exists() ? aptSnap.data() : {};
-                    const endLabel = formatSessionDateTime(data.endedAt || ad.videoSessionEndedAt);
+                    const endLabel = formatFirestoreDateTime(data.endedAt || ad.videoSessionEndedAt);
                     leaveRoom('callEnded=1', { showSessionEnded: true, endLabel, isVet, appointmentRef });
                 }).catch(() => {
-                    leaveRoom('callEnded=1', { showSessionEnded: true, endLabel: formatSessionDateTime(data.endedAt), isVet, appointmentRef });
+                    leaveRoom('callEnded=1', { showSessionEnded: true, endLabel: formatFirestoreDateTime(data.endedAt), isVet, appointmentRef });
                 });
                 return;
             }
             const participants = data.participants || {};
             const pids = Object.keys(participants).filter(k => participants[k]);
             remoteUid = pids.find(id => id !== user.uid) || null;
-            isOfferer = (data.offererUid || pids[0]) === user.uid;
-            if (data.sessionId) currentSignalingSessionId = data.sessionId;
+            isOfferer = appointmentData?.ownerId
+                ? user.uid === appointmentData.ownerId
+                : (data.offererUid || pids[0]) === user.uid;
+            if (data.sessionId) {
+                if (currentSignalingSessionId && currentSignalingSessionId !== data.sessionId) {
+                    offeredSessionId = null;
+                }
+                currentSignalingSessionId = data.sessionId;
+            }
+            if (
+                data.sessionId &&
+                activePeerSessionId &&
+                activePeerSessionId !== data.sessionId &&
+                peerConnection
+            ) {
+                resetPeerConnectionState();
+            }
 
             if (pids.length < 2) {
+                clearMediaWatchdog();
                 setStatus('Waiting for the other participant…');
                 setVisiblePhaseMessage('Waiting for the other participant…', 'fa-clock-o');
                 setWaiting(true);
@@ -1759,6 +1939,9 @@ export function initVideoCallPage(options = {}) {
                 if (establishTimeoutId) { clearTimeout(establishTimeoutId); establishTimeoutId = null; }
                 pendingIceCandidates.length = 0;
                 currentSignalingSessionId = nextSignalingSessionId();
+                activePeerSessionId = null;
+                offeredSessionId = null;
+                createOfferInFlight = false;
                 if (peerConnection) { peerConnection.close(); peerConnection = null; }
                 if (remoteVideo) remoteVideo.srcObject = null;
                 preferRelayTransport = false;
@@ -1766,6 +1949,7 @@ export function initVideoCallPage(options = {}) {
                     offer: deleteField(),
                     answer: deleteField(),
                     sessionId: currentSignalingSessionId,
+                    ...(appointmentData?.ownerId ? { offererUid: appointmentData.ownerId } : {}),
                     updatedAt: serverTimestamp(),
                 }).catch(() => {});
                 return;
@@ -1781,35 +1965,25 @@ export function initVideoCallPage(options = {}) {
             /* Mark slot as ongoing when both participants are in the call (one-time) */
             if (pids.length >= 2 && !sessionOngoingSlotUpdated && appointmentData) {
                 sessionOngoingSlotUpdated = true;
-                const vetId = appointmentData.vetId;
-                const dateStr = appointmentData.dateStr || appointmentData.date || '';
-                const slotStart = appointmentData.slotStart || appointmentData.timeStart || '';
-                if (vetId && dateStr && slotStart) {
-                    const scheduleRef = doc(db, 'users', vetId, 'schedules', dateStr);
-                    getDoc(scheduleRef).then((schedSnap) => {
-                        if (schedSnap.exists()) {
-                            const schedData = schedSnap.data();
-                            const slots = schedData.slots || [];
-                            const updated = slots.map((s) => {
-                                const matchById = (s.appointmentId || '') === appointmentId;
-                                const matchBySlot = slotStart && (normalizeTime(s.start) === normalizeTime(slotStart)) && ((s.status || 'booked') === 'booked' || (s.status || '') === 'ongoing');
-                                if (matchById || matchBySlot) {
-                                    return { ...s, status: 'ongoing' };
-                                }
-                                return s;
-                            });
-                            setDoc(scheduleRef, { date: dateStr, slots: updated }).catch((e) => console.warn('Could not set slot ongoing:', e));
-                        }
-                    }).catch(() => {});
-                }
+                updateAssignedSlotStatus('ongoing', ['booked', 'ongoing']).catch((e) => console.warn('Could not set slot ongoing:', e));
             }
 
-            if (isOfferer && !data.offer) {
+            /* Recreate offer if we have no PC (e.g. sessionId changed and resetPeerConnectionState ran but Firestore still held a stale offer). */
+            const offererNeedsFreshOffer =
+                !data.offer || (!peerConnection && !connectionEstablished);
+            if (isOfferer && offererNeedsFreshOffer) {
                 connectionEstablished = false;
                 setStatus('Establishing video…');
                 setVisiblePhaseMessage('Connecting…', 'fa-spinner fa-spin');
                 setWaiting(true);
-                await createOffer();
+                try {
+                    await createOffer();
+                } catch (e) {
+                    console.warn('createOffer failed:', e);
+                    setStatus('Reconnecting…');
+                    scheduleAutoReconnect('offer');
+                    return;
+                }
                 establishTimeoutId = setTimeout(() => {
                     if (!connectionEstablished && peerConnection) {
                         setStatus('Video taking longer than usual. You can try reconnecting.');
@@ -1824,7 +1998,14 @@ export function initVideoCallPage(options = {}) {
                 setStatus('Establishing video…');
                 setVisiblePhaseMessage('Connecting…', 'fa-spinner fa-spin');
                 setWaiting(true);
-                await handleOffer(data.offer, data.sessionId || null);
+                try {
+                    await handleOffer(data.offer, data.sessionId || null);
+                } catch (e) {
+                    console.warn('handleOffer failed:', e);
+                    setStatus('Reconnecting…');
+                    scheduleAutoReconnect('offer-answer');
+                    return;
+                }
                 establishTimeoutId = setTimeout(() => {
                     if (!connectionEstablished && peerConnection) {
                         setStatus('Video taking longer than usual. You can try reconnecting.');
@@ -1835,7 +2016,14 @@ export function initVideoCallPage(options = {}) {
                 return;
             }
             if (isOfferer && data.answer && peerConnection) {
-                await handleAnswer(data.answer, data.sessionId || null);
+                try {
+                    await handleAnswer(data.answer, data.sessionId || null);
+                } catch (e) {
+                    console.warn('handleAnswer failed:', e);
+                    setStatus('Reconnecting…');
+                    scheduleAutoReconnect('answer');
+                    return;
+                }
                 if (!connectionEstablished) {
                     setStatus('Establishing video…');
                     setVisiblePhaseMessage('Connecting…', 'fa-spinner fa-spin');
@@ -1851,7 +2039,7 @@ export function initVideoCallPage(options = {}) {
             if (!isVideoSessionEnded(ad)) return;
             sessionEndedHandled = true;
             clearSignalingCollection(db, appointmentId).catch((e) => console.warn('Clear signaling:', e));
-            leaveRoom('callEnded=1', { showSessionEnded: true, endLabel: formatSessionDateTime(ad.videoSessionEndedAt), isVet, appointmentRef });
+            leaveRoom('callEnded=1', { showSessionEnded: true, endLabel: formatFirestoreDateTime(ad.videoSessionEndedAt), isVet, appointmentRef });
         });
 
         signalingUnsubscribe = onSnapshot(signalingRef, snap => {
@@ -1864,6 +2052,8 @@ export function initVideoCallPage(options = {}) {
         document.addEventListener('visibilitychange', async () => {
             if (document.visibilityState !== 'visible' || sessionEndedHandled) return;
             try {
+                await finalizeConsultationForScheduleEnd();
+                if (sessionEndedHandled) return;
                 const snap = await getDoc(videoCallRef);
                 const data = snap.exists() ? snap.data() : {};
                 const aptSnap = await getDoc(appointmentRef);
@@ -1872,7 +2062,7 @@ export function initVideoCallPage(options = {}) {
                 if (sessionEnded && !sessionEndedHandled) {
                     sessionEndedHandled = true;
                     clearSignalingCollection(db, appointmentId).catch((e) => console.warn('Clear signaling:', e));
-                    const endLabel = formatSessionDateTime(data.endedAt || ad.videoSessionEndedAt);
+                    const endLabel = formatFirestoreDateTime(data.endedAt || ad.videoSessionEndedAt);
                     leaveRoom('callEnded=1', { showSessionEnded: true, endLabel, isVet, appointmentRef });
                     return;
                 }
@@ -1886,6 +2076,13 @@ export function initVideoCallPage(options = {}) {
                     }
                 }
             } catch (e) { console.warn('visibilitychange status check failed:', e); }
+        });
+
+        window.addEventListener('pagehide', () => {
+            updateDoc(videoCallRef, {
+                [`participants.${user.uid}`]: deleteField(),
+                updatedAt: serverTimestamp(),
+            }).catch(() => {});
         });
     });
 }
