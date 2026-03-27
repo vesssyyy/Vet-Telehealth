@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment</title>
+    <link rel="stylesheet" href="../../styles/petowner/sidebar-layout.css">
+    <link rel="stylesheet" href="../../styles/petowner/appointment.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link href="https://fonts.googleapis.com/css?family=Lalezar" rel="stylesheet">
+    <style>
+        body { visibility: hidden; }
+        .content-wrapper.payment-page {
+            max-width: none;
+            width: 100%;
+            padding: 20px 16px 32px;
+            box-sizing: border-box;
+        }
+        .payment-page-inner {
+            max-width: min(1040px, 100%);
+            margin: 0 auto;
+            width: 100%;
+        }
+        .payment-card {
+            background: var(--bg-card, #fff);
+            border: 1px solid var(--border-color, #e2e8f0);
+            border-radius: 10px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.04);
+            overflow: hidden;
+        }
+        .payment-card-header {
+            padding: 22px 24px 18px;
+            border-bottom: 1px solid var(--border-color, #e8ecf1);
+        }
+        .payment-card-title { font-size: 1.125rem; font-weight: 600; color: var(--text-dark, #1a202c); margin: 0; letter-spacing: -0.02em; }
+        .payment-card-body { padding: 20px 24px 24px; }
+        .payment-checkout-columns { display: flex; flex-direction: column; gap: 22px; }
+        .payment-checkout-aside { min-width: 0; }
+        .payment-checkout-main { min-width: 0; }
+        .payment-amount-block--aside { margin-bottom: 0; }
+        .payment-card-body > p:not(.payment-intent-ref),
+        .payment-checkout-main > p:not(.payment-intent-ref) { font-size: 0.875rem; color: var(--text-light, #718096); margin: 0 0 16px 0; line-height: 1.5; }
+        .payment-success-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: #f0fff4;
+            color: #276749;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+        .payment-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: stretch; margin-top: 20px; }
+        .payment-actions .btn-back,
+        .payment-actions .btn-secondary { flex: 1; min-width: 140px; justify-content: center; }
+        .payment-actions .btn-back {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 11px 18px;
+            background: var(--primary-color, #2c5f7d);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+        .payment-actions .btn-back:hover { background: var(--primary-dark, #1e4159); }
+        .payment-actions .btn-secondary {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 11px 18px;
+            background: transparent;
+            color: var(--text-dark, #4a5568);
+            border: 1px solid var(--border-color, #cbd5e0);
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: border-color 0.2s ease, background 0.2s ease;
+        }
+        .payment-actions .btn-secondary:hover { background: var(--bg-light, #f7fafc); border-color: #a0aec0; }
+        .payment-booking-summary {
+            padding: 14px 16px;
+            background: var(--bg-light, #f7fafc);
+            border-radius: 8px;
+            margin-bottom: 18px;
+            font-size: 0.875rem;
+            color: var(--text-dark, #2d3748);
+            line-height: 1.5;
+        }
+        .payment-booking-summary .payment-summary-row { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid rgba(0,0,0,0.06); align-items: baseline; }
+        .payment-booking-summary .payment-summary-row:last-child { border-bottom: none; padding-bottom: 0; }
+        .payment-booking-summary .payment-summary-row:first-of-type { padding-top: 0; }
+        .payment-booking-summary .sum-label { color: var(--text-light, #718096); flex-shrink: 0; }
+        .payment-booking-summary .sum-value { text-align: right; font-weight: 500; min-width: 0; }
+        .payment-booking-summary .sum-value.payment-summary-title-text {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: min(100%, 18rem);
+        }
+        @media (min-width: 900px) {
+            .payment-booking-summary .sum-value.payment-summary-title-text { max-width: min(100%, 22rem); }
+        }
+        .btn-confirm-pay {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 13px 20px;
+            background: #2d3748;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 4px;
+        }
+        .btn-confirm-pay:hover { background: #1a202c; }
+        .btn-confirm-pay:disabled { opacity: 0.65; cursor: not-allowed; }
+        .payment-placeholder-text { margin-bottom: 16px; color: var(--text-light, #718096); font-size: 0.875rem; }
+        .payment-card-form { display: none; margin-bottom: 0; text-align: left; }
+        .payment-card-form.is-visible { display: block; }
+        .payment-amount-block {
+            text-align: center;
+            padding: 16px 0 18px;
+            margin-bottom: 18px;
+            border-bottom: 1px solid var(--border-color, #e8ecf1);
+        }
+        .payment-checkout-aside .payment-amount-block {
+            margin-top: 8px;
+        }
+        .payment-amount-block .payment-amount-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-light, #718096); margin: 0 0 4px 0; }
+        .payment-amount-block .payment-fee-line { font-size: 1.75rem; font-weight: 700; color: var(--text-dark, #1a202c); margin: 0; letter-spacing: -0.03em; }
+        .payment-sandbox-hint {
+            font-size: 0.75rem; color: var(--text-light, #a0aec0); margin: 0 0 18px 0; line-height: 1.45;
+        }
+        .payment-sandbox-hint code { font-size: 0.72rem; background: var(--bg-light, #edf2f7); padding: 1px 5px; border-radius: 4px; }
+        .payment-field { display: block; margin-bottom: 16px; }
+        .payment-field span { display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-dark, #4a5568); margin-bottom: 6px; }
+        .payment-field input {
+            width: 100%; max-width: 100%; box-sizing: border-box; padding: 11px 12px;
+            border: 1px solid var(--border-color, #cbd5e0); border-radius: 6px;
+            font-size: 1rem; background: var(--bg-card, #fff); color: var(--text-dark, #1a202c);
+        }
+        .payment-field input:focus { outline: none; border-color: var(--primary-color, #2c5f7d); box-shadow: 0 0 0 3px rgba(44, 95, 125, 0.12); }
+        .payment-field-row { display: grid; grid-template-columns: 1fr minmax(7rem, 9rem); gap: 16px 20px; align-items: end; }
+        @media (max-width: 400px) { .payment-field-row { grid-template-columns: 1fr; } }
+        .payment-expiry-group { margin-bottom: 0; }
+        .payment-expiry-inputs {
+            display: flex;
+            align-items: center;
+            border: 1px solid var(--border-color, #cbd5e0);
+            border-radius: 6px;
+            background: var(--bg-card, #fff);
+            overflow: hidden;
+        }
+        .payment-expiry-inputs:focus-within { border-color: var(--primary-color, #2c5f7d); box-shadow: 0 0 0 3px rgba(44, 95, 125, 0.12); }
+        .payment-expiry-inputs input {
+            border: none; border-radius: 0; box-shadow: none; text-align: center;
+            font-size: 1rem; font-variant-numeric: tabular-nums;
+            min-width: 0;
+        }
+        .payment-expiry-inputs input:focus { box-shadow: none; outline: none; }
+        .payment-expiry-inputs #pm-exp-month { flex: 1; max-width: 4.5rem; }
+        .payment-expiry-inputs #pm-exp-year { flex: 1; max-width: 4.5rem; }
+        .payment-expiry-sep {
+            font-size: 1.125rem; font-weight: 500; color: var(--text-light, #a0aec0);
+            user-select: none; padding: 0 2px;
+        }
+        .payment-field-cvc { margin-bottom: 0; }
+        .payment-method-switch {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            margin: 0 0 16px;
+        }
+        .payment-method-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border: 1px solid var(--border-color, #cbd5e0);
+            border-radius: 8px;
+            padding: 10px 12px;
+            cursor: pointer;
+            background: var(--bg-card, #fff);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .payment-method-option:has(input:checked) {
+            border-color: var(--primary-color, #2c5f7d);
+            box-shadow: 0 0 0 2px rgba(44, 95, 125, 0.12);
+        }
+        .payment-method-option input { margin: 0; flex-shrink: 0; }
+        .payment-method-icon-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.25rem;
+            height: 2.25rem;
+            border-radius: 8px;
+            background: var(--bg-light, #edf2f7);
+            color: var(--primary-color, #2c5f7d);
+            flex-shrink: 0;
+        }
+        .payment-method-icon-wrap .fa { font-size: 1.05rem; }
+        .payment-method-icon-wrap--qrph {
+            width: auto;
+            min-width: 4.5rem;
+            max-width: 6rem;
+            height: 2.25rem;
+            padding: 3px 8px;
+            background: #fff;
+            border: 1px solid var(--border-color, #e2e8f0);
+        }
+        .payment-method-qrph-logo {
+            display: block;
+            height: 100%;
+            width: auto;
+            max-width: 100%;
+            object-fit: contain;
+            object-position: left center;
+        }
+        .payment-method-text {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 6px;
+            min-width: 0;
+            flex: 1;
+        }
+        .payment-method-title {
+            font-weight: 600;
+            font-size: 0.9375rem;
+            color: var(--text-dark, #1a202c);
+        }
+        .payment-mode-pill {
+            display: inline-flex;
+            align-items: center;
+            font-size: 0.625rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 4px 9px;
+            border-radius: 999px;
+            line-height: 1.2;
+        }
+        .payment-mode-pill--test {
+            background: #fef3c7;
+            color: #b45309;
+            border: 1px solid #fbbf24;
+        }
+        .payment-mode-pill--live {
+            background: #d1fae5;
+            color: #047857;
+            border: 1px solid #34d399;
+        }
+        .payment-sandbox-hint .payment-mode-pill { vertical-align: middle; margin-right: 2px; }
+        .payment-method-option.is-disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .payment-qr-panel {
+            display: none;
+            border: 1px solid var(--border-color, #e2e8f0);
+            border-radius: 10px;
+            padding: 14px;
+            margin-top: 14px;
+            background: var(--bg-light, #f7fafc);
+            text-align: center;
+        }
+        .payment-qr-panel.is-visible { display: block; }
+        .payment-qr-panel img {
+            width: min(100%, 280px);
+            border-radius: 8px;
+            background: #fff;
+            padding: 8px;
+            border: 1px solid var(--border-color, #e2e8f0);
+        }
+        .payment-qr-note {
+            margin: 8px 0 0;
+            font-size: 0.8125rem;
+            color: var(--text-light, #718096);
+        }
+        .payment-config-warning { padding: 12px 14px; background: #fffbeb; border: 1px solid #f59e0b; border-radius: 8px; font-size: 0.8125rem; color: #92400e; margin-bottom: 14px; }
+        .payment-status-wait { font-size: 0.875rem; color: var(--text-light, #718096); margin-bottom: 14px; }
+        .payment-intent-ref { font-size: 0.75rem; color: var(--text-light, #a0aec0); margin: 0 0 12px 0; line-height: 1.45; word-break: break-all; }
+
+        @media (min-width: 900px) {
+            .content-wrapper.payment-page { padding: 28px 32px 48px; }
+            .payment-card-body { padding: 28px 36px 32px; }
+            .payment-card-header { padding: 24px 36px 20px; }
+            .payment-checkout-columns {
+                display: grid;
+                grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+                gap: 40px 48px;
+                align-items: start;
+            }
+            .payment-checkout-aside {
+                padding: 20px 22px 22px;
+                background: var(--bg-light, #f7fafc);
+                border-radius: 10px;
+                border: 1px solid var(--border-color, #e8ecf1);
+            }
+            .payment-booking-summary {
+                margin-bottom: 0;
+                padding: 0;
+                background: transparent;
+            }
+            .payment-checkout-aside .payment-amount-block {
+                text-align: left;
+                padding: 20px 0 0;
+                margin-top: 16px;
+                margin-bottom: 0;
+                border-bottom: none;
+                border-top: 1px solid var(--border-color, #e2e8f0);
+            }
+            .payment-checkout-aside .payment-amount-block .payment-fee-line { font-size: 2rem; }
+            .payment-checkout-main .payment-card-form.is-visible { margin-top: 0; }
+            .payment-actions { margin-top: 28px; gap: 12px; }
+            .payment-actions .btn-back,
+            .payment-actions .btn-secondary { flex: 0 1 auto; min-width: 180px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar-overlay"></div>
+
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <a href="dashboard.html" class="sidebar-brand">Telehealth</a>
+            <div class="sidebar-tagline">Pet Owner Portal</div>
+        </div>
+        <div class="user-profile">
+            <a href="profile.html" class="user-profile-link">
+                <div class="user-info">
+                    <div class="user-avatar">
+                        <img id="sidebar-avatar-img" class="user-avatar-img is-hidden" alt="Profile photo">
+                        <span class="user-avatar-initials" id="sidebar-avatar">PO</span>
+                    </div>
+                    <div class="user-text">
+                        <div class="user-name" id="sidebar-name">Pet Owner</div>
+                        <div class="user-email"><i class="fa fa-envelope"></i> <span id="sidebar-email">owner@example.com</span></div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item"><i class="fa fa-th-large"></i> Dashboard</a>
+            <a href="appointment.html" class="nav-item active"><i class="fa fa-calendar"></i> Appointments</a>
+            <a href="messages.html" class="nav-item"><i class="fa fa-envelope"></i> Messages</a>
+            <a href="skinDisease.html" class="nav-item"><i class="fa fa-stethoscope"></i> Skin Health</a>
+        </nav>
+        <nav class="footer-nav">
+            <a href="aboutUs.html" class="nav-item"><i class="fa fa-info-circle"></i> About Us</a>
+            <a href="feedback.html" class="nav-item"><i class="fa fa-comment"></i> Feedback</a>
+        </nav>
+        <div class="logout-section">
+            <button id="logout-btn" class="logout-btn"><i class="fa fa-sign-out"></i> Logout</button>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="app-top-header">
+            <div class="header-left">
+                <button class="mobile-menu-toggle" aria-label="Toggle Menu"><i class="fa fa-bars"></i></button>
+                <span class="role-badge"><i class="fa fa-id-badge" aria-hidden="true"></i> Pet Owner</span>
+            </div>
+            <div class="header-right">
+                <button type="button" class="dark-mode-toggle" aria-label="Toggle dark mode"><i class="fa fa-moon-o" aria-hidden="true"></i></button>
+                <button type="button" class="profile-header-btn" aria-label="Profile"><i class="fa fa-user-circle" aria-hidden="true"></i></button>
+            </div>
+        </header>
+
+        <div class="content-wrapper payment-page">
+            <div class="payment-page-inner">
+            <div class="payment-card">
+                <div class="payment-card-header">
+                    <h2 class="payment-card-title">Checkout</h2>
+                </div>
+                <div class="payment-card-body">
+                    <div class="payment-checkout-columns">
+                        <div class="payment-checkout-aside">
+                            <div class="payment-booking-summary" id="payment-booking-summary" style="display: none;"></div>
+                            <div class="payment-amount-block payment-amount-block--aside">
+                                <p class="payment-amount-label">Total due</p>
+                                <p class="payment-fee-line" id="payment-fee-line">PHP 100.00</p>
+                            </div>
+                        </div>
+                        <div class="payment-checkout-main">
+                    <div class="payment-success-badge" id="payment-success-badge" style="display: none;">
+                        <i class="fa fa-check-circle" aria-hidden="true"></i> Payment successful
+                    </div>
+                    <p class="payment-intent-ref" id="payment-intent-ref" style="display: none;" aria-live="polite"></p>
+                    <p class="payment-placeholder-text" id="payment-placeholder-text">Loading...</p>
+                    <div class="payment-config-warning" id="payment-config-warning" style="display: none;" role="alert">
+                        PayMongo is not configured. Set <code>PAYMONGO_SECRET_KEY_TEST</code>, <code>PAYMONGO_SECRET_KEY_LIVE</code>, <code>PAYMONGO_PK_TEST</code>, and <code>PAYMONGO_PK_LIVE</code> in Cloud Functions params, then deploy.
+                    </div>
+                    <p class="payment-status-wait" id="payment-status-wait" style="display: none;" aria-live="polite">Confirming payment...</p>
+                    <form class="payment-card-form" id="payment-card-form" novalidate>
+                        <p class="payment-sandbox-hint" id="payment-sandbox-hint"><span class="payment-mode-pill payment-mode-pill--test">Test only</span> - <code>4343 4343 4343 4345</code> or <code>5555 4444 4444 4457</code> - future MM/YY - any CVC</p>
+                        <div class="payment-method-switch" role="radiogroup" aria-label="Payment method">
+                            <label class="payment-method-option">
+                                <input type="radio" name="payment-method" value="card" checked>
+                                <span class="payment-method-icon-wrap" aria-hidden="true"><i class="fa fa-credit-card"></i></span>
+                                <span class="payment-method-text">
+                                    <span class="payment-method-title">Card</span>
+                                    <span class="payment-mode-pill payment-mode-pill--test">Test only</span>
+                                </span>
+                            </label>
+                            <label class="payment-method-option">
+                                <input type="radio" name="payment-method" value="qrph">
+                                <span class="payment-method-icon-wrap payment-method-icon-wrap--qrph" aria-hidden="true">
+                                    <img src="../../assets/qrph-logo.png" alt="" class="payment-method-qrph-logo" width="88" height="28">
+                                </span>
+                                <span class="payment-method-text">
+                                    <span class="payment-method-title">QR Ph</span>
+                                    <span class="payment-mode-pill payment-mode-pill--live">Live</span>
+                                </span>
+                            </label>
+                        </div>
+                        <label class="payment-field"><span id="pm-name-label">Cardholder name</span><input type="text" id="pm-name" name="cc-name" autocomplete="cc-name" required placeholder="Name on card"></label>
+                        <label class="payment-field"><span id="pm-email-label">Email</span><input type="email" id="pm-email" name="email" autocomplete="email" required placeholder="you@example.com"></label>
+                        <div id="payment-card-fields">
+                            <label class="payment-field"><span>Card number</span><input type="text" id="pm-number" name="cc-number" autocomplete="cc-number" inputmode="numeric" required placeholder="1234 5678 9012 3456"></label>
+                            <div class="payment-field-row">
+                                <label class="payment-field payment-expiry-group">
+                                    <span>Expiry (MM / YY)</span>
+                                    <div class="payment-expiry-inputs" role="group" aria-label="Card expiry">
+                                        <input type="text" id="pm-exp-month" name="cc-exp-month" inputmode="numeric" autocomplete="cc-exp-month" required placeholder="MM" maxlength="2" pattern="[0-9]{1,2}" aria-label="Expiry month">
+                                        <span class="payment-expiry-sep" aria-hidden="true">/</span>
+                                        <input type="text" id="pm-exp-year" name="cc-exp-year" inputmode="numeric" autocomplete="cc-exp-year" required placeholder="YY" maxlength="4" pattern="[0-9]{2,4}" aria-label="Expiry year">
+                                    </div>
+                                </label>
+                                <label class="payment-field payment-field-cvc"><span>CVC</span><input type="text" id="pm-cvc" name="cc-csc" autocomplete="cc-csc" required placeholder="123" maxlength="4" inputmode="numeric"></label>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn-confirm-pay" id="btn-confirm-pay"><i class="fa fa-lock" aria-hidden="true"></i> Pay securely</button>
+                    </form>
+                    <div class="payment-qr-panel" id="payment-qr-panel" aria-live="polite">
+                        <img id="payment-qr-image" alt="QRPh code">
+                        <p class="payment-qr-note" id="payment-qr-note">Scan this QRPh code using your banking or e-wallet app to complete payment.</p>
+                    </div>
+                        </div>
+                    </div>
+                    <div class="payment-actions" id="payment-actions-secondary">
+                        <a href="appointment.html" class="btn-back"><i class="fa fa-arrow-left" aria-hidden="true"></i> Back to Appointments</a>
+                        <a href="dashboard.html" class="btn-secondary"><i class="fa fa-th-large" aria-hidden="true"></i> Dashboard</a>
+                    </div>
+                </div>
+            </div>
+            </div>
+        </div>
+    </main>
+
+    <nav class="bottom-nav" aria-label="Main navigation">
+        <a href="dashboard.html" class="bottom-nav-item" aria-label="Dashboard"><i class="fa fa-th-large"></i></a>
+        <a href="appointment.html" class="bottom-nav-item" aria-label="Appointments"><i class="fa fa-calendar"></i></a>
+        <a href="messages.html" class="bottom-nav-item" aria-label="Messages"><i class="fa fa-comment"></i></a>
+        <a href="skinDisease.html" class="bottom-nav-item" aria-label="Skin Health"><i class="fa fa-stethoscope"></i></a>
+        <a href="profile.html" class="bottom-nav-item" aria-label="Profile"><i class="fa fa-user"></i></a>
+    </nav>
+
+    <script src="../../scripts/core/app/sidebar.js"></script>
+    <script type="module" src="../../scripts/core/authentication/route-guard.js"></script>
+    <script type="module" src="../../scripts/feature/profile/petowner-profile.js"></script>
+    <script type="module" src="../../scripts/feature/payment/payment.js"></script>
+</body>
+</html>

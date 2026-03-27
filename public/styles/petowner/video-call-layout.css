@@ -1,3 +1,4 @@
+@import url('../shared/global-ui-scale.css');
 /* Pet owner — full-screen video call (Teams-like), no sidebar */
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 

@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Model weights are large — use Git LFS for .pth files
+# or exclude them from normal git history
+# *.pth

@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile - Televet Health</title>
+    <link rel="stylesheet" href="../../styles/petowner/sidebar-layout.css">
+    <link rel="stylesheet" href="../../styles/petowner/profile.css">
+    <link rel="stylesheet" href="../../styles/petowner/profile-loading.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link href="https://fonts.googleapis.com/css?family=Lalezar" rel="stylesheet">
+    <style>body { visibility: hidden; }</style>
+</head>
+<body>
+    <div class="profile-loading-overlay loading-animation" aria-hidden="true">
+        <div class="loader">
+            <div class="wrapper">
+                <div class="catContainer">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 733 673" class="catbody">
+                        <path fill="#212121" d="M111.002 139.5C270.502 -24.5001 471.503 2.4997 621.002 139.5C770.501 276.5 768.504 627.5 621.002 649.5C473.5 671.5 246 687.5 111.002 649.5C-23.9964 611.5 -48.4982 303.5 111.002 139.5Z"></path>
+                        <path fill="#212121" d="M184 9L270.603 159H97.3975L184 9Z"></path>
+                        <path fill="#212121" d="M541 0L627.603 150H454.397L541 0Z"></path>
+                    </svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 158 564" class="tail">
+                        <path fill="#191919" d="M5.97602 76.066C-11.1099 41.6747 12.9018 0 51.3036 0V0C71.5336 0 89.8636 12.2558 97.2565 31.0866C173.697 225.792 180.478 345.852 97.0691 536.666C89.7636 553.378 73.0672 564 54.8273 564V564C16.9427 564 -5.4224 521.149 13.0712 488.085C90.2225 350.15 87.9612 241.089 5.97602 76.066Z"></path>
+                    </svg>
+                    <div class="text"><span class="bigzzz">Z</span><span class="zzz">Z</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="sidebar-overlay"></div>
+
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <a href="dashboard.html" class="sidebar-brand">Telehealth</a>
+            <div class="sidebar-tagline">Pet Owner Portal</div>
+        </div>
+        <div class="user-profile">
+            <a href="profile.html" class="user-profile-link">
+                <div class="user-info">
+                    <div class="user-avatar">
+                        <img id="sidebar-avatar-img" class="user-avatar-img is-hidden" alt="Profile photo">
+                        <span class="user-avatar-initials" id="sidebar-avatar">PO</span>
+                    </div>
+                    <div class="user-text">
+                        <div class="user-name" id="sidebar-name">Pet Owner</div>
+                        <div class="user-email"><i class="fa fa-envelope"></i> <span id="sidebar-email">owner@example.com</span></div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item"><i class="fa fa-th-large"></i> Dashboard</a>
+            <a href="appointment.html" class="nav-item"><i class="fa fa-calendar"></i> Appointments</a>
+            <a href="messages.html" class="nav-item"><i class="fa fa-envelope"></i> Messages</a>
+            <a href="skinDisease.html" class="nav-item"><i class="fa fa-stethoscope"></i> Skin Health</a>
+        </nav>
+        <nav class="footer-nav">
+            <a href="aboutUs.html" class="nav-item"><i class="fa fa-info-circle"></i> About Us</a>
+            <a href="feedback.html" class="nav-item"><i class="fa fa-comment"></i> Feedback</a>
+        </nav>
+        <div class="logout-section">
+            <button id="logout-btn" class="logout-btn"><i class="fa fa-sign-out"></i> Logout</button>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="app-top-header">
+            <div class="header-left">
+                <button class="mobile-menu-toggle" aria-label="Toggle Menu"><i class="fa fa-bars"></i></button>
+                <span class="role-badge"><i class="fa fa-id-badge" aria-hidden="true"></i> Pet Owner</span>
+            </div>
+            <div class="header-right">
+                <button type="button" class="dark-mode-toggle" aria-label="Toggle dark mode"><i class="fa fa-moon-o" aria-hidden="true"></i></button>
+                <button type="button" class="profile-header-btn" aria-label="Profile"><i class="fa fa-user-circle" aria-hidden="true"></i></button>
+            </div>
+        </header>
+        <div class="content-wrapper profile-page">
+            <div class="content-loading-overlay loading-animation" aria-hidden="true">
+                <div class="loader">
+                    <div class="wrapper">
+                        <div class="catContainer">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 733 673" class="catbody">
+                                <path fill="#212121" d="M111.002 139.5C270.502 -24.5001 471.503 2.4997 621.002 139.5C770.501 276.5 768.504 627.5 621.002 649.5C473.5 671.5 246 687.5 111.002 649.5C-23.9964 611.5 -48.4982 303.5 111.002 139.5Z"></path>
+                                <path fill="#212121" d="M184 9L270.603 159H97.3975L184 9Z"></path>
+                                <path fill="#212121" d="M541 0L627.603 150H454.397L541 0Z"></path>
+                            </svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 158 564" class="tail">
+                                <path fill="#191919" d="M5.97602 76.066C-11.1099 41.6747 12.9018 0 51.3036 0V0C71.5336 0 89.8636 12.2558 97.2565 31.0866C173.697 225.792 180.478 345.852 97.0691 536.666C89.7636 553.378 73.0672 564 54.8273 564V564C16.9427 564 -5.4224 521.149 13.0712 488.085C90.2225 350.15 87.9612 241.089 5.97602 76.066Z"></path>
+                            </svg>
+                            <div class="text"><span class="bigzzz">Z</span><span class="zzz">Z</span></div>
+                        </div>
+                        <div class="wallContainer">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 500 126" class="wall">
+                                <line stroke-width="6" stroke="#7C7C7C" y2="3" x2="450" y1="3" x1="50"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="85" x2="400" y1="85" x1="100"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="122" x2="375" y1="122" x1="125"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="43" x2="500" y1="43"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="1.99391" x2="115.5" y1="43.0061" x1="115.5"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="2.00002" x2="189" y1="43.0122" x1="189"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="2.00612" x2="262.5" y1="43.0183" x1="262.5"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="2.01222" x2="336" y1="43.0244" x1="336"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="2.01833" x2="409.5" y1="43.0305" x1="409.5"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="43" x2="153" y1="84.0122" x1="153"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="43" x2="228" y1="84.0122" x1="228"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="43" x2="303" y1="84.0122" x1="303"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="43" x2="378" y1="84.0122" x1="378"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="84" x2="192" y1="125.012" x1="192"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="84" x2="267" y1="125.012" x1="267"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="84" x2="342" y1="125.012" x1="342"></line>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <section class="profile-section" aria-label="Profile">
+                <div class="profile-card profile-card-main">
+                    <div class="profile-card-header">
+                        <div class="profile-header-left">
+                            <div class="profile-avatar">
+                                <img id="profile-photo" class="profile-photo is-hidden" alt="Profile photo">
+                                <div id="profile-photo-placeholder" class="profile-photo-placeholder" aria-hidden="true"></div>
+                            </div>
+                            <div class="profile-header-info">
+                                <p id="profile-name" class="profile-display-name">Pet Owner</p>
+                                <p id="profile-role" class="profile-display-role">Pet Owner</p>
+                            </div>
+                        </div>
+                        <button type="button" id="btn-edit-profile" class="btn-edit-profile"><i class="fa fa-pencil"></i> Edit Profile</button>
+                    </div>
+                    <p id="profile-bio-view" class="field-value-bio">—</p>
+                    <div class="profile-info-grid">
+                        <div class="info-row">
+                            <span class="info-label">Full Name</span>
+                            <span id="profile-name-grid" class="info-value">Pet Owner</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Email Address</span>
+                            <span id="profile-email" class="info-value">owner@example.com</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Role</span>
+                            <span id="profile-role-grid" class="info-value">Pet Owner</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Member Since</span>
+                            <span id="profile-created" class="info-value">—</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Address</span>
+                            <span id="profile-address-view" class="info-value">—</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Phone</span>
+                            <span id="profile-phone-view" class="info-value">—</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div id="edit-profile-modal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title">
+                <div class="modal-content modal-edit-profile">
+                    <h2 id="edit-modal-title" class="modal-title">Edit Profile</h2>
+                    <div class="modal-body">
+                        <div class="edit-modal-photo">
+                            <div class="profile-avatar profile-avatar-modal">
+                                <img id="edit-profile-photo" class="profile-photo is-hidden" alt="Profile photo">
+                                <div id="edit-profile-photo-placeholder" class="profile-photo-placeholder" aria-hidden="true"></div>
+                            </div>
+                            <div class="profile-photo-actions">
+                                <button type="button" id="btn-change-photo" class="btn-photo-action" aria-label="Change photo"><i class="fa fa-camera"></i> Change</button>
+                                <button type="button" id="btn-remove-photo" class="btn-photo-action btn-photo-action-remove" aria-label="Remove photo"><i class="fa fa-trash-o"></i> Remove</button>
+                                <button type="button" id="btn-use-email-photo" class="btn-photo-action btn-photo-action-email is-hidden" aria-label="Use email photo"><i class="fa fa-google"></i> Use email photo</button>
+                            </div>
+                            <input type="file" id="profile-photo-input" accept="image/*" class="profile-photo-input" aria-hidden="true">
+                        </div>
+                        <div class="field-group">
+                            <textarea id="profile-bio" class="field-input field-textarea" rows="3" placeholder="A short description about yourself..." maxlength="150"></textarea>
+                            <span class="field-hint"><span id="bio-char-count">0</span>/150</span>
+                        </div>
+                        <div class="field-group">
+                            <label class="field-label" for="profile-address">Address <span class="optional">(optional)</span></label>
+                            <input type="text" id="profile-address" class="field-input" placeholder="Your address">
+                        </div>
+                        <div class="field-group">
+                            <label class="field-label" for="profile-phone">Phone <span class="optional">(optional)</span></label>
+                            <input type="tel" id="profile-phone" class="field-input" placeholder="Your phone number">
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" id="btn-cancel-edit" class="btn-secondary">Cancel</button>
+                        <button type="button" id="btn-save-profile" class="btn-primary">Save Changes</button>
+                    </div>
+                </div>
+            </div>
+
+            <section class="profile-section" aria-label="Security">
+                <h2 class="section-title"><i class="fa fa-lock"></i> Security</h2>
+                <div class="profile-card profile-card-security">
+                    <div class="security-block">
+                        <h3 class="section-subtitle">Change Password</h3>
+                        <button type="button" id="btn-reveal-change-password" class="btn-secondary">Change Password</button>
+                        <div id="change-password-form-wrap" class="is-hidden" aria-hidden="true">
+                            <form id="form-change-password" class="form-security">
+                                <div class="field-group">
+                                    <label class="field-label" for="current-password">Current Password</label>
+                                    <input type="password" id="current-password" class="field-input" placeholder="Enter current password" required autocomplete="current-password">
+                                </div>
+                                <div class="field-group">
+                                    <label class="field-label" for="new-password">New Password</label>
+                                    <input type="password" id="new-password" class="field-input" placeholder="Enter new password (min 6 characters)" required minlength="6" autocomplete="new-password">
+                                </div>
+                                <div class="field-group">
+                                    <label class="field-label" for="confirm-password">Confirm New Password</label>
+                                    <input type="password" id="confirm-password" class="field-input" placeholder="Confirm new password" required minlength="6" autocomplete="new-password">
+                                </div>
+                                <div class="form-actions-inline">
+                                    <button type="submit" id="btn-change-password" class="btn-primary">Update Password</button>
+                                    <button type="button" id="btn-cancel-change-password" class="btn-secondary">Cancel</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="security-block security-block-danger">
+                        <h3 class="section-subtitle">Delete Account</h3>
+                        <p class="danger-text">Permanently delete your account and all associated data. This action cannot be undone.</p>
+                        <button type="button" id="btn-delete-account" class="btn-danger">Delete Account</button>
+                    </div>
+                </div>
+            </section>
+
+            <div id="delete-account-modal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+                <div class="modal-content">
+                    <h2 id="modal-title" class="modal-title">Delete Account</h2>
+                    <div class="modal-body">
+                        <div class="modal-warning">
+                            <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+                            <p><strong>This action cannot be undone.</strong> All your data, including appointments, messages, and profile information will be permanently deleted.</p>
+                            <p>Are you sure you want to delete your account?</p>
+                        </div>
+                        <div class="field-group">
+                            <label class="field-label" for="delete-password">Enter your password to confirm</label>
+                            <input type="password" id="delete-password" class="field-input" placeholder="Your password" autocomplete="current-password">
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" id="btn-modal-cancel" class="btn-secondary">Cancel</button>
+                        <button type="button" id="btn-modal-confirm-delete" class="btn-danger">Delete My Account</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <nav class="bottom-nav" aria-label="Main navigation">
+        <a href="dashboard.html" class="bottom-nav-item" aria-label="Dashboard"><i class="fa fa-th-large"></i></a>
+        <a href="appointment.html" class="bottom-nav-item" aria-label="Appointments"><i class="fa fa-calendar"></i></a>
+        <a href="messages.html" class="bottom-nav-item" aria-label="Messages"><i class="fa fa-comment"></i></a>
+        <a href="skinDisease.html" class="bottom-nav-item" aria-label="Skin Health"><i class="fa fa-stethoscope"></i></a>
+        <a href="profile.html" class="bottom-nav-item" aria-label="Profile"><i class="fa fa-user"></i></a>
+    </nav>
+
+    <script src="../../scripts/core/app/sidebar.js"></script>
+    <script type="module" src="../../scripts/core/authentication/route-guard.js"></script>
+    <script type="module" src="../../scripts/feature/profile/petowner-profile.js"></script>
+</body>
+</html>
