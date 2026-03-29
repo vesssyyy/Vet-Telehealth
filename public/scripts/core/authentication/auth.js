@@ -8,6 +8,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
 import { initPasswordToggleFields } from '../app/password-toggle.js';
+import { appAlert, appAlertError } from '../ui/app-dialog.js';
 
 (function () {
     'use strict';
@@ -121,14 +122,15 @@ import { initPasswordToggleFields } from '../app/password-toggle.js';
                 userDoc = await getDoc(doc(db, 'users', user.uid));
             } catch (err) {
                 console.error('User profile creation error:', err);
-                return alert('Profile creation failed. Please try again or contact support.');
+                await appAlertError('Profile creation failed. Please try again or contact support.');
+                return;
             }
         }
         if (user.emailVerified && !userDoc.data().emailVerified) await syncEmailVerification(user.uid);
         const { role, disabled } = userDoc.data();
         if (disabled) {
             await signOut(auth);
-            alert('Your account has been disabled. Please contact support.');
+            await appAlertError('Your account has been disabled. Please contact support.');
             return;
         }
         try {
@@ -157,10 +159,10 @@ import { initPasswordToggleFields } from '../app/password-toggle.js';
 
     const createAccount = async () => {
         const [fname, lname, pass, confirm, email] = ['signup_fname', 'signup_lname', 'signup_pass', 'signup_confirm', 'signup_email'].map(id => $(id).value.trim());
-        if (!fname || !lname) return alert('Please enter your full name.');
-        if (!pass || pass.length < 6) return alert('Password must be at least 6 characters.');
-        if (pass !== confirm) return alert('Passwords do not match.');
-        if (!email) return alert('Please enter your email.');
+        if (!fname || !lname) { await appAlertError('Please enter your full name.'); return; }
+        if (!pass || pass.length < 6) { await appAlertError('Password must be at least 6 characters.'); return; }
+        if (pass !== confirm) { await appAlertError('Passwords do not match.'); return; }
+        if (!email) { await appAlertError('Please enter your email.'); return; }
 
         await withButtonState($('btn-create-account'), 'Creating Account...', async () => {
             sessionStorage.setItem('telehealthSignupPending', 'true');
@@ -175,7 +177,7 @@ import { initPasswordToggleFields } from '../app/password-toggle.js';
                 await auth.signOut();
             } catch (error) {
                 console.error('Sign-up error:', error);
-                alert(authErrorMessage(error) || 'Sign-up failed. Please try again.');
+                await appAlertError(authErrorMessage(error) || 'Sign-up failed. Please try again.');
                 if (auth.currentUser) await auth.signOut();
             } finally {
                 sessionStorage.removeItem('telehealthSignupPending');
@@ -201,7 +203,7 @@ import { initPasswordToggleFields } from '../app/password-toggle.js';
             } catch (error) {
                 isGoogleSignInInProgress = false;
                 console.error('Google sign-in error:', error);
-                alert(authErrorMessage(error) || `Google sign-in failed: ${error.message}`);
+                await appAlertError(authErrorMessage(error) || `Google sign-in failed: ${error.message}`);
             }
         });
     };
@@ -209,33 +211,33 @@ import { initPasswordToggleFields } from '../app/password-toggle.js';
     const handleLogin = async (e) => {
         e.preventDefault();
         const [email, password] = ['login_email', 'login_pass'].map(id => $(id).value.trim());
-        if (!email || !password) return alert('Please enter both email and password.');
+        if (!email || !password) { await appAlertError('Please enter both email and password.'); return; }
         await withButtonState(e.target.querySelector('button[type="submit"]'), 'Logging in...', async () => {
             try {
                 const { user } = await signInWithEmailAndPassword(auth, email, password);
                 if (!user.emailVerified) {
-                    alert('Please verify your email before logging in.');
+                    await appAlertError('Please verify your email before logging in.');
                     return await auth.signOut();
                 }
                 await handleAuthenticatedUser(user);
             } catch (error) {
                 console.error('Login error:', error);
-                alert(authErrorMessage(error) || `Login failed: ${error.message}`);
+                await appAlertError(authErrorMessage(error) || `Login failed: ${error.message}`);
             }
         });
     };
 
     const handlePasswordReset = async () => {
         const email = $('forgot_email').value.trim();
-        if (!email) return alert('Please enter your email address.');
+        if (!email) { await appAlertError('Please enter your email address.'); return; }
         await withButtonState($('btn-send-reset'), 'Sending...', async () => {
             try {
                 await sendPasswordResetEmail(auth, email);
-                alert('If an account exists with this email, a reset link has been sent.');
+                await appAlert('If an account exists with this email, a reset link has been sent.');
                 showTab('login');
             } catch (error) {
                 console.error('Password reset error:', error);
-                alert(authErrorMessage(error) || 'If an account exists with this email, a reset link has been sent.');
+                await appAlert(authErrorMessage(error) || 'If an account exists with this email, a reset link has been sent.');
             }
         });
     };
@@ -270,7 +272,7 @@ import { initPasswordToggleFields } from '../app/password-toggle.js';
         const role = data.role || 'petOwner';
         if (data.disabled) {
             await signOut(auth);
-            alert('Your account has been disabled. Please contact support.');
+            await appAlertError('Your account has been disabled. Please contact support.');
             return;
         }
         try {
@@ -288,7 +290,7 @@ import { initPasswordToggleFields } from '../app/password-toggle.js';
         if (isVerificationRedirect && user) {
             await user.reload();
             if (auth.currentUser.emailVerified && await syncEmailVerification(user.uid)) {
-                alert('Email verified successfully! You can now log in.');
+                await appAlert('Email verified successfully! You can now log in.');
                 window.history.replaceState({}, document.title, window.location.pathname);
                 await redirectBasedOnRole(user);
             }

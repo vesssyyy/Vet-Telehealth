@@ -86,6 +86,8 @@ export function initVideoCallPage(options = {}) {
     const statusEl = $('call-status');
     const waitingEl = $('waiting-message');
     const connectedEl = $('connected-message');
+    /** Cleared when returning to waiting, on error, or media cleanup. */
+    let connectedLabelHideTimeoutId = null;
 
     const container    = $('video-call-container');
     const convoPanel   = $('video-call-convo-panel');
@@ -143,6 +145,10 @@ export function initVideoCallPage(options = {}) {
 
     const setStatus = text => { if (statusEl) statusEl.textContent = text; };
     function showError(msg) {
+        if (connectedLabelHideTimeoutId) {
+            clearTimeout(connectedLabelHideTimeoutId);
+            connectedLabelHideTimeoutId = null;
+        }
         setStatus(msg);
         waitingEl?.classList.add('is-hidden');
         connectedEl?.classList.add('is-hidden');
@@ -348,9 +354,23 @@ export function initVideoCallPage(options = {}) {
             return `${user.uid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         }
 
+        const CONNECTED_LABEL_VISIBLE_MS = 3000;
+
         function setWaiting(show) {
             waitingEl?.classList.toggle('is-hidden', !show);
-            connectedEl?.classList.toggle('is-hidden', show);
+            if (connectedLabelHideTimeoutId) {
+                clearTimeout(connectedLabelHideTimeoutId);
+                connectedLabelHideTimeoutId = null;
+            }
+            if (show) {
+                connectedEl?.classList.add('is-hidden');
+            } else {
+                connectedEl?.classList.remove('is-hidden');
+                connectedLabelHideTimeoutId = setTimeout(() => {
+                    connectedEl?.classList.add('is-hidden');
+                    connectedLabelHideTimeoutId = null;
+                }, CONNECTED_LABEL_VISIBLE_MS);
+            }
         }
 
         function setVisiblePhaseMessage(text, iconClass = 'fa-clock-o') {
@@ -515,6 +535,10 @@ export function initVideoCallPage(options = {}) {
 
         /** Stop media tracks, close peer connection, clear videos, clear timer. */
         function cleanupLocalMedia() {
+            if (connectedLabelHideTimeoutId) {
+                clearTimeout(connectedLabelHideTimeoutId);
+                connectedLabelHideTimeoutId = null;
+            }
             if (establishTimeoutId) { clearTimeout(establishTimeoutId); establishTimeoutId = null; }
             clearAutoReconnectTimer();
             if (callDurationInterval) { clearInterval(callDurationInterval); callDurationInterval = null; }

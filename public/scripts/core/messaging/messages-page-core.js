@@ -10,6 +10,7 @@ import {
     validateAttachment, getAttachmentKind,
     uploadMessageAttachment, renderAttachment,
 } from './attachments.js';
+import { appAlertError } from '../ui/app-dialog.js';
 import {
     formatBubbleTimestamp,
     renderMessageStatusIcon as renderMessageStatusIconCore,
@@ -331,7 +332,7 @@ export function createMessaging(config) {
             }
         } catch (err) {
             console.error('Send message error:', err);
-            alert(err?.message || 'Failed to send message.');
+            await appAlertError(err?.message || 'Failed to send message.');
             clearTimeout(safetyTimer);
             resetSending();
         }

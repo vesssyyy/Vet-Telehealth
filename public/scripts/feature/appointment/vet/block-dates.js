@@ -1,3 +1,5 @@
+import { appConfirm } from '../../../core/ui/app-dialog.js';
+
 export function createBlockDatesApi(ctx) {
     const {
         $, auth, escapeHtml, scheduleDoc, setDoc, deleteDoc, toLocalDateString, formatDisplayDate,
@@ -118,7 +120,7 @@ export function createBlockDatesApi(ctx) {
     async function unblockDate(dateStr) {
         const user = auth.currentUser;
         if (!user || !dateStr) return;
-        if (!confirm(`Unblock ${formatDisplayDate(dateStr)}? The date will be cleared and can receive templates again.`)) return;
+        if (!(await appConfirm(`Unblock ${formatDisplayDate(dateStr)}? The date will be cleared and can receive templates again.`, { confirmText: 'Yes', cancelText: 'No' }))) return;
         try {
             await deleteDoc(scheduleDoc(user.uid, dateStr));
             showToast('Date unblocked.');

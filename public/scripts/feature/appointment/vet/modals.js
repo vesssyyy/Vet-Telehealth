@@ -1,3 +1,5 @@
+import { appAlertError, appConfirm } from '../../../core/ui/app-dialog.js';
+
 export function registerModalEvents(ctx) {
     const {
         $, onOverlayClick, detailsApi, editDayApi, currentDetailsAptRef,
@@ -189,7 +191,7 @@ export function createEditDayApi(ctx) {
                 showEditDayError(`All slots are within the minimum advance (${formatMinutesForDisplay(minAdvance)}) or in the past. Add slots that are at least ${formatMinutesForDisplay(minAdvance)} from now.`);
                 return;
             }
-            if (!confirm('Remove all slots for this date? The date will be removed from your schedule.')) return;
+            if (!(await appConfirm('Remove all slots for this date? The date will be removed from your schedule.', { confirmText: 'Yes', cancelText: 'No' }))) return;
         } else if (removedCount > 0) {
             showToast(`${removedCount} slot(s) skipped (within minimum advance or in the past).`);
         }
@@ -511,7 +513,7 @@ export function createDetailsApi(ctx) {
                     fillDetailsModalFromSlotData(aptId, slotDataFromRow);
                     setDetailsModalVisible(true);
                 } else {
-                    alert('Appointment not found.');
+                    await appAlertError('Appointment not found.');
                 }
                 return;
             }
@@ -524,7 +526,7 @@ export function createDetailsApi(ctx) {
                 fillDetailsModalFromSlotData(aptId, slotDataFromRow);
                 setDetailsModalVisible(true);
             } else {
-                alert('Could not load appointment details. Please try again.');
+                await appAlertError('Could not load appointment details. Please try again.');
             }
         }
     }
@@ -607,11 +609,11 @@ export function createBookingSettingsApi(ctx) {
         setTimeout(() => $('min-advance-value')?.focus(), 100);
     }
 
-    function closeBookingSettingsModal(discardConfirm = false) {
+    async function closeBookingSettingsModal(discardConfirm = false) {
         const inputMins = getMinAdvanceFromInputs();
         const savedMins = getMinAdvanceMinutes();
         const hasChanges = inputMins !== null && inputMins !== savedMins;
-        if (discardConfirm && hasChanges && !confirm('Discard unsaved changes?')) return;
+        if (discardConfirm && hasChanges && !(await appConfirm('Discard unsaved changes?', { confirmText: 'Yes', cancelText: 'No' }))) return;
         updateMinAdvanceInputs();
         setModalVisible('booking-settings-overlay', 'booking-settings-modal', false);
     }
@@ -628,18 +630,18 @@ export function createBookingSettingsApi(ctx) {
         }
         const currentVal = getMinAdvanceMinutes();
         if (val === currentVal) {
-            closeBookingSettingsModal();
+            await closeBookingSettingsModal();
             return;
         }
         const label = formatMinutesForDisplay(val);
-        if (!confirm(`Save booking setting to "${label}"? Slots within this window will be deleted from your schedule and cannot be booked.`)) return;
+        if (!(await appConfirm(`Save booking setting to "${label}"? Slots within this window will be deleted from your schedule and cannot be booked.`, { confirmText: 'Yes', cancelText: 'No' }))) return;
         const saveBtn = $('booking-settings-save-btn');
         const errEl = $('booking-settings-error');
         if (saveBtn) saveBtn.disabled = true;
         if (errEl) { errEl.textContent = ''; errEl.classList.add('is-hidden'); }
         try {
             await saveVetSettings(val);
-            closeBookingSettingsModal();
+            await closeBookingSettingsModal();
             updateCurrentAdvanceDisplay();
             invalidateSchedulesCache();
             await recalcExpiryForFutureSlots();

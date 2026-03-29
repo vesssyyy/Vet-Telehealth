@@ -76,7 +76,7 @@
             <a href="dashboard.html" class="nav-item active"><i class="fa fa-th-large"></i> Dashboard</a>
             <a href="appointment.html" class="nav-item"><i class="fa fa-calendar"></i> Appointments</a>
             <a href="messages.html" class="nav-item"><i class="fa fa-envelope"></i> Messages</a>
-            <a href="skinDisease.html" class="nav-item"><i class="fa fa-stethoscope"></i> Skin Health</a>
+            <a href="skinDisease.html" class="nav-item"><i class="fa fa-stethoscope"></i> Skin Health Analysis</a>
         </nav>
         <nav class="footer-nav">
             <a href="aboutUs.html" class="nav-item"><i class="fa fa-info-circle"></i> About Us</a>
@@ -222,7 +222,7 @@
         <a href="dashboard.html" class="bottom-nav-item" aria-label="Dashboard"><i class="fa fa-th-large"></i></a>
         <a href="appointment.html" class="bottom-nav-item" aria-label="Appointments"><i class="fa fa-calendar"></i></a>
         <a href="messages.html" class="bottom-nav-item" aria-label="Messages"><i class="fa fa-comment"></i></a>
-        <a href="skinDisease.html" class="bottom-nav-item" aria-label="Skin Health"><i class="fa fa-stethoscope"></i></a>
+        <a href="skinDisease.html" class="bottom-nav-item" aria-label="Skin Health Analysis"><i class="fa fa-stethoscope"></i></a>
         <a href="profile.html" class="bottom-nav-item" aria-label="Profile"><i class="fa fa-user"></i></a>
     </nav>
 
@@ -265,18 +265,26 @@
                 </div>
                 <div class="add-pet-field">
                     <label for="add-pet-species">Species <span class="required">*</span></label>
-                    <select id="add-pet-species" name="species" required>
-                        <option value="">Select species…</option>
+                    <select id="add-pet-species" name="species" required aria-label="Species">
+                        <option value="" disabled hidden selected>Select species…</option>
+                        <option value="Dog">Dog</option>
+                        <option value="Cat">Cat</option>
                     </select>
                 </div>
-                <div class="add-pet-field">
-                    <label for="add-pet-breed">Breed</label>
-                    <input type="text" id="add-pet-breed" name="breed" placeholder="e.g. Golden Retriever" autocomplete="off">
+                <div class="add-pet-field" id="add-pet-breed-field">
+                    <label for="add-pet-breed-select">Breed</label>
+                    <select id="add-pet-breed-select" name="breedSelect" aria-label="Breed">
+                        <option value=""></option>
+                    </select>
+                    <div id="add-pet-breed-other-wrap" class="add-pet-breed-other-wrap" hidden>
+                        <label for="add-pet-breed-other" class="add-pet-breed-other-label">Specify breed</label>
+                        <input type="text" id="add-pet-breed-other" name="breedOther" autocomplete="off">
+                    </div>
                 </div>
                 <div class="add-pet-field">
                     <label for="add-pet-sex">Sex</label>
-                    <select id="add-pet-sex" name="sex">
-                        <option value="">Select…</option>
+                    <select id="add-pet-sex" name="sex" aria-label="Sex">
+                        <option value="" disabled hidden selected>Select sex…</option>
                         <option value="Male">Male</option>
                         <option value="Female">Female</option>
                     </select>

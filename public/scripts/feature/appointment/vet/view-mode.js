@@ -1,3 +1,5 @@
+import { appConfirm } from '../../../core/ui/app-dialog.js';
+
 export function registerViewModeEvents(ctx) {
     const {
         $, getTodayDateString, getWeekRangeForFilter, getActiveSlotFilter,
@@ -85,7 +87,7 @@ export function registerViewModeEvents(ctx) {
     });
 
     $('schedules-delete-all-expired-btn')?.addEventListener('click', async () => {
-        if (!confirm('Permanently delete all expired slot records? This cannot be undone.')) return;
+        if (!(await appConfirm('Permanently delete all expired slot records? This cannot be undone.', { confirmText: 'Yes', cancelText: 'No' }))) return;
         const btn = $('schedules-delete-all-expired-btn');
         if (btn) btn.disabled = true;
         try {

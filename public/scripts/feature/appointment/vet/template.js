@@ -1,3 +1,5 @@
+import { appConfirm } from '../../../core/ui/app-dialog.js';
+
 export function registerTemplateEvents(ctx) {
     const {
         $, onOverlayClick,
@@ -592,8 +594,8 @@ export function createTemplateApi(ctx) {
         }).finally(() => { if (saveBtn) saveBtn.disabled = false; });
     }
 
-    function deleteTemplate(template, loadTemplates) {
-        if (!confirm(`Delete template "${template.name || 'Unnamed'}"? This cannot be undone.`)) return;
+    async function deleteTemplate(template, loadTemplates) {
+        if (!(await appConfirm(`Delete template "${template.name || 'Unnamed'}"? This cannot be undone.`, { confirmText: 'Yes', cancelText: 'No' }))) return;
         const user = auth.currentUser;
         if (!user) return;
         deleteDoc(templateDoc(user.uid, template.id))

@@ -19,7 +19,11 @@ initProfile({
         bio:       data.bio       || '',
         address:   data.address   || '',
         phone:     data.phone     || '',
+        specialization: data.specialization   || '',
+        licenseNumber:  data.licenseNumber    || '',
     }),
+
+    extraFallbackFields: { specialization: '', licenseNumber: '' },
 
     getRole: () => 'Veterinarian',
 });

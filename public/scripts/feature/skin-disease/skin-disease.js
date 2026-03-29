@@ -90,6 +90,9 @@
         document.querySelectorAll('.skin-step[data-skin-step]').forEach(function (li) {
             var n = parseInt(li.getAttribute('data-skin-step'), 10);
             li.classList.toggle('is-active', n === activeStep);
+            li.classList.toggle('is-complete', n < activeStep);
+            if (n === activeStep) li.setAttribute('aria-current', 'step');
+            else li.removeAttribute('aria-current');
         });
     }
 

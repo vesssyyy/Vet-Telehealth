@@ -1,4 +1,5 @@
 import { app, auth } from '../../core/firebase/firebase-config.js';
+import { appAlertError } from '../../core/ui/app-dialog.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js';
 import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-functions.js';
 import { createAppointment, markAppointmentPaid } from '../appointment/petowner/services.js';
@@ -465,7 +466,7 @@ async function handlePayMongoReturn() {
     } catch (e) {
         console.error(e);
         if (statusWait) statusWait.style.display = 'none';
-        alert(formatPaymentError(e) || 'Payment confirmation failed.');
+        await appAlertError(formatPaymentError(e) || 'Payment confirmation failed.');
     }
 }
 
@@ -490,12 +491,12 @@ if (params.get('booking') === '1') {
                     if (paymentForm) {
                         var methodInputs = document.querySelectorAll('input[name="payment-method"]');
                         for (var i = 0; i < methodInputs.length; i++) {
-                            methodInputs[i].addEventListener('change', function () {
+                            methodInputs[i].addEventListener('change', async function () {
                                 if (qrSessionLocked && this.value !== 'qrph') {
                                     this.checked = false;
                                     var qrRadio = document.querySelector('input[name="payment-method"][value="qrph"]');
                                     if (qrRadio) qrRadio.checked = true;
-                                    alert('QR payment is still active. Please wait for success or expiration before switching methods.');
+                                    await appAlertError('QR payment is still active. Please wait for success or expiration before switching methods.');
                                     return;
                                 }
                                 clearQrPanel();
@@ -521,7 +522,7 @@ if (params.get('booking') === '1') {
                             var method = selectedPaymentMethod();
                             var keyForMethod = method === 'qrph' ? paymongoClientKeys.qrph : paymongoClientKeys.card;
                             if (!isValidPublishableKeyForMethod(method, keyForMethod)) {
-                                alert(method === 'qrph'
+                                await appAlertError(method === 'qrph'
                                     ? 'QRPh live key is not configured. Contact support.'
                                     : 'Card test key is not configured. Contact support.');
                                 return;
@@ -531,20 +532,20 @@ if (params.get('booking') === '1') {
                                 await runPayMongoThenBook(booking);
                             } catch (e) {
                                 console.error(e);
-                                alert(formatPaymentError(e) || 'Payment failed. Please try again.');
+                                await appAlertError(formatPaymentError(e) || 'Payment failed. Please try again.');
                             } finally {
                                 setPayButtonLoading(false);
                             }
                         });
                     }
-                }).catch(function (e) {
+                }).catch(async function (e) {
                     if (placeholderText) {
                         placeholderText.textContent = 'Complete payment below once PayMongo keys are configured.';
                         placeholderText.style.display = 'block';
                     }
                     if (paymentForm) paymentForm.classList.remove('is-visible');
                     if (configWarning) configWarning.style.display = 'block';
-                    alert(formatPaymentError(e) || 'PayMongo client keys are not configured.');
+                    await appAlertError(formatPaymentError(e) || 'PayMongo client keys are not configured.');
                 });
             }
         } catch (e) {

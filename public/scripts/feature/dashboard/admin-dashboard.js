@@ -3,6 +3,7 @@ import { app, auth } from '../../core/firebase/firebase-config.js';
 import { escapeHtml } from '../../core/app/utils.js';
 import { initPasswordToggleFields } from '../../core/app/password-toggle.js';
 import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-functions.js';
+import { appAlertError, appConfirm } from '../../core/ui/app-dialog.js';
 
 (function () {
     'use strict';
@@ -182,7 +183,7 @@ import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/
     async function toggleDisabled(u) {
         const newDisabled = !u.disabled;
         const action = newDisabled ? 'disable' : 'enable';
-        if (!confirm(`${action === 'disable' ? 'Disable' : 'Enable'} "${nameOf(u)}"?`)) return;
+        if (!(await appConfirm(`${action === 'disable' ? 'Disable' : 'Enable'} "${nameOf(u)}"?`, { confirmText: 'Yes', cancelText: 'No' }))) return;
         try {
             await callables.disableUser({ uid: u.id, disabled: newDisabled });
             u.disabled = newDisabled;
@@ -190,7 +191,7 @@ import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/
             loadReport();
         } catch (e) {
             console.error(e);
-            alert(e.message || 'Action failed.');
+            await appAlertError(e.message || 'Action failed.');
         }
     }
     function openModal(u) {
@@ -221,7 +222,7 @@ import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/
     }
     async function doDelete() {
         if (!currentUser) return;
-        if (!confirm(`Permanently delete "${nameOf(currentUser)}"? This removes their account and all related data. This cannot be undone.`)) return;
+        if (!(await appConfirm(`Permanently delete "${nameOf(currentUser)}"? This removes their account and all related data. This cannot be undone.`, { confirmText: 'Yes', cancelText: 'No' }))) return;
         const uidToRemove = currentUser.id;
         try {
             await callables.deleteUser({ uid: uidToRemove });
@@ -231,7 +232,7 @@ import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/
             loadReport().catch((err) => console.warn('Report refresh after delete:', err));
         } catch (e) {
             console.error('Delete user failed:', e);
-            alert(getErrorMessage(e));
+            await appAlertError(getErrorMessage(e));
         }
     }
     async function doDisableInModal() {
@@ -247,7 +248,7 @@ import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/
             loadReport();
         } catch (e) {
             console.error(e);
-            alert(e.message || 'Action failed.');
+            await appAlertError(e.message || 'Action failed.');
         }
     }
 
@@ -297,19 +298,21 @@ import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/
         const password = $('create-vet-password')?.value;
         const confirm = $('create-vet-confirm')?.value;
         const email = $('create-vet-email')?.value?.trim();
-        if (!firstName || !lastName) return alert('Please enter the veterinarian\'s full name.');
-        if (!password || password.length < 6) return alert('Password must be at least 6 characters.');
-        if (password !== confirm) return alert('Passwords do not match.');
-        if (!email) return alert('Please enter an email address.');
+        if (!firstName || !lastName) { await appAlertError('Please enter the veterinarian\'s full name.'); return; }
+        if (!password || password.length < 6) { await appAlertError('Password must be at least 6 characters.'); return; }
+        if (password !== confirm) { await appAlertError('Passwords do not match.'); return; }
+        if (!email) { await appAlertError('Please enter an email address.'); return; }
         const emailLower = email.trim().toLowerCase();
         const atIdx = emailLower.indexOf('@');
         if (atIdx <= 0 || atIdx === emailLower.length - 1 || emailLower.length > 254) {
-            return alert('Please enter a valid email address.');
+            await appAlertError('Please enter a valid email address.');
+            return;
         }
         const local = emailLower.slice(0, atIdx);
         const domain = emailLower.slice(atIdx + 1);
         if (!local || !domain || local.endsWith('.') || local.startsWith('.') || domain.startsWith('.') || domain.endsWith('.') || domain.indexOf('.') <= 0 || domain.length < 4 || /\.@|@\.|\.\./.test(emailLower) || !/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(emailLower)) {
-            return alert('Please enter a valid email address.');
+            await appAlertError('Please enter a valid email address.');
+            return;
         }
         const submitBtn = els.createVetSubmit;
         if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Creating…'; }
@@ -325,7 +328,7 @@ import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/
             loadReport();
         } catch (e) {
             console.error('Create vet error:', e);
-            alert(e.message || 'Failed to create vet account.');
+            await appAlertError(e.message || 'Failed to create vet account.');
             if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<i class="fa fa-user-plus"></i> Create Account'; }
         }
     }

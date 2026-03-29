@@ -55,7 +55,7 @@
             <a href="dashboard.html" class="nav-item"><i class="fa fa-th-large"></i> Dashboard</a>
             <a href="appointments.html" class="nav-item"><i class="fa fa-calendar"></i> Appointments</a>
             <a href="messages.html" class="nav-item"><i class="fa fa-envelope"></i> Messages</a>
-            <a href="skinDisease.html" class="nav-item"><i class="fa fa-stethoscope"></i> Skin Health</a>
+            <a href="skinDisease.html" class="nav-item"><i class="fa fa-stethoscope"></i> Skin Health Analysis</a>
         </nav>
         <div class="logout-section">
             <button id="logout-btn" class="logout-btn"><i class="fa fa-sign-out"></i> Logout</button>
@@ -111,8 +111,8 @@
                     </div>
                 </div>
             </div>
-            <section class="profile-section" aria-label="Profile">
-                <div class="profile-card profile-card-main">
+            <section class="profile-section profile-section-account" aria-label="Profile">
+                <div class="profile-card profile-card-hero">
                     <div class="profile-card-header">
                         <div class="profile-header-left">
                             <div class="profile-avatar">
@@ -126,31 +126,56 @@
                         </div>
                         <button type="button" id="btn-edit-profile" class="btn-edit-profile"><i class="fa fa-pencil"></i> Edit Profile</button>
                     </div>
-                    <p id="profile-bio-view" class="field-value-bio">—</p>
-                    <div class="profile-info-grid">
-                        <div class="info-row">
-                            <span class="info-label">Full Name</span>
-                            <span id="profile-name-grid" class="info-value">Veterinarian</span>
+                    <div class="profile-hero-bio-wrap">
+                        <span class="profile-bio-legend" id="profile-about-heading">About me</span>
+                        <div class="profile-bio-highlight" role="region" aria-labelledby="profile-about-heading">
+                            <p id="profile-bio-view" class="profile-header-bio">—</p>
                         </div>
-                        <div class="info-row">
-                            <span class="info-label">Email Address</span>
-                            <span id="profile-email" class="info-value">vet@example.com</span>
+                    </div>
+                </div>
+
+                <div class="profile-card profile-card-details-shell">
+                    <h2 class="profile-details-heading"><i class="fa fa-user" aria-hidden="true"></i> Account Details</h2>
+                    <div class="account-details-layout account-details-layout--vet">
+                        <div class="account-details-card" aria-label="Primary details">
+                            <div class="info-row">
+                                <span class="info-label">Full Name</span>
+                                <span id="profile-name-grid" class="info-value">Veterinarian</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Role</span>
+                                <span id="profile-role-grid" class="info-value">Veterinarian</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Address</span>
+                                <span id="profile-address-view" class="info-value">—</span>
+                            </div>
                         </div>
-                        <div class="info-row">
-                            <span class="info-label">Role</span>
-                            <span id="profile-role-grid" class="info-value">Veterinarian</span>
+                        <div class="account-details-card" aria-label="Contact">
+                            <div class="info-row">
+                                <span class="info-label">Email Address</span>
+                                <span id="profile-email" class="info-value">vet@example.com</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Member Since</span>
+                                <span id="profile-created" class="info-value">—</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Phone</span>
+                                <span id="profile-phone-view" class="info-value">—</span>
+                            </div>
                         </div>
-                        <div class="info-row">
-                            <span class="info-label">Member Since</span>
-                            <span id="profile-created" class="info-value">—</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Address</span>
-                            <span id="profile-address-view" class="info-value">—</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Phone</span>
-                            <span id="profile-phone-view" class="info-value">—</span>
+                        <div class="account-details-card account-details-card--span" aria-label="Professional credentials">
+                            <div class="info-row info-row-split">
+                                <div class="info-split-cell">
+                                    <span class="info-label">Specialization</span>
+                                    <span id="profile-specialization-view" class="info-value">—</span>
+                                </div>
+                                <div class="info-split-cell">
+                                    <span class="info-label">License Number</span>
+                                    <span id="profile-license-view" class="info-value">—</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -184,6 +209,14 @@
                             <label class="field-label" for="profile-phone">Phone <span class="optional">(optional)</span></label>
                             <input type="tel" id="profile-phone" class="field-input" placeholder="Your phone number">
                         </div>
+                        <div class="field-group">
+                            <label class="field-label" for="profile-specialization">Specialization <span class="optional">(optional)</span></label>
+                            <input type="text" id="profile-specialization" class="field-input" placeholder="e.g. Small animal, dermatology">
+                        </div>
+                        <div class="field-group">
+                            <label class="field-label" for="profile-license">License Number <span class="optional">(optional)</span></label>
+                            <input type="text" id="profile-license" class="field-input" placeholder="PRC or professional license ID">
+                        </div>
                     </div>
                     <div class="modal-actions">
                         <button type="button" id="btn-cancel-edit" class="btn-secondary">Cancel</button>
@@ -192,10 +225,10 @@
                 </div>
             </div>
 
-            <section class="profile-section" aria-label="Security">
-                <h2 class="section-title"><i class="fa fa-lock"></i> Security</h2>
+            <section class="profile-section profile-section-security" aria-label="Security">
+                <h2 class="section-title"><i class="fa fa-shield" aria-hidden="true"></i> Security</h2>
                 <div class="profile-card profile-card-security">
-                    <div class="security-block">
+                    <div id="security-password-email" class="security-block security-password-email">
                         <h3 class="section-subtitle">Change Password</h3>
                         <button type="button" id="btn-reveal-change-password" class="btn-secondary">Change Password</button>
                         <div id="change-password-form-wrap" class="is-hidden" aria-hidden="true">
@@ -219,10 +252,19 @@
                             </form>
                         </div>
                     </div>
-                    <div class="security-block security-block-danger">
-                        <h3 class="section-subtitle">Delete Account</h3>
-                        <p class="danger-text">Permanently delete your account and all associated data. This action cannot be undone.</p>
-                        <button type="button" id="btn-delete-account" class="btn-danger">Delete Account</button>
+                    <div id="security-password-google" class="security-google-banner is-hidden" role="status" aria-hidden="true">
+                        <i class="fa fa-info-circle" aria-hidden="true"></i>
+                        <p>You signed in with Google. Password change is not available. Use your Google account to manage sign-in.</p>
+                    </div>
+                    <div class="security-delete-card">
+                        <div class="security-delete-card__head">
+                            <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+                            <span>Delete Account</span>
+                        </div>
+                        <div class="security-delete-card__body">
+                            <p class="security-delete-card__text">Permanently delete your account and all associated data. This action cannot be undone.</p>
+                            <button type="button" id="btn-delete-account" class="btn-danger btn-danger-solid">Delete Account</button>
+                        </div>
                     </div>
                 </div>
             </section>

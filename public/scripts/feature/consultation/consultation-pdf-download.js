@@ -3,6 +3,7 @@
  */
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 import { db } from '../../core/firebase/firebase-config.js';
+import { appAlertError } from '../../core/ui/app-dialog.js';
 import { generateConsultationPDF } from '../../core/pdf/consultation-pdf.js';
 
 async function fetchDoc(path, ...segments) {
@@ -17,7 +18,7 @@ async function fetchDoc(path, ...segments) {
 
 export async function downloadConsultationReportForAppointment(appointmentId, buttonEl) {
     if (!appointmentId?.trim()) {
-        alert('Missing appointment.');
+        await appAlertError('Missing appointment.');
         return;
     }
     const prevHtml = buttonEl?.innerHTML;
@@ -34,7 +35,7 @@ export async function downloadConsultationReportForAppointment(appointmentId, bu
         setBusy(true);
         const snap = await getDoc(doc(db, 'appointments', appointmentId.trim()));
         if (!snap.exists()) {
-            alert('Appointment not found.');
+            await appAlertError('Appointment not found.');
             return;
         }
         const aptData = { id: snap.id, ...snap.data() };
@@ -89,7 +90,7 @@ export async function downloadConsultationReportForAppointment(appointmentId, bu
         URL.revokeObjectURL(a.href);
     } catch (e) {
         console.error('PDF generation failed:', e);
-        alert('Could not generate the PDF. Please try again.');
+        await appAlertError('Could not generate the PDF. Please try again.');
     } finally {
         setBusy(false);
     }

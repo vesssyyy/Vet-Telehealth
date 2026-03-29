@@ -4,6 +4,7 @@
  * Shared by messaging pages today; designed so video-call can adopt later.
  */
 import { escapeHtml, timestampToMs } from '../app/utils.js';
+import { appAlertError } from '../ui/app-dialog.js';
 import { downloadMessageAttachmentFile } from './attachments.js';
 
 /* ── Timestamp formatting ───────────────────────────────────────────── */
@@ -214,11 +215,11 @@ export function createAttachmentPreviewController({ attachInput, attachPreview, 
     }
 
     attachPreviewRemove?.addEventListener('click', clear);
-    attachInput?.addEventListener('change', e => {
+    attachInput?.addEventListener('change', async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
         const v = validateAttachment(file);
-        if (!v.ok) { alert(v.error); if (attachInput) attachInput.value = ''; return; }
+        if (!v.ok) { await appAlertError(v.error); if (attachInput) attachInput.value = ''; return; }
         show(file);
     });
 

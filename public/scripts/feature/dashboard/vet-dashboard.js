@@ -1,4 +1,6 @@
 /** Televet Health — Vet Dashboard */
+import { appAlertError } from '../../core/ui/app-dialog.js';
+
 (function () {
     'use strict';
     const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
@@ -35,6 +37,6 @@
             document.addEventListener('click', () => setOpen(false));
         }
 
-        dateInput.addEventListener('change', () => { if (dateInput.value && dateInput.min && dateInput.value < dateInput.min) { alert('You cannot select a past date.'); dateInput.value = dateInput.min; } });
+        dateInput.addEventListener('change', async () => { if (dateInput.value && dateInput.min && dateInput.value < dateInput.min) { await appAlertError('You cannot select a past date.'); dateInput.value = dateInput.min; } });
     });
 })();

@@ -12,8 +12,10 @@ import {
     GoogleAuthProvider, reauthenticateWithPopup,
 } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js';
 import { doc, getDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
+import { accountHasBlockingAppointments } from '../appointment/shared/appointment-blocking.js';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-storage.js';
 import { initPasswordToggleFields } from '../../core/app/password-toggle.js';
+import { appAlert, appAlertError } from '../../core/ui/app-dialog.js';
 
 const CACHE_PREFIX = 'telehealthProfileCache:';
 const LAST_UID_KEY  = 'telehealthLastUid';
@@ -80,6 +82,7 @@ export function initProfile(config) {
         buildProfile,
         getRole,
         defaultInitials = defaultName.split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2),
+        extraFallbackFields = {},
     } = config;
 
     initPasswordToggleFields(document);
@@ -107,6 +110,10 @@ export function initProfile(config) {
         bioView:                  $('profile-bio-view'),
         addressView:              $('profile-address-view'),
         phoneView:                $('profile-phone-view'),
+        specializationView:     $('profile-specialization-view'),
+        licenseView:              $('profile-license-view'),
+        specialization:           $('profile-specialization'),
+        license:                  $('profile-license'),
         bioCount:                 $('bio-char-count'),
         btnSave:                  $('btn-save-profile'),
         btnEditProfile:           $('btn-edit-profile'),
@@ -125,7 +132,8 @@ export function initProfile(config) {
         deletePass:               $('delete-password'),
         btnModalCancel:           $('btn-modal-cancel'),
         btnModalConfirm:          $('btn-modal-confirm-delete'),
-        changePasswordBlock:      $('form-change-password')?.closest('.security-block'),
+        securityPasswordEmail:    $('security-password-email'),
+        securityPasswordGoogle:   $('security-password-google'),
         btnRevealChangePassword:  $('btn-reveal-change-password'),
         changePasswordFormWrap:   $('change-password-form-wrap'),
         btnCancelChangePassword:  $('btn-cancel-change-password'),
@@ -150,7 +158,10 @@ export function initProfile(config) {
     /* ── Apply profile to DOM ──────────────────────────────────────── */
     const applyProfile = profile => {
         if (!profile) return;
-        const { displayName = defaultName, email = '—', photoUrl = '', createdAt, bio = '', address = '', phone = '' } = profile;
+        const {
+            displayName = defaultName, email = '—', photoUrl = '', createdAt, bio = '', address = '', phone = '',
+            specialization = '', licenseNumber = '',
+        } = profile;
         const formattedName = formatName(displayName);
         const firstName  = (displayName || '').trim().split(/\s+/)[0] || '';
         // If the first word matches the role default name (e.g. "Pet"), fall back to "there"
@@ -177,9 +188,13 @@ export function initProfile(config) {
         setText(D.bioView, orDash(bio));
         setText(D.addressView, orDash(address));
         setText(D.phoneView, orDash(phone));
+        if (D.specializationView) setText(D.specializationView, orDash(specialization));
+        if (D.licenseView) setText(D.licenseView, orDash(licenseNumber));
         if (D.bio)     { D.bio.value = bio; setText(D.bioCount, String(bio.length)); }
         if (D.address)   D.address.value = address;
         if (D.phone)     D.phone.value = phone;
+        if (D.specialization) D.specialization.value = specialization;
+        if (D.license) D.license.value = licenseNumber;
     };
 
     /* ── Firestore sync ────────────────────────────────────────────── */
@@ -222,6 +237,8 @@ export function initProfile(config) {
             D.bio.value     = c.bio     || '';
             D.address.value = c.address || '';
             D.phone.value   = c.phone   || '';
+            if (D.specialization) D.specialization.value = c.specialization || '';
+            if (D.license) D.license.value = c.licenseNumber || '';
             setText(D.bioCount, String((c.bio || '').length));
             setModalPhoto(getModalPhotoUrl(), c.displayName);
         }
@@ -245,6 +262,8 @@ export function initProfile(config) {
         const bio     = (D.bio?.value     || '').trim();
         const address = (D.address?.value || '').trim();
         const phone   = (D.phone?.value   || '').trim();
+        const specialization = (D.specialization?.value || '').trim();
+        const licenseNumber = (D.license?.value || '').trim();
         try {
             if (pendingPhotoAction === 'remove') {
                 await deleteStoragePhoto();
@@ -264,15 +283,25 @@ export function initProfile(config) {
                 pendingProfilePhoto = null;
             }
             pendingPhotoAction = null;
-            await updateDoc(doc(db, 'users', user.uid), { bio, address, phone });
+            const docUpdate = { bio, address, phone };
+            if (D.specialization) docUpdate.specialization = specialization;
+            if (D.license) docUpdate.licenseNumber = licenseNumber;
+            await updateDoc(doc(db, 'users', user.uid), docUpdate);
             const cache = readCache(user.uid);
-            if (cache) { cache.bio = bio; cache.address = address; cache.phone = phone; writeCache(user.uid, cache); }
-            applyProfile(cache || { bio, address, phone });
+            if (cache) {
+                cache.bio = bio; cache.address = address; cache.phone = phone;
+                if (D.specialization) cache.specialization = specialization;
+                if (D.license) cache.licenseNumber = licenseNumber;
+                writeCache(user.uid, cache);
+                applyProfile(cache);
+            } else {
+                await syncProfile(user);
+            }
             closeEditModal();
-            alert('Profile updated successfully.');
+            await appAlert('Profile updated successfully.');
         } catch (err) {
             console.error('Save profile error:', err);
-            alert('Failed to save profile. Please try again.');
+            await appAlertError('Failed to save profile. Please try again.');
         } finally {
             if (D.btnSave) { D.btnSave.disabled = false; D.btnSave.textContent = 'Save Changes'; }
         }
@@ -302,10 +331,11 @@ export function initProfile(config) {
         const current = D.currentPass?.value || '';
         const newP    = D.newPass?.value     || '';
         const confirm = D.confirmPass?.value || '';
-        if (!current || !newP || !confirm) { alert('Please fill all password fields.'); return; }
-        if (newP.length < 6)               { alert('New password must be at least 6 characters.'); return; }
-        if (newP !== confirm)              { alert('New passwords do not match.'); return; }
+        if (!current || !newP || !confirm) { await appAlertError('Please fill all password fields.'); return; }
+        if (newP.length < 6)               { await appAlertError('New password must be at least 6 characters.'); return; }
+        if (newP !== confirm)              { await appAlertError('New passwords do not match.'); return; }
         const btn = D.formPassword?.querySelector('button[type="submit"]');
+        if (!btn) return;
         btn.disabled = true; btn.textContent = 'Updating...';
         try {
             await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, current));
@@ -315,10 +345,10 @@ export function initProfile(config) {
             D.changePasswordFormWrap?.setAttribute('aria-hidden', 'true');
             D.btnRevealChangePassword?.classList.remove('is-hidden');
             D.btnRevealChangePassword?.removeAttribute('aria-hidden');
-            alert('Password updated successfully.');
+            await appAlert('Password updated successfully.');
         } catch (err) {
             console.error('Change password error:', err);
-            alert(
+            await appAlertError(
                 err.code === 'auth/wrong-password'  ? 'Current password is incorrect.'  :
                 err.code === 'auth/weak-password'   ? 'New password is too weak.'        :
                 err.message || 'Failed to update password.'
@@ -329,7 +359,13 @@ export function initProfile(config) {
     };
 
     /* ── Delete account modal ──────────────────────────────────────── */
-    const openDeleteModal  = () => { D.modal?.setAttribute('aria-hidden', 'false'); D.deletePass.value = ''; D.deletePass.focus(); };
+    const openDeleteModal  = () => {
+        D.modal?.setAttribute('aria-hidden', 'false');
+        if (D.deletePass) {
+            D.deletePass.value = '';
+            if (isEmailProvider(auth.currentUser)) D.deletePass.focus();
+        }
+    };
     const closeDeleteModal = () => D.modal?.setAttribute('aria-hidden', 'true');
 
     const handleDeleteAccount = async () => {
@@ -337,29 +373,42 @@ export function initProfile(config) {
         if (!user) return;
         const password = D.deletePass?.value || '';
         if (isEmailProvider(user)) {
-            if (!password) { alert('Please enter your password to confirm.'); return; }
+            if (!password) { await appAlertError('Please enter your password to confirm.'); return; }
             try {
                 await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
             } catch (err) {
-                alert(err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password'
+                await appAlertError(err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password'
                     ? 'Incorrect password.' : err.message || 'Authentication failed.');
                 return;
             }
         } else {
             try { await reauthenticateWithPopup(user, new GoogleAuthProvider()); }
-            catch { alert('Re-authentication required. Please try again.'); return; }
+            catch { await appAlertError('Re-authentication required. Please try again.'); return; }
         }
         D.btnModalConfirm.disabled = true; D.btnModalConfirm.textContent = 'Deleting...';
         try {
             const current = auth.currentUser;
-            if (current) await current.getIdToken(true);
+            if (!current) return;
+            try {
+                if (await accountHasBlockingAppointments(db, current.uid)) {
+                    await appAlertError(
+                        'You cannot delete your account while you have an ongoing or upcoming appointment. Once those visits are completed or cancelled, you can delete your account.',
+                    );
+                    return;
+                }
+            } catch (checkErr) {
+                console.error('Delete account — appointment check:', checkErr);
+                await appAlertError('Could not verify appointments. Please try again.');
+                return;
+            }
+            await current.getIdToken(true);
             await httpsCallable(getFunctions(app), 'deleteMyAccount')();
             closeDeleteModal();
             window.location.replace(withAppBase('/auth.html'));
         } catch (err) {
             console.error('Delete account error:', err);
             const msg = err.message || err.data?.message || err.data || 'Failed to delete account. Please try again.';
-            alert(typeof msg === 'string' ? msg : 'Failed to delete account. Please try again.');
+            await appAlertError(typeof msg === 'string' ? msg : 'Failed to delete account. Please try again.');
         } finally {
             D.btnModalConfirm.disabled = false; D.btnModalConfirm.textContent = 'Delete My Account';
         }
@@ -415,8 +464,14 @@ export function initProfile(config) {
             else if (D.editModal?.getAttribute('aria-hidden') === 'false') closeEditModal();
         });
 
-        if (!isEmailProvider(user) && D.changePasswordBlock) {
-            D.changePasswordBlock.innerHTML = '<p class="danger-text">You signed in with Google. Password change is not available. Use your Google account to manage sign-in.</p>';
+        if (!isEmailProvider(user)) {
+            D.securityPasswordEmail?.classList.add('is-hidden');
+            D.securityPasswordGoogle?.classList.remove('is-hidden');
+            D.securityPasswordGoogle?.setAttribute('aria-hidden', 'false');
+        } else {
+            D.securityPasswordGoogle?.classList.add('is-hidden');
+            D.securityPasswordGoogle?.setAttribute('aria-hidden', 'true');
+            D.securityPasswordEmail?.classList.remove('is-hidden');
         }
         const deletePassGroup = D.deletePass?.closest('.field-group');
         if (!isEmailProvider(user) && deletePassGroup) deletePassGroup.style.display = 'none';
@@ -438,6 +493,7 @@ export function initProfile(config) {
                     displayName: user.displayName || user.email?.split('@')[0] || defaultName,
                     email: user.email || '—', photoUrl: user.photoURL || '',
                     createdAt: null, bio: '', address: '', phone: '',
+                    ...extraFallbackFields,
                 };
                 applyProfile(fallback);
                 writeCache(user.uid, fallback);

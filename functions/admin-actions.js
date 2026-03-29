@@ -1,5 +1,7 @@
 'use strict';
 
+const { userHasBlockingAppointment } = require('./appointment-blocks-delete');
+
 function makeAdminActions({
   onCall,
   HttpsError,
@@ -164,6 +166,13 @@ function makeAdminActions({
         throw new HttpsError('unauthenticated', 'You must be signed in to delete your account.');
       }
       const uid = authContext.uid;
+
+      if (await userHasBlockingAppointment(db, uid)) {
+        throw new HttpsError(
+          'failed-precondition',
+          'You cannot delete your account while you have an ongoing or upcoming appointment. Once those visits are completed or cancelled, you can delete your account.',
+        );
+      }
 
       await deleteUserData(uid);
 

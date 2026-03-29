@@ -23,7 +23,6 @@
     align-items: flex-start;
 }
 .messages-header-text { flex: 1; min-width: 0; }
-.messages-page .sidebar-brand i { margin-right: 8px; opacity: 0.95; }
 .content-wrapper.messages-wrapper { background: transparent !important; box-shadow: none !important; }
 .content-wrapper.messages-wrapper.is-hidden { display: none !important; }
 

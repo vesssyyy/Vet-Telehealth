@@ -78,8 +78,62 @@
     display: none;
 }
 
-.skin-step-num {
-    display: none;
+.skin-step-indicator {
+    position: relative;
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--border-color, #cbd5e0);
+    background: var(--bg-white, #fff);
+    color: var(--text-light, #718096);
+    font-size: 0.85rem;
+    transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.skin-step-icon,
+.skin-step-check {
+    line-height: 1;
+}
+
+/* Check only exists visually once the step is finished */
+.skin-step:not(.is-complete) .skin-step-check {
+    display: none !important;
+    visibility: hidden;
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+}
+
+.skin-step-check {
+    font-size: 0.75rem;
+}
+
+.skin-step.is-complete .skin-step-icon {
+    display: none !important;
+}
+
+.skin-step.is-complete .skin-step-check {
+    display: flex !important;
+    visibility: visible;
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    align-items: center;
+    justify-content: center;
+}
+
+.skin-step.is-complete .skin-step-indicator {
+    border-color: #2f855a;
+    background: #2f855a;
+    color: #fff;
 }
 
 .skin-step-label {
@@ -90,6 +144,16 @@
 .skin-step.is-active {
     color: var(--text-dark, #2d3748);
     border-bottom-color: var(--primary-color, #2c5f7d);
+}
+
+.skin-step.is-active .skin-step-indicator {
+    border-color: var(--primary-color, #2c5f7d);
+    background: rgba(44, 95, 125, 0.08);
+    color: var(--primary-color, #2c5f7d);
+}
+
+.skin-step.is-complete:not(.is-active) {
+    color: #5a6b7a;
 }
 
 /* Selection + identify fill below stepper */
@@ -935,6 +999,16 @@
     .skin-step {
         font-size: 0.55rem;
         padding: 14px 4px 12px;
+    }
+
+    .skin-step-indicator {
+        width: 30px;
+        height: 30px;
+        font-size: 0.75rem;
+    }
+
+    .skin-step-check {
+        font-size: 0.65rem;
     }
 
     .skin-analysis-subtitle {

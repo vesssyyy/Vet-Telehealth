@@ -36,7 +36,7 @@
             <a href="dashboard.html" class="nav-item"><i class="fa fa-th-large"></i> Dashboard</a>
             <a href="appointment.html" class="nav-item"><i class="fa fa-calendar"></i> Appointments</a>
             <a href="messages.html" class="nav-item"><i class="fa fa-envelope"></i> Messages</a>
-            <a href="skinDisease.html" class="nav-item active"><i class="fa fa-stethoscope"></i> Skin Health</a>
+            <a href="skinDisease.html" class="nav-item active"><i class="fa fa-stethoscope"></i> Skin Health Analysis</a>
         </nav>
         <nav class="footer-nav">
             <a href="aboutUs.html" class="nav-item"><i class="fa fa-info-circle"></i> About Us</a>
@@ -61,15 +61,39 @@
 
         <div class="content-wrapper skin-content-wrapper">
             <div class="skin-stepper-bar">
-                <button type="button" class="skin-back-btn is-hidden" id="skin-back-btn" aria-label="Back to pet selection">
+                <button type="button" class="skin-back-btn is-hidden" id="skin-back-btn" aria-label="Back to species selection">
                     <i class="fa fa-arrow-left" aria-hidden="true"></i>
                 </button>
                 <nav class="skin-stepper" aria-label="Analysis progress">
                     <ol class="skin-stepper-list">
-                        <li class="skin-step is-active" data-skin-step="1"><span class="skin-step-num">1</span><span class="skin-step-label">Select Pet Type</span></li>
-                        <li class="skin-step" data-skin-step="2"><span class="skin-step-num">2</span><span class="skin-step-label">Take or Upload Photo</span></li>
-                        <li class="skin-step" data-skin-step="3"><span class="skin-step-num">3</span><span class="skin-step-label">Analysis</span></li>
-                        <li class="skin-step" data-skin-step="4"><span class="skin-step-num">4</span><span class="skin-step-label">View Results</span></li>
+                        <li class="skin-step is-active" data-skin-step="1">
+                            <span class="skin-step-indicator" aria-hidden="true">
+                                <i class="skin-step-icon fa fa-paw"></i>
+                                <i class="skin-step-check fa fa-check"></i>
+                            </span>
+                            <span class="skin-step-label">Select Species</span>
+                        </li>
+                        <li class="skin-step" data-skin-step="2">
+                            <span class="skin-step-indicator" aria-hidden="true">
+                                <i class="skin-step-icon fa fa-camera"></i>
+                                <i class="skin-step-check fa fa-check"></i>
+                            </span>
+                            <span class="skin-step-label">Take or Upload Photo</span>
+                        </li>
+                        <li class="skin-step" data-skin-step="3">
+                            <span class="skin-step-indicator" aria-hidden="true">
+                                <i class="skin-step-icon fa fa-cog"></i>
+                                <i class="skin-step-check fa fa-check"></i>
+                            </span>
+                            <span class="skin-step-label">Analysis</span>
+                        </li>
+                        <li class="skin-step" data-skin-step="4">
+                            <span class="skin-step-indicator" aria-hidden="true">
+                                <i class="skin-step-icon fa fa-clipboard"></i>
+                                <i class="skin-step-check fa fa-check"></i>
+                            </span>
+                            <span class="skin-step-label">View Results</span>
+                        </li>
                     </ol>
                 </nav>
             </div>
@@ -79,7 +103,7 @@
                 <header class="skin-analysis-header">
                     <h1 class="skin-analysis-title" id="skin-analysis-title">Skin Health Analysis</h1>
                     <p class="skin-analysis-subtitle" id="skin-detection-heading">
-                        Take a photo or upload an image of your pet&apos;s skin condition. The system will analyze and suggest possible conditions.
+                        Select a species below, then take or upload a photo of your pet&apos;s skin condition. The system will analyze and suggest possible conditions.
                     </p>
                 </header>
 
@@ -228,7 +252,7 @@
         <a href="dashboard.html" class="bottom-nav-item" aria-label="Dashboard"><i class="fa fa-th-large"></i></a>
         <a href="appointment.html" class="bottom-nav-item" aria-label="Appointments"><i class="fa fa-calendar"></i></a>
         <a href="messages.html" class="bottom-nav-item" aria-label="Messages"><i class="fa fa-comment"></i></a>
-        <a href="skinDisease.html" class="bottom-nav-item" aria-label="Skin Health"><i class="fa fa-stethoscope"></i></a>
+        <a href="skinDisease.html" class="bottom-nav-item" aria-label="Skin Health Analysis"><i class="fa fa-stethoscope"></i></a>
         <a href="profile.html" class="bottom-nav-item" aria-label="Profile"><i class="fa fa-user"></i></a>
     </nav>
 
