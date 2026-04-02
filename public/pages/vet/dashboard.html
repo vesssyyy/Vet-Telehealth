@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Televet Health (Vet)</title>
+    <link rel="stylesheet" href="../../styles/vet/sidebar-layout.css">
+    <link rel="stylesheet" href="../../styles/shared/loading.css">
+    <link rel="stylesheet" href="../../styles/vet/profile-loading.css">
+    <link rel="stylesheet" href="../../styles/vet/dashboard.css">
+    <link rel="stylesheet" href="../../styles/vet/appointments.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link href="https://fonts.googleapis.com/css?family=Lalezar" rel="stylesheet">
+    <style>body { visibility: hidden; }</style>
+</head>
+<body>
+    <div class="profile-loading-overlay loading-animation" aria-hidden="true">
+        <div class="loader">
+            <div class="wrapper">
+                <div class="catContainer">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 733 673" class="catbody">
+                        <path fill="#212121" d="M111.002 139.5C270.502 -24.5001 471.503 2.4997 621.002 139.5C770.501 276.5 768.504 627.5 621.002 649.5C473.5 671.5 246 687.5 111.002 649.5C-23.9964 611.5 -48.4982 303.5 111.002 139.5Z"></path>
+                        <path fill="#212121" d="M184 9L270.603 159H97.3975L184 9Z"></path>
+                        <path fill="#212121" d="M541 0L627.603 150H454.397L541 0Z"></path>
+                    </svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 158 564" class="tail">
+                        <path fill="#191919" d="M5.97602 76.066C-11.1099 41.6747 12.9018 0 51.3036 0V0C71.5336 0 89.8636 12.2558 97.2565 31.0866C173.697 225.792 180.478 345.852 97.0691 536.666C89.7636 553.378 73.0672 564 54.8273 564V564C16.9427 564 -5.4224 521.149 13.0712 488.085C90.2225 350.15 87.9612 241.089 5.97602 76.066Z"></path>
+                    </svg>
+                    <div class="text"><span class="bigzzz">Z</span><span class="zzz">Z</span></div>
+                </div>
+                <div class="wallContainer">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 500 126" class="wall">
+                        <line stroke-width="6" stroke="#7C7C7C" y2="3" x2="450" y1="3" x1="50"></line>
+                        <line stroke-width="6" stroke="#7C7C7C" y2="85" x2="400" y1="85" x1="100"></line>
+                        <line stroke-width="6" stroke="#7C7C7C" y2="122" x2="375" y1="122" x1="125"></line>
+                        <line stroke-width="6" stroke="#7C7C7C" y2="43" x2="500" y1="43"></line>
+                        <line stroke-width="6" stroke="#7C7C7C" y2="1.99391" x2="115.5" y1="43.0061" x1="115.5"></line>
+                        <line stroke-width="6" stroke="#7C7C7C" y2="2.00002" x2="189" y1="43.0122" x1="189"></line>
+                        <line stroke-width="6" stroke="#7C7C7C" y2="2.00612" x2="262.5" y1="43.0183" x1="262.5"></line>
+                        <line stroke-width="6" stroke="#7C7C7C" y2="2.01222" x2="336" y1="43.0244" x1="336"></line>
+                        <line stroke-width="6" stroke="#7C7C7C" y2="2.01833" x2="409.5" y1="43.0305" x1="409.5"></line>
+                        <line stroke-width="6" stroke="#7C7C7C" y2="43" x2="153" y1="84.0122" x1="153"></line>
+                        <line stroke-width="6" stroke="#7C7C7C" y2="43" x2="228" y1="84.0122" x1="228"></line>
+                        <line stroke-width="6" stroke="#7C7C7C" y2="43" x2="303" y1="84.0122" x1="303"></line>
+                        <line stroke-width="6" stroke="#7C7C7C" y2="43" x2="378" y1="84.0122" x1="378"></line>
+                        <line stroke-width="6" stroke="#7C7C7C" y2="84" x2="192" y1="125.012" x1="192"></line>
+                        <line stroke-width="6" stroke="#7C7C7C" y2="84" x2="267" y1="125.012" x1="267"></line>
+                        <line stroke-width="6" stroke="#7C7C7C" y2="84" x2="342" y1="125.012" x1="342"></line>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="sidebar-overlay"></div>
+
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <a href="dashboard.html" class="sidebar-brand">Telehealth</a>
+            <div class="sidebar-tagline">Veterinarian Portal</div>
+        </div>
+        <div class="user-profile">
+            <a href="profile.html" class="user-profile-link">
+                <div class="user-info">
+                    <div class="user-avatar">
+                        <img id="sidebar-avatar-img" class="user-avatar-img is-hidden" alt="Profile photo">
+                        <span class="user-avatar-initials" id="sidebar-avatar">V</span>
+                    </div>
+                    <div class="user-text">
+                        <div class="user-name" id="sidebar-name">Veterinarian</div>
+                        <div class="user-email"><i class="fa fa-envelope"></i> <span id="sidebar-email">vet@example.com</span></div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item active"><i class="fa fa-th-large"></i> Dashboard</a>
+            <a href="appointments.html" class="nav-item"><i class="fa fa-calendar"></i> Appointments</a>
+            <a href="messages.html" class="nav-item"><i class="fa fa-envelope"></i> Messages</a>
+            <a href="skinDisease.html" class="nav-item"><i class="fa fa-stethoscope"></i> Skin Health Analysis</a>
+        </nav>
+        <div class="logout-section">
+            <button id="logout-btn" class="logout-btn"><i class="fa fa-sign-out"></i> Logout</button>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="app-top-header">
+            <div class="header-left">
+                <button class="mobile-menu-toggle" aria-label="Toggle Menu"><i class="fa fa-bars"></i></button>
+                <span class="role-badge"><i class="fa fa-stethoscope" aria-hidden="true"></i> Veterinarian</span>
+            </div>
+            <div class="header-right">
+                <button type="button" class="dark-mode-toggle" aria-label="Toggle dark mode"><i class="fa fa-moon-o" aria-hidden="true"></i></button>
+                <button type="button" class="profile-header-btn" aria-label="Profile"><i class="fa fa-user-circle" aria-hidden="true"></i></button>
+            </div>
+        </header>
+
+        <div class="page-header dashboard-header">
+            <div class="dashboard-header-content">
+                <div class="dashboard-header-icon" aria-hidden="true"><i class="fa fa-stethoscope"></i></div>
+                <div class="dashboard-header-text">
+                    <p class="dashboard-greeting">
+                        <span class="welcome-text">Welcome back,</span>
+                        <span class="vet-text">Dr. <span id="dashboard-user-name">there</span>!</span>
+                    </p>
+                    <p class="page-subtitle"><span class="dashboard-date" id="dashboard-date"></span></p>
+                </div>
+                <div class="dashboard-header-right" aria-label="Today summary">
+                    <button type="button" class="dashboard-mini-card dashboard-mini-card--interactive" id="today-new-bookings-trigger" aria-label="View today's new bookings" aria-haspopup="dialog" aria-controls="today-bookings-modal" aria-expanded="false">
+                        <div class="dashboard-mini-label">
+                            <i class="fa fa-calendar-plus-o" aria-hidden="true"></i>
+                            <span>Today's New Bookings</span>
+                        </div>
+                        <div class="dashboard-mini-value" id="today-new-bookings" aria-live="polite">0</div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-wrapper">
+            <div class="dashboard-loading loading-animation" id="dashboard-loading" aria-hidden="false" aria-live="polite">
+                <div class="loader">
+                    <div class="wrapper">
+                        <div class="catContainer">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 733 673" class="catbody">
+                                <path fill="#212121" d="M111.002 139.5C270.502 -24.5001 471.503 2.4997 621.002 139.5C770.501 276.5 768.504 627.5 621.002 649.5C473.5 671.5 246 687.5 111.002 649.5C-23.9964 611.5 -48.4982 303.5 111.002 139.5Z"></path>
+                                <path fill="#212121" d="M184 9L270.603 159H97.3975L184 9Z"></path>
+                                <path fill="#212121" d="M541 0L627.603 150H454.397L541 0Z"></path>
+                            </svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 158 564" class="tail">
+                                <path fill="#191919" d="M5.97602 76.066C-11.1099 41.6747 12.9018 0 51.3036 0V0C71.5336 0 89.8636 12.2558 97.2565 31.0866C173.697 225.792 180.478 345.852 97.0691 536.666C89.7636 553.378 73.0672 564 54.8273 564V564C16.9427 564 -5.4224 521.149 13.0712 488.085C90.2225 350.15 87.9612 241.089 5.97602 76.066Z"></path>
+                            </svg>
+                            <div class="text"><span class="bigzzz">Z</span><span class="zzz">Z</span></div>
+                        </div>
+                        <div class="wallContainer">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 500 126" class="wall">
+                                <line stroke-width="6" stroke="#7C7C7C" y2="3" x2="450" y1="3" x1="50"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="85" x2="400" y1="85" x1="100"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="122" x2="375" y1="122" x1="125"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="43" x2="500" y1="43"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="1.99391" x2="115.5" y1="43.0061" x1="115.5"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="2.00002" x2="189" y1="43.0122" x1="189"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="2.00612" x2="262.5" y1="43.0183" x1="262.5"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="2.01222" x2="336" y1="43.0244" x1="336"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="2.01833" x2="409.5" y1="43.0305" x1="409.5"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="43" x2="153" y1="84.0122" x1="153"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="43" x2="228" y1="84.0122" x1="228"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="43" x2="303" y1="84.0122" x1="303"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="43" x2="378" y1="84.0122" x1="378"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="84" x2="192" y1="125.012" x1="192"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="84" x2="267" y1="125.012" x1="267"></line>
+                                <line stroke-width="6" stroke="#7C7C7C" y2="84" x2="342" y1="125.012" x1="342"></line>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+                <p class="dashboard-loading-text">Preparing dashboard…</p>
+            </div>
+            <div class="dashboard-content is-loading" id="dashboard-content" aria-label="Dashboard main content">
+                <div class="dashboard-period-filter">
+                    <div class="dashboard-period-filter-cell dashboard-period-filter-cell--analytics">
+                        <div class="dashboard-analytics-header">
+                            <span class="dashboard-analytics-header-icon" aria-hidden="true"><i class="fa fa-bar-chart"></i></span>
+                            <h2 class="dashboard-analytics-header-title" id="dashboard-analytics-toolbar-label">Analytics</h2>
+                        </div>
+                    </div>
+                    <div class="dashboard-period-filter-cell dashboard-period-filter-cell--segment">
+                        <div class="dashboard-period-segment" role="group" aria-label="Dashboard time period">
+                            <button type="button" class="dashboard-period-btn is-active" data-period="today" aria-pressed="true">Today</button>
+                            <button type="button" class="dashboard-period-btn" data-period="3d" aria-pressed="false">3D</button>
+                            <button type="button" class="dashboard-period-btn" data-period="7d" aria-pressed="false">7D</button>
+                            <button type="button" class="dashboard-period-btn" data-period="30d" aria-pressed="false">30D</button>
+                            <button type="button" class="dashboard-period-btn" data-period="month" aria-pressed="false">This Month</button>
+                            <button type="button" class="dashboard-period-btn" data-period="custom" aria-pressed="false" aria-haspopup="dialog" aria-expanded="false" aria-controls="dashboard-custom-range-modal" id="dashboard-period-custom-btn">Custom</button>
+                        </div>
+                    </div>
+                    <div class="dashboard-period-filter-cell dashboard-period-filter-cell--showing">
+                        <p class="dashboard-period-showing" aria-live="polite" aria-label="Selected date range">
+                            <span class="dashboard-period-showing-range" id="dashboard-period-showing-range"></span>
+                        </p>
+                    </div>
+                </div>
+                <div class="dashboard-row dashboard-row-three">
+                    <section class="dashboard-card appointment-card dashboard-card--next-consultation" aria-label="Next consultation">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="fa fa-calendar-check-o" aria-hidden="true"></i> Next Consultation</h3>
+                            <a href="#vet-dashboard-consultation-queue" class="btn btn-secondary btn-next-consultation-view-queue" title="Scroll to consultation queue">View queue <i class="fa fa-list-ul" aria-hidden="true"></i></a>
+                        </div>
+                        <div class="appointment-details">
+                            <div class="dashboard-next-appointment-info" aria-live="polite">
+                                <table class="dashboard-next-appointment-table">
+                                    <tbody>
+                                        <tr>
+                                            <th scope="row">Date</th>
+                                            <td id="dashboard-next-appointment-date">—</td>
+                                        </tr>
+                                        <tr>
+                                            <th scope="row">Time</th>
+                                            <td id="dashboard-next-appointment-time">—</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <button type="button" class="btn btn-primary btn-join" id="dashboard-next-appointment-view" title="View appointment details" disabled><i class="fa fa-eye" aria-hidden="true"></i> View</button>
+                        </div>
+                    </section>
+
+                    <section class="dashboard-card transaction-card" aria-label="Transactions">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="fa fa-credit-card" aria-hidden="true"></i> Transactions</h3>
+                        </div>
+                        <div class="transaction-metric" aria-label="Transaction summary">
+                            <div class="transaction-metric-value" id="transaction-count" aria-live="polite">0</div>
+                            <div class="transaction-metric-label">received</div>
+                        </div>
+                        <div class="transaction-preview">
+                            <button type="button" class="btn btn-secondary btn-transactions" id="toggle-transactions" aria-expanded="false" aria-haspopup="dialog" aria-controls="transactions-modal" title="View transaction list">
+                                <i class="fa fa-eye" aria-hidden="true"></i> View
+                            </button>
+                        </div>
+                        <div class="transaction-details is-hidden" id="transaction-details" aria-hidden="true">
+                            <div class="transaction-note">
+                                Transactions made into your account will appear here.
+                            </div>
+                            <ul class="transaction-list" aria-label="Transaction list">
+                                <li class="transaction-item">
+                                    <span class="transaction-meta">
+                                        <span class="transaction-type"><i class="fa fa-arrow-down" aria-hidden="true"></i> Payment received</span>
+                                        <span class="transaction-sep">•</span>
+                                        <span class="transaction-date">Today</span>
+                                    </span>
+                                    <span class="transaction-amount">+ ₱ 0.00</span>
+                                </li>
+                                <li class="transaction-item">
+                                    <span class="transaction-meta">
+                                        <span class="transaction-type"><i class="fa fa-arrow-down" aria-hidden="true"></i> Payment received</span>
+                                        <span class="transaction-sep">•</span>
+                                        <span class="transaction-date">Yesterday</span>
+                                    </span>
+                                    <span class="transaction-amount">+ ₱ 0.00</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </section>
+
+                    <section class="dashboard-card transaction-card completed-consultations-card" aria-label="Completed consultations">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="fa fa-check-circle" aria-hidden="true"></i> Completed Consultations</h3>
+                        </div>
+                        <div class="transaction-metric" aria-label="Completed consultations count">
+                            <div class="transaction-metric-value" id="completed-consultations-count" aria-live="polite">0</div>
+                            <div class="transaction-metric-label">total</div>
+                        </div>
+                        <div class="transaction-preview">
+                            <button type="button" class="btn btn-secondary btn-transactions" id="completed-consultations-view" aria-expanded="false" aria-haspopup="dialog" aria-controls="completed-consultations-modal" title="View completed consultations for this period"><i class="fa fa-eye" aria-hidden="true"></i> View</button>
+                        </div>
+                    </section>
+
+                    <div class="dashboard-analytics-card dashboard-consultations-donut-card" aria-label="Total schedules">
+                        <div class="dashboard-consultations-header">
+                            <div class="dashboard-consultations-title">
+                                <span class="dashboard-consultations-icon" aria-hidden="true"><i class="fa fa-pie-chart"></i></span>
+                                <div class="dashboard-consultations-heading-group">
+                                    <h2 class="dashboard-consultations-heading">Total Schedules</h2>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="dashboard-consultations-body">
+                            <div class="dashboard-consultations-donut-wrap" role="img" aria-labelledby="consultations-donut-title consultations-donut-desc">
+                                <span id="consultations-donut-title" class="is-visually-hidden">Total schedules breakdown</span>
+                                <span id="consultations-donut-desc" class="is-visually-hidden">Loading schedule slot counts.</span>
+                                <div class="dashboard-consultations-donut-ring" id="dashboard-schedule-donut-ring" aria-hidden="true"></div>
+                                <div class="dashboard-consultations-donut-hole-label">
+                                    <span class="dashboard-consultations-donut-total" id="dashboard-schedule-donut-total">0</span>
+                                    <span class="dashboard-consultations-donut-total-label">total</span>
+                                </div>
+                            </div>
+                            <ul class="dashboard-consultations-legend">
+                                <li class="dashboard-consultations-legend-item" data-schedule-donut-segment="avail">
+                                    <span class="dashboard-consultations-swatch dashboard-consultations-swatch--avail"></span>
+                                    <span class="dashboard-consultations-legend-label">Avail</span>
+                                    <span class="dashboard-consultations-legend-value" id="schedule-donut-val-avail">0</span>
+                                </li>
+                                <li class="dashboard-consultations-legend-item" data-schedule-donut-segment="booked">
+                                    <span class="dashboard-consultations-swatch dashboard-consultations-swatch--booked"></span>
+                                    <span class="dashboard-consultations-legend-label">Booked</span>
+                                    <span class="dashboard-consultations-legend-value" id="schedule-donut-val-booked">0</span>
+                                </li>
+                                <li class="dashboard-consultations-legend-item" data-schedule-donut-segment="completed">
+                                    <span class="dashboard-consultations-swatch dashboard-consultations-swatch--completed"></span>
+                                    <span class="dashboard-consultations-legend-label">Completed</span>
+                                    <span class="dashboard-consultations-legend-value" id="schedule-donut-val-completed">0</span>
+                                </li>
+                                <li class="dashboard-consultations-legend-item" data-schedule-donut-segment="expired">
+                                    <span class="dashboard-consultations-swatch dashboard-consultations-swatch--expired"></span>
+                                    <span class="dashboard-consultations-legend-label">Expired</span>
+                                    <span class="dashboard-consultations-legend-value" id="schedule-donut-val-expired">0</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-analytics-card dashboard-booking-rate-card" id="dashboard-analytics-section" tabindex="-1" aria-label="Booking rate">
+                        <div class="dashboard-booking-rate-header">
+                            <div class="dashboard-booking-rate-title">
+                                <span class="dashboard-booking-rate-icon" aria-hidden="true"><i class="fa fa-line-chart"></i></span>
+                                <div class="dashboard-booking-rate-heading-group">
+                                    <h2 class="dashboard-booking-rate-heading">Booking rate</h2>
+                                </div>
+                            </div>
+                            <div class="dashboard-booking-rate-y-mode" role="group" aria-label="Vertical axis metric">
+                                <button type="button" class="dashboard-booking-rate-y-btn is-active" data-booking-rate-y="count" aria-pressed="true">Count</button>
+                                <button type="button" class="dashboard-booking-rate-y-btn" data-booking-rate-y="percent" aria-pressed="false">% of peak</button>
+                            </div>
+                        </div>
+                        <div class="dashboard-booking-rate-chart-wrap">
+                            <div class="dashboard-booking-rate-chart-inner" id="dashboard-booking-rate-chart-inner">
+                                <canvas id="dashboard-booking-rate-canvas" aria-label="New bookings over the selected period"></canvas>
+                                <div class="dashboard-booking-rate-empty is-hidden" id="dashboard-booking-rate-empty" role="status" aria-live="polite">
+                                    <p class="dashboard-booking-rate-empty-text">No timeline to display for this range.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <section class="dashboard-appointments-panel" id="vet-dashboard-consultation-queue" aria-label="Upcoming consultations list">
+                    <div class="dashboard-appointments-panel-header">
+                        <div class="dashboard-appointments-panel-title">
+                            <span class="dashboard-appointments-panel-icon" aria-hidden="true"><i class="fa fa-calendar-check-o"></i></span>
+                            <h2 class="dashboard-appointments-panel-heading">Upcoming Consultations</h2>
+                        </div>
+                        <a href="appointments.html" class="dashboard-appointments-view-all">
+                            View All
+                            <i class="fa fa-chevron-right" aria-hidden="true"></i>
+                        </a>
+                    </div>
+                    <div class="dashboard-appointments-table" role="table" aria-label="Upcoming consultations">
+                        <div class="dashboard-appointments-columns" role="row">
+                            <span class="dashboard-appointments-col" role="columnheader">Client name</span>
+                            <span class="dashboard-appointments-col" role="columnheader">Pet name</span>
+                            <span class="dashboard-appointments-col" role="columnheader">Date &amp; time</span>
+                            <span class="dashboard-appointments-col dashboard-appointments-col-actions" aria-hidden="true"></span>
+                        </div>
+                        <div class="dashboard-appointments-rows">
+                            <article class="dashboard-appointment-row" role="row">
+                                <div class="dashboard-appointment-cell dashboard-appointment-client" role="cell">
+                                    <div class="dashboard-appt-avatar" aria-hidden="true">
+                                        <span class="dashboard-appt-avatar-initials">MS</span>
+                                    </div>
+                                    <span class="dashboard-appt-client-name">Maria Santos</span>
+                                </div>
+                                <div class="dashboard-appointment-cell dashboard-appointment-pet" role="cell">
+                                    <span class="dashboard-appt-pet-name">Buddy</span>
+                                </div>
+                                <div class="dashboard-appointment-cell dashboard-appointment-when" role="cell">
+                                    Thu, Feb 10, 2026 <span class="dashboard-appt-sep">•</span> 2:00 PM
+                                </div>
+                                <div class="dashboard-appointment-cell dashboard-appointment-actions" role="cell">
+                                    <a href="appointments.html" class="btn btn-dashboard-appt-view" title="View appointment">
+                                        <i class="fa fa-eye" aria-hidden="true"></i>
+                                        View
+                                        <i class="fa fa-chevron-right btn-dashboard-appt-chevron" aria-hidden="true"></i>
+                                    </a>
+                                </div>
+                            </article>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <!-- Appointment details modal (same as Appointments page) -->
+    <div class="details-modal-overlay" id="details-modal-overlay" aria-hidden="true">
+        <div class="details-modal" id="details-modal" role="dialog" aria-labelledby="details-modal-title" aria-modal="true" tabindex="-1">
+            <div class="details-modal-header">
+                <h2 class="details-modal-title" id="details-modal-title"><i class="fa fa-calendar" aria-hidden="true"></i> Appointment Details</h2>
+                <button type="button" class="details-modal-close" id="details-modal-close" aria-label="Close"><i class="fa fa-times" aria-hidden="true"></i></button>
+            </div>
+            <div class="details-modal-body">
+                <h3 class="details-title-block" id="details-title">—</h3>
+                <h4 class="details-section-header"><i class="fa fa-user" aria-hidden="true"></i> Pet Owner</h4>
+                <div class="details-doctor-section details-owner-section">
+                    <div class="details-doctor-avatar-wrap">
+                        <img class="details-doctor-avatar-img" id="details-owner-img" src="" alt="" onerror="this.style.display='none';this.nextElementSibling.classList.add('visible')">
+                        <span class="details-doctor-avatar-fallback" id="details-owner-avatar-fallback" aria-hidden="true"><i class="fa fa-user" aria-hidden="true"></i></span>
+                    </div>
+                    <p class="details-doctor-name" id="details-owner-name">—</p>
+                </div>
+                <hr class="details-separator" aria-hidden="true">
+                <h4 class="details-section-header"><i class="fa fa-paw" aria-hidden="true"></i> Pet Info</h4>
+                <div class="details-pet-card">
+                    <div class="details-pet-avatar-wrap" id="details-pet-avatar-wrap">
+                        <img class="details-pet-avatar-img" id="details-pet-img" src="" alt="" onerror="this.style.display='none';this.nextElementSibling.classList.add('visible')">
+                        <span class="details-pet-avatar-fallback" id="details-pet-avatar-fallback" aria-hidden="true"><i class="fa fa-paw" aria-hidden="true"></i></span>
+                    </div>
+                    <div class="details-pet-info">
+                        <h3 class="details-pet-name" id="details-pet-name">—</h3>
+                        <div class="details-pet-meta">
+                            <span class="details-pet-meta-item"><i class="fa fa-birthday-cake" aria-hidden="true"></i> <span id="details-pet-age">—</span></span>
+                            <span class="details-pet-meta-item"><i class="fa fa-balance-scale" aria-hidden="true"></i> <span id="details-pet-weight">—</span></span>
+                            <span class="details-pet-meta-item"><i class="fa fa-paw" aria-hidden="true"></i> <span id="details-pet-species">—</span></span>
+                        </div>
+                    </div>
+                </div>
+                <hr class="details-separator" aria-hidden="true">
+                <div class="details-card details-card--appointment">
+                    <h3 class="details-card-title">Appointment Info</h3>
+                    <div class="details-appointment-row">
+                        <span class="details-appointment-label"><i class="fa fa-calendar" aria-hidden="true"></i> Date</span>
+                        <span class="details-appointment-value" id="details-date">—</span>
+                    </div>
+                    <div class="details-appointment-row">
+                        <span class="details-appointment-label"><i class="fa fa-clock-o" aria-hidden="true"></i> Time</span>
+                        <span class="details-appointment-value" id="details-time">—</span>
+                    </div>
+                    <div class="details-appointment-row details-appointment-row--concern">
+                        <span class="details-appointment-label"><i class="fa fa-comment-o" aria-hidden="true"></i> Concern</span>
+                        <span class="details-appointment-value details-appointment-value--concern" id="details-concern">—</span>
+                    </div>
+                    <div class="details-appointment-row details-appointment-row--id">
+                        <span class="details-appointment-label"><i class="fa fa-id-badge" aria-hidden="true"></i> Appointment ID:</span>
+                        <span class="details-appointment-value details-appointment-value--id" id="details-appointment-id">—</span>
+                    </div>
+                </div>
+                <div class="details-shared-images">
+                    <h3 class="details-shared-images-title"><i class="fa fa-picture-o" aria-hidden="true"></i> Shared Images &amp; Files</h3>
+                    <div class="details-shared-images-placeholder" id="details-shared-images-placeholder">
+                        <i class="fa fa-image details-shared-images-icon" aria-hidden="true"></i>
+                        <p class="details-shared-images-text">No images shared yet</p>
+                        <p class="details-shared-images-hint">Photos or documents from this consultation will appear here.</p>
+                    </div>
+                    <div class="details-shared-images-list is-hidden" id="details-shared-images-list" aria-live="polite"></div>
+                </div>
+            </div>
+            <div class="details-modal-footer">
+                <button type="button" class="details-message-btn details-download-pdf-btn" id="details-download-pdf-btn"><i class="fa fa-file-pdf-o" aria-hidden="true"></i> Download consultation PDF</button>
+                <button type="button" class="details-message-btn" id="details-message-btn"><i class="fa fa-comment" aria-hidden="true"></i> Message</button>
+                <button type="button" class="details-join-btn" id="details-join-btn"><i class="fa fa-video-camera" aria-hidden="true"></i> Join Video Call</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="details-media-lightbox" class="details-media-lightbox is-hidden" role="dialog" aria-modal="true" aria-label="Enlarged media">
+        <button type="button" class="details-media-lightbox-close" aria-label="Close"><i class="fa fa-times"></i></button>
+        <div class="details-media-lightbox-backdrop"></div>
+        <div class="details-media-lightbox-content">
+            <img src="" alt="" class="details-media-lightbox-img" id="details-media-lightbox-img">
+            <iframe src="" class="details-media-lightbox-iframe is-hidden" id="details-media-lightbox-iframe" title="Document viewer"></iframe>
+        </div>
+    </div>
+
+    <div id="dashboard-schedule-donut-tooltip" class="dashboard-schedule-donut-tooltip" role="tooltip" aria-hidden="true"></div>
+
+    <div class="dashboard-new-bookings-modal-overlay is-hidden" id="today-bookings-modal-overlay" aria-hidden="true">
+        <div class="dashboard-new-bookings-modal" role="dialog" aria-modal="true" aria-labelledby="today-bookings-modal-title" id="today-bookings-modal">
+            <div class="dashboard-new-bookings-modal-header">
+                <h2 class="dashboard-new-bookings-modal-title" id="today-bookings-modal-title"><i class="fa fa-calendar-plus-o" aria-hidden="true"></i> Today's new bookings</h2>
+                <button type="button" class="dashboard-new-bookings-modal-close" id="today-bookings-modal-close" aria-label="Close"><i class="fa fa-times" aria-hidden="true"></i></button>
+            </div>
+            <div class="dashboard-new-bookings-modal-body" id="today-bookings-modal-list"></div>
+        </div>
+    </div>
+
+    <div class="dashboard-new-bookings-modal-overlay is-hidden" id="completed-consultations-modal-overlay" aria-hidden="true">
+        <div class="dashboard-new-bookings-modal" role="dialog" aria-modal="true" aria-labelledby="completed-consultations-modal-title" id="completed-consultations-modal">
+            <div class="dashboard-new-bookings-modal-header">
+                <h2 class="dashboard-new-bookings-modal-title" id="completed-consultations-modal-title"><i class="fa fa-check-circle" aria-hidden="true"></i> Completed consultations</h2>
+                <button type="button" class="dashboard-new-bookings-modal-close" id="completed-consultations-modal-close" aria-label="Close"><i class="fa fa-times" aria-hidden="true"></i></button>
+            </div>
+            <div class="dashboard-new-bookings-modal-body" id="completed-consultations-modal-list"></div>
+        </div>
+    </div>
+
+    <div class="dashboard-new-bookings-modal-overlay is-hidden" id="transactions-modal-overlay" aria-hidden="true">
+        <div class="dashboard-new-bookings-modal dashboard-transactions-modal" role="dialog" aria-modal="true" aria-labelledby="transactions-modal-title" id="transactions-modal">
+            <div class="dashboard-new-bookings-modal-header">
+                <h2 class="dashboard-new-bookings-modal-title" id="transactions-modal-title"><i class="fa fa-credit-card" aria-hidden="true"></i> Transactions</h2>
+                <button type="button" class="dashboard-new-bookings-modal-close" id="transactions-modal-close" aria-label="Close"><i class="fa fa-times" aria-hidden="true"></i></button>
+            </div>
+            <div class="dashboard-new-bookings-modal-body" id="transactions-modal-body"></div>
+        </div>
+    </div>
+
+    <div class="dashboard-new-bookings-modal-overlay is-hidden" id="dashboard-custom-range-modal-overlay" aria-hidden="true">
+        <div class="dashboard-new-bookings-modal dashboard-custom-range-modal" role="dialog" aria-modal="true" aria-labelledby="dashboard-custom-range-modal-title" id="dashboard-custom-range-modal">
+            <div class="dashboard-new-bookings-modal-header">
+                <h2 class="dashboard-new-bookings-modal-title" id="dashboard-custom-range-modal-title"><i class="fa fa-calendar" aria-hidden="true"></i> Custom date range</h2>
+                <button type="button" class="dashboard-new-bookings-modal-close" id="dashboard-custom-range-modal-close" aria-label="Close"><i class="fa fa-times" aria-hidden="true"></i></button>
+            </div>
+            <div class="dashboard-new-bookings-modal-body dashboard-custom-range-modal-body">
+                <p class="dashboard-custom-range-hint">Transactions are filtered by when the booking was made (booked at).</p>
+                <div class="dashboard-custom-range-inner">
+                    <label class="dashboard-custom-range-field">
+                        <span class="dashboard-custom-range-label">From</span>
+                        <input type="date" class="dashboard-custom-date-input" id="dashboard-custom-from" autocomplete="off">
+                    </label>
+                    <label class="dashboard-custom-range-field">
+                        <span class="dashboard-custom-range-label">To</span>
+                        <input type="date" class="dashboard-custom-date-input" id="dashboard-custom-to" autocomplete="off">
+                    </label>
+                </div>
+                <div class="dashboard-custom-range-actions">
+                    <button type="button" class="btn btn-secondary" id="dashboard-custom-cancel">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="dashboard-custom-apply">Apply</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="../../scripts/core/app/sidebar.js"></script>
+    <script type="module" src="../../scripts/core/authentication/route-guard.js"></script>
+    <script type="module" src="../../scripts/feature/profile/vet-profile.js"></script>
+    <script type="module" src="../../scripts/feature/dashboard/vet-dashboard.js"></script>
+</body>
+</html>

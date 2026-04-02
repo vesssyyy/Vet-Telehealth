@@ -1,0 +1,49 @@
+rules_version = '2';
+service firebase.storage {
+  function convData(convId) {
+    return firestore.get(/databases/(default)/documents/conversations/$(convId)).data;
+  }
+
+  function isConvStorageMember(convId) {
+    let d = convData(convId);
+    return request.auth != null && (
+      (d.participants is list && request.auth.uid in d.participants)
+      || request.auth.uid == d.ownerId
+      || request.auth.uid == d.vetId
+    );
+  }
+
+  function appointmentData(apptId) {
+    return firestore.get(/databases/(default)/documents/appointments/$(apptId)).data;
+  }
+
+  match /b/{bucket}/o {
+    match /profile-photos/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /pet-photos/{userId}/{petId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    // Message attachments: keep permissive for signed-in users (matches messaging Firestore rules)
+    // while retaining the 25MB upload cap.
+    match /message-attachments/{convId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.resource.size <= 25 * 1024 * 1024;
+    }
+    // Legacy message attachment path used by older clients:
+    // attachments/{uid}/{timestamp}_{name}
+    match /attachments/{userId}/{fileName} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size <= 25 * 1024 * 1024;
+    }
+    // Appointment media: keep permissive for signed-in users (as requested)
+    match /appointments/{appointmentId}/media/{fileName} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
