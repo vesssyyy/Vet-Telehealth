@@ -558,6 +558,7 @@ export function initVideoCallPage(options = {}) {
             if (signalingUnsubscribe) { signalingUnsubscribe(); signalingUnsubscribe = null; }
             return updateDoc(videoCallRef, {
                 [`participants.${user.uid}`]: deleteField(),
+                [`mediaStates.${user.uid}`]: deleteField(),
                 updatedAt: serverTimestamp(),
             }).catch(() => {});
         }
@@ -643,6 +644,7 @@ export function initVideoCallPage(options = {}) {
                 try {
                     await updateDoc(videoCallRef, {
                         [`participants.${user.uid}`]: deleteField(),
+                        [`mediaStates.${user.uid}`]: deleteField(),
                         offer: deleteField(),
                         answer: deleteField(),
                         sessionId: nextSignalingSessionId(),
@@ -689,12 +691,42 @@ export function initVideoCallPage(options = {}) {
             }
         });
 
+        const localMicIndicator = $('local-mic-indicator');
+        const localCamIndicator = $('local-cam-indicator');
+        const remoteMicIndicator = $('remote-mic-indicator');
+        const remoteCamIndicator = $('remote-cam-indicator');
+
+        function setIndicatorState(indicatorEl, { enabled, iconOn, iconOff }) {
+            if (!indicatorEl) return;
+            const i = indicatorEl.querySelector('i');
+            if (i) i.className = enabled ? iconOn : iconOff;
+            indicatorEl.classList.toggle('is-off', !enabled);
+        }
+
+        async function publishLocalMediaState(patch = {}) {
+            const audioTrack = localStream?.getAudioTracks?.()?.[0] || null;
+            const videoTrack = localStream?.getVideoTracks?.()?.[0] || null;
+            const audioEnabled = typeof patch.audioEnabled === 'boolean' ? patch.audioEnabled : !!audioTrack?.enabled;
+            const videoEnabled = typeof patch.videoEnabled === 'boolean' ? patch.videoEnabled : !!videoTrack?.enabled;
+            setIndicatorState(localMicIndicator, { enabled: audioEnabled, iconOn: 'fa fa-microphone', iconOff: 'fa fa-microphone-slash' });
+            setIndicatorState(localCamIndicator, { enabled: videoEnabled, iconOn: 'fa fa-video-camera', iconOff: 'fa fa-video-slash' });
+            await updateDoc(videoCallRef, {
+                [`mediaStates.${user.uid}`]: {
+                    audioEnabled,
+                    videoEnabled,
+                    updatedAt: serverTimestamp(),
+                },
+                updatedAt: serverTimestamp(),
+            }).catch(() => {});
+        }
+
         wireMediaToggle({
             $,
             btnId: 'mic-toggle',
             getTracks: () => localStream?.getAudioTracks() || [],
             icons: ['fa fa-microphone', 'fa fa-microphone-slash'],
             labels: ['Mute microphone', 'Unmute microphone'],
+            onToggle: (enabled) => publishLocalMediaState({ audioEnabled: enabled }),
         });
         wireMediaToggle({
             $,
@@ -702,6 +734,7 @@ export function initVideoCallPage(options = {}) {
             getTracks: () => localStream?.getVideoTracks() || [],
             icons: ['fa fa-video-camera', 'fa fa-video-slash'],
             labels: ['Turn off camera', 'Turn on camera'],
+            onToggle: (enabled) => publishLocalMediaState({ videoEnabled: enabled }),
         });
 
         // If the call was already terminated, don't join — show session ended and stop.
@@ -725,6 +758,8 @@ export function initVideoCallPage(options = {}) {
 
         await loadRtcConfig();
         await getLocalStream();
+        // Publish initial state so the other side sees correct icons immediately.
+        publishLocalMediaState().catch(() => {});
         let joined = false;
         try {
             joined = await joinRoom();
@@ -768,6 +803,18 @@ export function initVideoCallPage(options = {}) {
             const participants = data.participants || {};
             const pids = Object.keys(participants).filter(k => participants[k]);
             remoteUid = pids.find(id => id !== user.uid) || null;
+
+            const mediaStates = data.mediaStates || {};
+            const remoteState = remoteUid ? (mediaStates[remoteUid] || null) : null;
+            if (remoteState) {
+                setIndicatorState(remoteMicIndicator, { enabled: remoteState.audioEnabled !== false, iconOn: 'fa fa-microphone', iconOff: 'fa fa-microphone-slash' });
+                setIndicatorState(remoteCamIndicator, { enabled: remoteState.videoEnabled !== false, iconOn: 'fa fa-video-camera', iconOff: 'fa fa-video-slash' });
+            } else {
+                // Default to "enabled" unless we know otherwise.
+                setIndicatorState(remoteMicIndicator, { enabled: true, iconOn: 'fa fa-microphone', iconOff: 'fa fa-microphone-slash' });
+                setIndicatorState(remoteCamIndicator, { enabled: true, iconOn: 'fa fa-video-camera', iconOff: 'fa fa-video-slash' });
+            }
+
             isOfferer = appointmentData?.ownerId
                 ? user.uid === appointmentData.ownerId
                 : (data.offererUid || pids[0]) === user.uid;
@@ -939,6 +986,7 @@ export function initVideoCallPage(options = {}) {
         window.addEventListener('pagehide', () => {
             updateDoc(videoCallRef, {
                 [`participants.${user.uid}`]: deleteField(),
+                [`mediaStates.${user.uid}`]: deleteField(),
                 updatedAt: serverTimestamp(),
             }).catch(() => {});
         });

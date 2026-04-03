@@ -26,6 +26,49 @@
     overflow: hidden;
 }
 
+/* Per-participant mic/cam indicators (standard VC overlay) */
+.video-tile-indicators {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    display: inline-flex;
+    gap: 6px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    color: rgba(255, 255, 255, 0.95);
+    z-index: 5;
+    pointer-events: none;
+}
+.video-tile-indicators.is-hidden {
+    display: none !important;
+}
+.video-tile-indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    height: auto;
+    border-radius: 0;
+    background: transparent;
+    border: none;
+    font-size: 0.85rem;
+    line-height: 1;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.video-tile-indicator.is-off {
+    color: #ef4444;
+}
+
+/* Local tile: bottom-right edge */
+.sidebar-local-wrap .video-tile-indicators--local {
+    top: auto;
+    left: auto;
+    right: 8px;
+    bottom: 8px;
+}
+
 /* Mirror both local and remote video (inverted camera on both sides) */
 .remote-video {
     position: absolute;

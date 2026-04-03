@@ -204,8 +204,8 @@ export async function populateVideoCallAppointmentUI(options = {}) {
     if (otherParticipantLabelEl) otherParticipantLabelEl.classList.add('is-hidden');
 
     const convoNameEl = document.getElementById('convo-panel-with-name');
-    const ownerDisplayName = isPetOwner ? myName : (otherParticipantNameEl?.textContent || '');
-    if (convoNameEl) convoNameEl.textContent = `${petName} – ${ownerDisplayName}`;
+    const ownerNameForTitle = isPetOwner ? myName : (otherParticipantNameEl?.textContent || '');
+    if (convoNameEl) convoNameEl.textContent = `${petName} – ${ownerNameForTitle}`;
 
     if (consultationTitleEl) {
         const title = (appointmentData.title && String(appointmentData.title).trim()) || '';

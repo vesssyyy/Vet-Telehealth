@@ -99,6 +99,14 @@
                 <!-- Main area: recipient video -->
                 <div class="remote-video-wrap" aria-label="Recipient video">
                     <video id="remote-video" class="remote-video" autoplay playsinline aria-label="Other participant"></video>
+                    <div class="video-tile-indicators" id="remote-media-indicators" aria-hidden="true">
+                        <span class="video-tile-indicator" id="remote-mic-indicator" title="Microphone">
+                            <i class="fa fa-microphone" aria-hidden="true"></i>
+                        </span>
+                        <span class="video-tile-indicator" id="remote-cam-indicator" title="Camera">
+                            <i class="fa fa-video-camera" aria-hidden="true"></i>
+                        </span>
+                    </div>
                     <p id="waiting-message" class="waiting-message" aria-live="polite">
                         <i class="fa fa-clock-o" aria-hidden="true"></i> Waiting for the other participant…
                     </p>
@@ -172,6 +180,14 @@
                     <!-- 3. Local video preview -->
                     <div class="sidebar-card sidebar-local-wrap" id="local-placeholder-wrap">
                         <video id="local-video" class="local-video" autoplay playsinline muted aria-label="Local video"></video>
+                    <div class="video-tile-indicators video-tile-indicators--local" id="local-media-indicators" aria-hidden="true">
+                        <span class="video-tile-indicator" id="local-mic-indicator" title="Microphone">
+                            <i class="fa fa-microphone" aria-hidden="true"></i>
+                        </span>
+                        <span class="video-tile-indicator" id="local-cam-indicator" title="Camera">
+                            <i class="fa fa-video-camera" aria-hidden="true"></i>
+                        </span>
+                    </div>
                         <div class="local-placeholder-overlay">
                             <span class="local-video-label" id="local-video-label"></span>
                             <span class="other-participant-label is-hidden" id="other-participant-label" aria-hidden="true"></span>
@@ -278,7 +294,7 @@
     </div>
 
     <script type="module">
-        import { initVideoCallPage } from '/scripts/feature/video-consultation/index.js';
+        import { initVideoCallPage } from '../../scripts/feature/video-consultation/index.js';
         initVideoCallPage({
             backUrl: 'appointments.html',
             backLabel: 'Back to Appointments',
