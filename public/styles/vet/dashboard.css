@@ -1362,7 +1362,7 @@ body.dashboard-ready .dashboard-content { display: flex !important; }
 }
 .dashboard-appointments-columns {
     display: grid;
-    grid-template-columns: minmax(140px, 1.4fr) minmax(100px, 1fr) minmax(160px, 1.35fr) auto;
+    grid-template-columns: minmax(140px, 1.35fr) minmax(100px, 1fr) minmax(160px, 1.25fr) minmax(160px, 1.25fr) auto;
     align-items: center;
     gap: 10px 16px;
     padding: 0 12px 10px;
@@ -1483,7 +1483,7 @@ body.dashboard-ready .dashboard-content { display: flex !important; }
 }
 .dashboard-appointment-row {
     display: grid;
-    grid-template-columns: minmax(140px, 1.4fr) minmax(100px, 1fr) minmax(160px, 1.35fr) auto;
+    grid-template-columns: minmax(140px, 1.35fr) minmax(100px, 1fr) minmax(160px, 1.25fr) minmax(160px, 1.25fr) auto;
     align-items: center;
     gap: 10px 16px;
     padding: 12px 14px;
@@ -1595,6 +1595,18 @@ body.dashboard-ready .dashboard-content { display: flex !important; }
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+.dashboard-appointment-title {
+    min-width: 0;
+}
+.dashboard-appt-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--primary-color);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
 }
 .dashboard-appointment-actions {
     justify-self: end;

@@ -475,6 +475,7 @@ function buildUpcomingAppointmentRowsMarkup(rows) {
             const isNext = idx === 0;
             const ownerName = apt.ownerName || '—';
             const petName = apt.petName || '—';
+            const apptTitle = (apt.title && String(apt.title).trim()) || '—';
             const initials = initialsFromName(ownerName);
             const ownerPhotoUrl = (apt.ownerPhotoUrl && String(apt.ownerPhotoUrl).trim()) || '';
             const petPhotoUrl = (apt.petPhotoUrl && String(apt.petPhotoUrl).trim()) || '';
@@ -521,6 +522,9 @@ function buildUpcomingAppointmentRowsMarkup(rows) {
                 petName,
             )}</span>
                     </div>
+                </div>
+                <div class="dashboard-appointment-cell dashboard-appointment-title" role="cell">
+                    <span class="dashboard-appt-title" title="${escapeHtml(apptTitle)}">${escapeHtml(apptTitle)}</span>
                 </div>
                 <div class="dashboard-appointment-cell dashboard-appointment-when" role="cell" title="${escapeHtml(
                     metaTitle,

@@ -426,6 +426,7 @@ function init() {
                         if (!currentPetId || !pets.some((p) => p.id === currentPetId)) currentPetId = pets[0].id;
                         currentPet = pets.find((p) => p.id === currentPetId) || pets[0];
                         renderPetProfile(pets);
+                        window.dispatchEvent(new CustomEvent('petChanged', { detail: { petId: currentPetId } }));
                     }
                 }
                 const fromServer = !snapshot.metadata?.fromCache;
@@ -599,6 +600,7 @@ function bindPetSwitch(card, pets) {
             currentPetId = this.dataset.petId || null;
             try { if (currentUserId) localStorage.setItem(`${SELECTED_PET_STORAGE_KEY}:${currentUserId}`, currentPetId || ''); } catch (_) {}
             if (pets.length) renderPetProfile(pets);
+            window.dispatchEvent(new CustomEvent('petChanged', { detail: { petId: currentPetId } }));
             setOpen(false);
         });
     });
