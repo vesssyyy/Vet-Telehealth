@@ -1,0 +1,27 @@
+/* ~75% visual scale on desktop; matches mobile breakpoint in shared layouts (768px).
+   Root zoom shrinks layout vs the real viewport — compensate vh-based lengths so the shell
+   still fills the window (avoids white band under sidebar/main). */
+@media (min-width: 769px) {
+    html {
+        zoom: 0.75;
+        /* Sidebar, messages, etc. use var(--vh); sidebar-layout sets :root --vh after this file — !important wins. */
+        --vh: calc(100vh / 0.75) !important;
+        min-height: calc(100vh / 0.75);
+        background-color: #f7fafc;
+    }
+
+    html body {
+        min-height: calc(100vh / 0.75);
+    }
+
+    html .sidebar {
+        height: calc(100vh / 0.75);
+        min-height: calc(100vh / 0.75);
+    }
+
+    html body.video-call-fullscreen {
+        min-height: calc(100vh / 0.75);
+        min-height: calc(100dvh / 0.75);
+        min-height: calc(100svh / 0.75);
+    }
+}
