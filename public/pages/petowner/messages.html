@@ -58,7 +58,8 @@
         </header>
         <div class="page-header messages-page-header" aria-hidden="true"></div>
 
-        <div class="messages-empty-single-panel" id="messages-empty-single-panel">
+        <!-- Match init loading (setListState true,false,false): avoid "No Messages" flash before Firestore -->
+        <div class="messages-empty-single-panel is-hidden" id="messages-empty-single-panel">
             <div class="messages-empty-single-content">
                 <div class="messages-empty-single-illus">
                     <span class="messages-empty-single-illus-icon messages-empty-single-illus-paw"><i class="fa fa-paw" aria-hidden="true"></i></span>
@@ -71,7 +72,7 @@
             </div>
         </div>
 
-        <div class="content-wrapper messages-wrapper is-hidden" id="messages-wrapper">
+        <div class="content-wrapper messages-wrapper" id="messages-wrapper">
             <aside class="messages-list-panel">
                 <div class="messages-list-header">
                     <h2 class="messages-list-title">Conversations</h2>
@@ -81,7 +82,7 @@
                     <span class="messages-list-search-icon" aria-hidden="true"><i class="fa fa-search" aria-hidden="true"></i></span>
                     <input type="search" id="messages-search-input" class="messages-list-search-input" placeholder="Search conversations" aria-label="Search conversations" autocomplete="off">
                 </div>
-                <div class="messages-list-loading is-hidden" id="messages-list-loading" aria-hidden="true">
+                <div class="messages-list-loading" id="messages-list-loading" aria-hidden="false">
                     <div class="messages-loading-spinner"></div>
                     <p>Loading conversations…</p>
                 </div>
@@ -89,7 +90,7 @@
                     <div class="messages-empty-icon" aria-hidden="true"><i class="fa fa-envelope-open-o"></i></div>
                     <p class="messages-empty-title">No conversations yet</p>
                 </div>
-                <ul class="messages-conversation-list" id="messages-conversation-list" role="list" aria-label="Conversation list"></ul>
+                <ul class="messages-conversation-list" id="messages-conversation-list" role="list" aria-label="Conversation list" style="display: none;"></ul>
             </aside>
             <section class="messages-chat-panel">
                 <div class="messages-chat-welcome" id="messages-chat-welcome">
