@@ -188,7 +188,6 @@ export function initPetownerMessagingPage() {
     function subscribeToConversations() {
         const user = auth.currentUser;
         if (!user) return;
-        setListState(true, false, false);
         return onSnapshot(
             query(collection(db, 'conversations'), where('ownerId', '==', user.uid), orderBy('lastMessageAt', 'desc')),
             async snap => {

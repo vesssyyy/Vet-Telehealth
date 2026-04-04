@@ -49,6 +49,7 @@ export function createMessaging(config) {
         listLoading:         $('messages-list-loading'),
         listEmpty:           $('messages-list-empty'),
         listRoot:            $('messages-conversation-list'),
+        pageBootstrap:       $('messages-page-bootstrap'),
         emptySinglePanel:    $('messages-empty-single-panel'),
         messagesWrapper:     $('messages-wrapper'),
         chatWelcome:         $('messages-chat-welcome'),
@@ -81,12 +82,21 @@ export function createMessaging(config) {
     };
 
     /* ── List / chat view ──────────────────────────────────────────── */
+    function setPageBootstrap(active) {
+        if (!refs.pageBootstrap) return;
+        refs.pageBootstrap.classList.toggle('is-hidden', !active);
+        refs.pageBootstrap.setAttribute('aria-hidden', active ? 'false' : 'true');
+        if (active) refs.pageBootstrap.setAttribute('aria-busy', 'true');
+        else refs.pageBootstrap.removeAttribute('aria-busy');
+    }
+
     function setListState(loading, empty, hasItems) {
         refs.listLoading?.classList.toggle('is-hidden', !loading);
         refs.listEmpty?.classList.toggle('is-hidden', !empty);
         if (refs.listRoot) refs.listRoot.style.display = hasItems ? '' : 'none';
         refs.emptySinglePanel?.classList.toggle('is-hidden', !empty);
         refs.messagesWrapper?.classList.toggle('is-hidden', empty);
+        if (!loading) setPageBootstrap(false);
     }
 
     function setChatView(active) {
@@ -368,7 +378,7 @@ export function createMessaging(config) {
 
     /* ── Init shared UI ────────────────────────────────────────────── */
     function initSharedUI({ doOpenModal, doCloseModal, onFormSubmit, onConvClick, dropdownIds = [] }) {
-        setListState(true, false, false);
+        setPageBootstrap(true);
         showPlaceholder();
 
         /* Modal */
@@ -486,7 +496,7 @@ export function createMessaging(config) {
 
     return {
         refs, state, isMobileView,
-        setListState, setChatView, showPlaceholder, showChat,
+        setListState, setPageBootstrap, setChatView, showPlaceholder, showChat,
         renderChatMessages, renderConversationList,
         subscribeMessages, goBackToList,
         showModalError, setTriggerText, openModal, closeModal,
