@@ -386,11 +386,16 @@ export function createMessaging(config) {
     }
 
     /* ── Compose input ─────────────────────────────────────────────── */
+    function getComposeInputEl() {
+        return document.getElementById('messages-compose-input') || refs.composeInput;
+    }
+
     function resizeComposeInput() {
-        if (!refs.composeInput) return;
-        refs.composeInput.style.height = 'auto';
-        const lh = parseFloat(getComputedStyle(refs.composeInput).lineHeight) || refs.composeInput.scrollHeight;
-        refs.composeInput.style.height = Math.min(Math.max(refs.composeInput.scrollHeight, lh), lh * 5) + 'px';
+        const el = getComposeInputEl();
+        if (!el) return;
+        el.style.height = 'auto';
+        const lh = parseFloat(getComputedStyle(el).lineHeight) || el.scrollHeight;
+        el.style.height = Math.min(Math.max(el.scrollHeight, lh), lh * 5) + 'px';
     }
 
     /* ── Attachment preview + emoji picker (core) ──────────────────── */
@@ -406,9 +411,15 @@ export function createMessaging(config) {
     /* ── Send message ──────────────────────────────────────────────── */
     async function doSendMessage() {
         if (state.isSendingMessage) return;
-        const text         = (refs.composeInput?.value || '').trim();
+        const composeEl = getComposeInputEl();
+        const text = (composeEl?.value || refs.composeInput?.value || '').trim();
         const fileToUpload = attachmentPreview.getPending();
         if ((!text && !fileToUpload) || !state.currentConvId || !auth.currentUser) return;
+
+        const textSnapshot = text;
+        composeEl.value = '';
+        if (refs.composeInput && refs.composeInput !== composeEl) refs.composeInput.value = '';
+        resizeComposeInput();
 
         state.isSendingMessage = true;
         emojiPicker?.close();
@@ -418,7 +429,7 @@ export function createMessaging(config) {
             state.isSendingMessage = false;
             if (refs.sendBtn) { refs.sendBtn.disabled = false; refs.sendBtn.removeAttribute('aria-busy'); }
         };
-        const lastPreview  = text || (fileToUpload ? `\uD83D\uDCCE ${fileToUpload.name}` : '');
+        const lastPreview  = textSnapshot || (fileToUpload ? `\uD83D\uDCCE ${fileToUpload.name}` : '');
         const safetyTimer  = setTimeout(resetSending, 15000);
 
         try {
@@ -427,7 +438,7 @@ export function createMessaging(config) {
                 : null;
             const msgRef = await addDoc(collection(db, 'conversations', state.currentConvId, 'messages'), {
                 senderId: auth.currentUser.uid,
-                text:     text || '',
+                text:     textSnapshot || '',
                 sentAt:   serverTimestamp(),
                 status:   'sending',
                 ...(attachPlaceholder && { attachment: attachPlaceholder }),
@@ -445,9 +456,7 @@ export function createMessaging(config) {
             if (conv) { conv.lastMessage = lastPreview; conv.lastMessageAt = new Date(); renderConversationList(); }
 
             attachmentPreview.clear();
-            refs.composeInput.value = '';
-            resizeComposeInput();
-            if (isMobileView()) refs.composeInput?.focus();
+            if (isMobileView()) getComposeInputEl()?.focus();
 
             if (!fileToUpload) {
                 await updateDoc(doc(db, 'conversations', state.currentConvId, 'messages', msgRef.id), { status: 'sent' }).catch(() => {});
@@ -461,7 +470,7 @@ export function createMessaging(config) {
                     } catch (err) {
                         console.error('Attachment upload error:', err);
                         await updateDoc(doc(db, 'conversations', state.currentConvId, 'messages', msgRef.id), {
-                            status: 'sent', text: (text || '') + (err?.message ? ' (upload failed)' : ''),
+                            status: 'sent', text: (textSnapshot || '') + (err?.message ? ' (upload failed)' : ''),
                         }).catch(() => {});
                     } finally {
                         clearTimeout(safetyTimer);
@@ -472,6 +481,9 @@ export function createMessaging(config) {
         } catch (err) {
             console.error('Send message error:', err);
             await appAlertError(err?.message || 'Failed to send message.');
+            const el = getComposeInputEl();
+            if (el && textSnapshot) el.value = textSnapshot;
+            resizeComposeInput();
             clearTimeout(safetyTimer);
             resetSending();
         }
@@ -503,12 +515,19 @@ export function createMessaging(config) {
         $('messages-empty-new-icon')?.addEventListener('click', doOpenModal);
         document.addEventListener('keydown', e => { if (e.key === 'Escape') doCloseModal(); });
 
-        /* Back + popstate */
+        /* Back: always update UI here. Mobile used history.back() so popstate would run, but the SPA
+           router handles popstate first with stopImmediatePropagation and navigate() no-ops for same
+           page — so goBackToList() never ran and the thread stayed open. */
         refs.chatBack?.addEventListener('click', () => {
-            if (isMobileView() && state.currentConvId) history.back();
-            else goBackToList();
+            goBackToList();
+            if (isMobileView() && history.state && history.state.conv) {
+                history.back();
+            }
         });
-        window.addEventListener('popstate', () => { if (isMobileView() && state.currentConvId) goBackToList(); });
+        /* Capture phase runs before the SPA router’s popstate listener so hardware back leaves the thread. */
+        window.addEventListener('popstate', () => {
+            if (isMobileView() && state.currentConvId) goBackToList();
+        }, true);
 
         /* Search */
         $('messages-search-input')?.addEventListener('input', e => {
@@ -587,10 +606,8 @@ export function createMessaging(config) {
         /* Attachment */
         refs.attachBtn?.addEventListener('click', () => refs.attachInput?.click());
 
-        /* Send button */
+        /* Send: single click handler; duplicate touch + click paths could race and skip clearing. */
         refs.sendBtn?.addEventListener('click', doSendMessage);
-        refs.sendBtn?.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
-        refs.sendBtn?.addEventListener('touchend', e => { if (e.target.closest('#messages-send-btn')) doSendMessage(); });
 
         /* Dropdown toggles */
         const dropdowns = dropdownIds.map(base => $(`${base}-dropdown`));
