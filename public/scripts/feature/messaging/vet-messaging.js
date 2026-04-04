@@ -179,6 +179,11 @@ export function initVetMessagingPage() {
     async function openConversation(conv) {
         state.currentConvId = conv.id;
         state.currentConvData = conv;
+
+        const localConv = state.conversations.find(c => c.id === conv.id);
+        if (localConv) localConv.unreadCount_vet = 0;
+        renderConversationList();
+
         if (shared.isMobileView()) history.pushState({ conv: conv.id }, '', location.href);
         if (!conv.ownerName && conv.ownerId) await ensureOwnerNames([conv]);
         updateChatHeader(conv);

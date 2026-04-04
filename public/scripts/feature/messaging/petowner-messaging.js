@@ -147,6 +147,11 @@ export function initPetownerMessagingPage() {
     async function openConversation(conv) {
         state.currentConvId   = conv.id;
         state.currentConvData = conv;
+
+        const localConv = state.conversations.find(c => c.id === conv.id);
+        if (localConv) localConv.unreadCount_owner = 0;
+        renderConversationList();
+
         if (shared.isMobileView()) history.pushState({ conv: conv.id }, '', location.href);
         updateChatHeader(conv);
 

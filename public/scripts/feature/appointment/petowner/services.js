@@ -494,6 +494,7 @@ export function subscribeAppointments(uid, callback) {
     const q = query(appointmentsRef(), where('ownerId', '==', uid));
     let active = true;
     let initialDone = false;
+    let initialDelivered = false;
     const safetyMs = 12000;
     const started = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
     let watchdogId = null;
@@ -505,7 +506,7 @@ export function subscribeAppointments(uid, callback) {
         clearTimeout(safetyTimer);
         if (watchdogId != null) clearInterval(watchdogId);
         console.warn('Appointments: initial sync is slow; showing empty list until data arrives.');
-        callback([]);
+        if (!initialDelivered) { initialDelivered = true; callback([]); }
         return true;
     };
     const safetyTimer = setTimeout(trySafetyKick, safetyMs);
@@ -525,16 +526,27 @@ export function subscribeAppointments(uid, callback) {
         callback(list);
     };
 
+    let isFirstSnapshot = true;
+
     getDocs(q)
-        .then((snap) => deliver(mapAppointmentSnapshotDocs(snap.docs)))
+        .then((snap) => {
+            if (!initialDelivered) { initialDelivered = true; deliver(mapAppointmentSnapshotDocs(snap.docs)); }
+        })
         .catch((err) => {
             console.error('Appointments getDocs error:', err);
-            deliver([]);
+            if (!initialDelivered) { initialDelivered = true; deliver([]); }
         });
 
     const unsub = onSnapshot(
         q,
-        (snapshot) => deliver(mapAppointmentSnapshotDocs(snapshot.docs)),
+        (snapshot) => {
+            if (isFirstSnapshot) {
+                isFirstSnapshot = false;
+                if (initialDelivered) return;
+                initialDelivered = true;
+            }
+            deliver(mapAppointmentSnapshotDocs(snapshot.docs));
+        },
         (err) => {
             console.error('Appointments subscription error:', err);
             deliver([]);

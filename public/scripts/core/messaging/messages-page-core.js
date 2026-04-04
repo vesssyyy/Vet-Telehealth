@@ -368,7 +368,7 @@ export function createMessaging(config) {
 
     /* ── Init shared UI ────────────────────────────────────────────── */
     function initSharedUI({ doOpenModal, doCloseModal, onFormSubmit, onConvClick, dropdownIds = [] }) {
-        setListState(false, true, false);
+        setListState(true, false, false);
         showPlaceholder();
 
         /* Modal */

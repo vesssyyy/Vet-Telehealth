@@ -44,6 +44,7 @@
     overflow-y: auto;
 }
 .messages-empty-single-panel.is-hidden { display: none !important; }
+.messages-empty-single-panel:not(.is-hidden) { animation: smoothFadeIn 0.35s ease both; }
 .messages-empty-single-content {
     position: relative;
     background: var(--bg-white);
@@ -250,6 +251,7 @@
     flex: 1;
 }
 .messages-list-empty.is-hidden { display: none !important; }
+.messages-list-empty:not(.is-hidden) { animation: smoothFadeIn 0.3s ease both; }
 .messages-empty-icon {
     width: 72px;
     height: 72px;
@@ -410,6 +412,7 @@
     background: var(--bg-light);
 }
 .messages-chat-welcome.is-hidden { display: none !important; }
+.messages-chat-welcome:not(.is-hidden) { animation: smoothFadeIn 0.3s ease both; }
 .messages-chat-welcome-icon {
     width: 80px;
     height: 80px;
