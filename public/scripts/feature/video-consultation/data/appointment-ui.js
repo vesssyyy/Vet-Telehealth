@@ -1,7 +1,28 @@
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 import { withDr } from '../../../core/app/utils.js';
+import { formatAppointmentDateNoWeekday } from '../../appointment/shared/time.js';
 import { ownerDisplayName, vetDisplayName } from '../../messaging/shared-messaging.js';
 import { buildSharedMediaMarkup } from '../utils/shared-media.js';
+
+/** VC header datetime: avoid duplicating date when `timeDisplay` already includes it (pet-owner bookings). */
+function formatConsultationHeaderDatetime(appointmentData) {
+    const dateRaw = String(appointmentData.dateStr || appointmentData.date || '').trim();
+    const timeRaw = String(appointmentData.timeDisplay || '').trim();
+    if (!dateRaw && !timeRaw) return '';
+
+    const sep = ' · ';
+    const normalizeRangeDashes = (s) => s.replace(/\s*[–—]\s*/g, ' – ');
+
+    if (timeRaw && /\s+at\s+/i.test(timeRaw)) {
+        return normalizeRangeDashes(timeRaw.replace(/\s+at\s+/i, sep));
+    }
+    if (dateRaw && timeRaw) {
+        const dateLabel = formatAppointmentDateNoWeekday(dateRaw);
+        return `${dateLabel}${sep}${normalizeRangeDashes(timeRaw)}`;
+    }
+    if (timeRaw) return normalizeRangeDashes(timeRaw);
+    return formatAppointmentDateNoWeekday(dateRaw);
+}
 
 /**
  * Populate VC appointment-related UI (pet, concern/media, participant labels/avatars, title/datetime).
@@ -226,10 +247,8 @@ export async function populateVideoCallAppointmentUI(options = {}) {
         const title = (appointmentData.title && String(appointmentData.title).trim()) || '';
         consultationTitleEl.textContent = title || `${petName} — ${(appointmentData.reason || 'Consultation').toString().slice(0, 30)}`;
     }
-    if (consultationDatetimeEl && (appointmentData.dateStr || appointmentData.timeDisplay)) {
-        const d = appointmentData.dateStr || '';
-        const t = appointmentData.timeDisplay || '';
-        consultationDatetimeEl.textContent = [d, t].filter(Boolean).join(' · ') || '—';
+    if (consultationDatetimeEl && (appointmentData.dateStr || appointmentData.date || appointmentData.timeDisplay)) {
+        consultationDatetimeEl.textContent = formatConsultationHeaderDatetime(appointmentData) || '—';
     }
 
     return {
