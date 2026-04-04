@@ -456,7 +456,8 @@ export function createMessaging(config) {
             if (conv) { conv.lastMessage = lastPreview; conv.lastMessageAt = new Date(); renderConversationList(); }
 
             attachmentPreview.clear();
-            if (isMobileView()) getComposeInputEl()?.focus();
+            /* Do not call focus() here on mobile — it causes keyboard dismiss + reopen. Keep focus on
+               the textarea by preventing the send button from taking focus (pointerdown/touchstart). */
 
             if (!fileToUpload) {
                 await updateDoc(doc(db, 'conversations', state.currentConvId, 'messages', msgRef.id), { status: 'sent' }).catch(() => {});
@@ -631,8 +632,24 @@ export function createMessaging(config) {
         refs.attachBtn?.addEventListener('click', () => refs.attachInput?.click());
 
         /* Send: first tap with keyboard open — layout reflow from blur could lose the delayed click.
-           Touch path uses pointerup/touchend + preventDefault so send runs before reflow; suppress duplicate click. */
+           Touch path uses pointerup/touchend + preventDefault so send runs before reflow; suppress duplicate click.
+           pointerdown/touchstart preventDefault keeps focus on the textarea so the keyboard does not dismiss. */
         if (refs.sendBtn) {
+            const keepComposeFocusedOnSendTap = (e) => {
+                if (!isMobileView()) return;
+                if (window.PointerEvent) {
+                    if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
+                }
+                e.preventDefault();
+            };
+            if (window.PointerEvent) {
+                refs.sendBtn.addEventListener('pointerdown', keepComposeFocusedOnSendTap, { passive: false });
+            } else {
+                refs.sendBtn.addEventListener('touchstart', (e) => {
+                    if (!isMobileView()) return;
+                    e.preventDefault();
+                }, { passive: false });
+            }
             let suppressNextClick = false;
             const sendFromTouchLike = (e) => {
                 if (!isMobileView()) return;
