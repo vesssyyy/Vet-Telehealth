@@ -22,7 +22,8 @@ export function registerModalEvents(ctx) {
         if (currentDetailsApt?.id) params.set('appointmentId', currentDetailsApt.id);
         if (currentDetailsApt?.ownerName) params.set('ownerName', currentDetailsApt.ownerName);
         if (currentDetailsApt?.petName) params.set('petName', currentDetailsApt.petName);
-        window.location.href = `messages.html?${params.toString()}`;
+        const messagesUrl = `messages.html?${params.toString()}`;
+        if (!window.__spaNavigate || !window.__spaNavigate(messagesUrl)) window.location.href = messagesUrl;
     });
     $('details-download-pdf-btn')?.addEventListener('click', () => {
         const currentDetailsApt = currentDetailsAptRef();

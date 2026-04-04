@@ -100,56 +100,35 @@ export function initProfile(config) {
     initPasswordToggleFields(document);
 
     /* ── DOM references ───────────────────────────────────────────── */
-    const D = {
-        sidebarName:              $('sidebar-name'),
-        sidebarEmail:             $('sidebar-email'),
-        sidebarAvatar:            $('sidebar-avatar'),
-        sidebarAvatarImg:         $('sidebar-avatar-img'),
-        dashboardUserName:        $('dashboard-user-name'),
-        profileName:              $('profile-name'),
-        profileNameGrid:          $('profile-name-grid'),
-        profileEmail:             $('profile-email'),
-        profileRole:              $('profile-role'),
-        profileRoleGrid:          $('profile-role-grid'),
-        profileCreated:           $('profile-created'),
-        profilePhoto:             $('profile-photo'),
-        profilePhotoPlaceholder:  $('profile-photo-placeholder'),
-        editProfilePhoto:         $('edit-profile-photo'),
-        editProfilePhotoPlaceholder: $('edit-profile-photo-placeholder'),
-        bio:                      $('profile-bio'),
-        address:                  $('profile-address'),
-        phone:                    $('profile-phone'),
-        bioView:                  $('profile-bio-view'),
-        addressView:              $('profile-address-view'),
-        phoneView:                $('profile-phone-view'),
-        specializationView:     $('profile-specialization-view'),
-        licenseView:              $('profile-license-view'),
-        specialization:           $('profile-specialization'),
-        license:                  $('profile-license'),
-        bioCount:                 $('bio-char-count'),
-        btnSave:                  $('btn-save-profile'),
-        btnEditProfile:           $('btn-edit-profile'),
-        btnCancelEdit:            $('btn-cancel-edit'),
-        btnChangePhoto:           $('btn-change-photo'),
-        btnRemovePhoto:           $('btn-remove-photo'),
-        btnUseEmailPhoto:         $('btn-use-email-photo'),
-        photoInput:               $('profile-photo-input'),
-        editModal:                $('edit-profile-modal'),
-        formPassword:             $('form-change-password'),
-        currentPass:              $('current-password'),
-        newPass:                  $('new-password'),
-        confirmPass:              $('confirm-password'),
-        btnDelete:                $('btn-delete-account'),
-        modal:                    $('delete-account-modal'),
-        deletePass:               $('delete-password'),
-        btnModalCancel:           $('btn-modal-cancel'),
-        btnModalConfirm:          $('btn-modal-confirm-delete'),
-        securityPasswordEmail:    $('security-password-email'),
-        securityPasswordGoogle:   $('security-password-google'),
-        btnRevealChangePassword:  $('btn-reveal-change-password'),
-        changePasswordFormWrap:   $('change-password-form-wrap'),
-        btnCancelChangePassword:  $('btn-cancel-change-password'),
+    const DOM_IDS = {
+        sidebarName: 'sidebar-name', sidebarEmail: 'sidebar-email',
+        sidebarAvatar: 'sidebar-avatar', sidebarAvatarImg: 'sidebar-avatar-img',
+        dashboardUserName: 'dashboard-user-name',
+        profileName: 'profile-name', profileNameGrid: 'profile-name-grid',
+        profileEmail: 'profile-email', profileRole: 'profile-role',
+        profileRoleGrid: 'profile-role-grid', profileCreated: 'profile-created',
+        profilePhoto: 'profile-photo', profilePhotoPlaceholder: 'profile-photo-placeholder',
+        editProfilePhoto: 'edit-profile-photo', editProfilePhotoPlaceholder: 'edit-profile-photo-placeholder',
+        bio: 'profile-bio', address: 'profile-address', phone: 'profile-phone',
+        bioView: 'profile-bio-view', addressView: 'profile-address-view', phoneView: 'profile-phone-view',
+        specializationView: 'profile-specialization-view', licenseView: 'profile-license-view',
+        specialization: 'profile-specialization', license: 'profile-license',
+        bioCount: 'bio-char-count', btnSave: 'btn-save-profile',
+        btnEditProfile: 'btn-edit-profile', btnCancelEdit: 'btn-cancel-edit',
+        btnChangePhoto: 'btn-change-photo', btnRemovePhoto: 'btn-remove-photo',
+        btnUseEmailPhoto: 'btn-use-email-photo', photoInput: 'profile-photo-input',
+        editModal: 'edit-profile-modal', formPassword: 'form-change-password',
+        currentPass: 'current-password', newPass: 'new-password', confirmPass: 'confirm-password',
+        btnDelete: 'btn-delete-account', modal: 'delete-account-modal', deletePass: 'delete-password',
+        btnModalCancel: 'btn-modal-cancel', btnModalConfirm: 'btn-modal-confirm-delete',
+        securityPasswordEmail: 'security-password-email', securityPasswordGoogle: 'security-password-google',
+        btnRevealChangePassword: 'btn-reveal-change-password',
+        changePasswordFormWrap: 'change-password-form-wrap',
+        btnCancelChangePassword: 'btn-cancel-change-password',
     };
+    const D = {};
+    const queryDOM = () => { for (const k in DOM_IDS) D[k] = $(DOM_IDS[k]); };
+    queryDOM();
 
     /* ── Pending state (cleared on Cancel, applied on Save) ────────── */
     let pendingProfilePhoto = null; // { file: File, objectUrl: string } | null
@@ -470,11 +449,6 @@ export function initProfile(config) {
         D.btnModalConfirm?.addEventListener('click', handleDeleteAccount);
         D.modal?.addEventListener('click', e => { if (e.target === D.modal) closeDeleteModal(); });
         D.editModal?.addEventListener('click', e => { if (e.target === D.editModal) closeEditModal(); });
-        document.addEventListener('keydown', e => {
-            if (e.key !== 'Escape') return;
-            if (D.modal?.getAttribute('aria-hidden') === 'false') closeDeleteModal();
-            else if (D.editModal?.getAttribute('aria-hidden') === 'false') closeEditModal();
-        });
 
         if (!isEmailProvider(user)) {
             D.securityPasswordEmail?.classList.add('is-hidden');
@@ -488,6 +462,13 @@ export function initProfile(config) {
         const deletePassGroup = D.deletePass?.closest('.field-group');
         if (!isEmailProvider(user) && deletePassGroup) deletePassGroup.style.display = 'none';
     };
+
+    /* ── Global keyboard handler (registered once, references D dynamically) */
+    document.addEventListener('keydown', e => {
+        if (e.key !== 'Escape') return;
+        if (D.modal?.getAttribute('aria-hidden') === 'false') closeDeleteModal();
+        else if (D.editModal?.getAttribute('aria-hidden') === 'false') closeEditModal();
+    });
 
     /* ── Auth state entry point ────────────────────────────────────── */
     onAuthStateChanged(auth, user => {
@@ -517,5 +498,13 @@ export function initProfile(config) {
         else doSync();
 
         initUI(user);
+
+        /* ── SPA re-initialization ─────────────────────────────────── */
+        window.addEventListener('spa:afternavigate', () => {
+            queryDOM();
+            const c = readCache(user.uid);
+            if (c) applyProfile(c);
+            initUI(user);
+        });
     });
 }

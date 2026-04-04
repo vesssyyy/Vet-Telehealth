@@ -65,6 +65,7 @@
         }
 
         document.querySelector('.profile-header-btn')?.addEventListener('click', function () {
+            if (window.__spaNavigate && window.__spaNavigate('profile.html')) return;
             window.location.href = 'profile.html';
         });
 

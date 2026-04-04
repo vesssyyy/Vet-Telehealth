@@ -39,7 +39,10 @@ import { attachLogoutButton } from './logout.js';
         const isProfilePage = () => (window.location.pathname || '').includes('profile');
         const isFirstLoad = () => sessionStorage.getItem(FIRST_LOAD_PETOWNER) !== 'false';
 
-        window.addEventListener('popstate', () => isLoggedIn && history.go(1));
+        window.addEventListener('popstate', (e) => {
+            if (e.state && e.state.spaUrl) return;
+            if (isLoggedIn) history.go(1);
+        });
         attachLogoutButton(auth, { firstLoadKey: FIRST_LOAD_PETOWNER });
 
         function tryRemoveLoading() {
@@ -86,8 +89,10 @@ import { attachLogoutButton } from './logout.js';
             isLoggedIn = true;
             profileReadyDone = false;
             petsReadyDone = false;
-            history.pushState(null, document.title, window.location.href);
-            history.pushState(null, document.title, window.location.href);
+            if (!window.__spaRouterActive) {
+                history.pushState(null, document.title, window.location.href);
+                history.pushState(null, document.title, window.location.href);
+            }
             document.body.style.opacity = '0';
             document.body.style.visibility = 'visible';
             requestAnimationFrame(function () {
@@ -125,7 +130,10 @@ import { attachLogoutButton } from './logout.js';
         const isDash = () => (window.location.pathname || '').includes('dashboard');
         const isFirst = () => sessionStorage.getItem(FIRST_LOAD_VET) !== 'false';
 
-        window.addEventListener('popstate', () => loggedIn && history.go(1));
+        window.addEventListener('popstate', (e) => {
+            if (e.state && e.state.spaUrl) return;
+            if (loggedIn) history.go(1);
+        });
         attachLogoutButton(auth, { firstLoadKey: FIRST_LOAD_VET });
 
         const reveal = () => {
@@ -151,7 +159,9 @@ import { attachLogoutButton } from './logout.js';
             sessionStorage.removeItem('telehealthLoggedOut');
             loggedIn = true;
             profileDone = false;
-            history.pushState(null, document.title, window.location.href);
+            if (!window.__spaRouterActive) {
+                history.pushState(null, document.title, window.location.href);
+            }
             document.body.style.opacity = '0';
             document.body.style.visibility = 'visible';
             requestAnimationFrame(function () {

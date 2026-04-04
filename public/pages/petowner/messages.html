@@ -152,7 +152,7 @@
             <div class="new-conversation-body">
                 <div class="new-conversation-error is-hidden" id="new-conversation-error" role="alert"></div>
                 <div class="new-conversation-group">
-                    <label for="new-conv-pet">Pet <span class="required">*</span></label>
+                    <label for="new-conv-pet-trigger">Pet <span class="required">*</span></label>
                     <div class="dropdown new-conv-pet-dropdown" id="new-conv-pet-dropdown">
                         <button type="button" class="new-conv-trigger dropdown-trigger" id="new-conv-pet-trigger" aria-expanded="false" aria-haspopup="true" aria-label="Select pet">
                             <i class="fa fa-paw new-conv-trigger-icon" aria-hidden="true"></i>
@@ -164,7 +164,7 @@
                     <input type="hidden" id="new-conv-pet" name="pet" value="">
                 </div>
                 <div class="new-conversation-group">
-                    <label for="new-conv-vet">Veterinarian <span class="required">*</span></label>
+                    <label for="new-conv-vet-trigger">Veterinarian <span class="required">*</span></label>
                     <div class="dropdown new-conv-vet-dropdown" id="new-conv-vet-dropdown">
                         <button type="button" class="new-conv-trigger dropdown-trigger" id="new-conv-vet-trigger" aria-expanded="false" aria-haspopup="true" aria-label="Select vet">
                             <i class="fa fa-user-md new-conv-trigger-icon" aria-hidden="true"></i>
@@ -198,6 +198,7 @@
         </div>
     </div>
 
+    <script src="../../scripts/core/app/spa-router.js"></script>
     <script src="../../scripts/core/app/sidebar.js"></script>
     <script type="module" src="../../scripts/core/authentication/route-guard.js"></script>
     <script type="module" src="../../scripts/feature/profile/petowner-profile.js"></script>

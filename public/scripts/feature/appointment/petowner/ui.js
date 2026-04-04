@@ -982,7 +982,8 @@ detailsMessageBtn?.addEventListener('click', () => {
     if (currentDetailsApt?.id) params.set('appointmentId', currentDetailsApt.id);
     if (currentDetailsApt.petName) params.set('petName', currentDetailsApt.petName);
     if (currentDetailsApt.vetName) params.set('vetName', currentDetailsApt.vetName);
-    window.location.href = `messages.html?${params.toString()}`;
+    const messagesUrl = `messages.html?${params.toString()}`;
+    if (!window.__spaNavigate || !window.__spaNavigate(messagesUrl)) window.location.href = messagesUrl;
 });
 detailsOverlay?.addEventListener('click', (e) => { if (e.target === detailsOverlay) closeDetailsModal(); });
 document.addEventListener('keydown', (e) => {
@@ -1233,7 +1234,8 @@ form?.addEventListener('submit', async (e) => {
         sessionStorage.setItem('televet_booking', JSON.stringify(booking));
         closeModal();
         resetBookingFormState();
-        window.location.href = 'payment.html?booking=1';
+        const payUrl = 'payment.html?booking=1';
+        if (!window.__spaNavigate || !window.__spaNavigate(payUrl)) window.location.href = payUrl;
     } catch (err) {
         showFormError(err?.message || 'Failed to continue. Please try again.');
     } finally {

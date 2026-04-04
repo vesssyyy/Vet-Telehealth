@@ -744,7 +744,8 @@ detailsMessageBtn?.addEventListener('click', () => {
     if (currentDetailsApt?.id) params.set('appointmentId', currentDetailsApt.id);
     if (currentDetailsApt.petName) params.set('petName', currentDetailsApt.petName);
     if (currentDetailsApt.vetName) params.set('vetName', currentDetailsApt.vetName);
-    window.location.href = `messages.html?${params.toString()}`;
+    const messagesUrl = `messages.html?${params.toString()}`;
+    if (!window.__spaNavigate || !window.__spaNavigate(messagesUrl)) window.location.href = messagesUrl;
 });
 detailsJoinBtn?.addEventListener('click', () => {
     if (!currentDetailsApt || detailsJoinBtn.disabled) return;
