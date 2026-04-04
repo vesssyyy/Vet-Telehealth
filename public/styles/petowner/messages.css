@@ -1004,6 +1004,7 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
+    touch-action: manipulation;
     transition: box-shadow 0.2s;
     box-shadow: 0 2px 10px rgba(44, 95, 125, 0.25);
     backface-visibility: hidden;

@@ -972,6 +972,7 @@
 .messages-compose-textarea:focus { outline: none; }
 .messages-compose-textarea::placeholder { color: var(--text-light); }
 .messages-send-btn {
+    touch-action: manipulation;
     position: relative;
     width: 44px;
     height: 44px;

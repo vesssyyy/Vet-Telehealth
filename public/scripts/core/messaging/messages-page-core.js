@@ -574,17 +574,41 @@ export function createMessaging(config) {
         refs.composeInput?.addEventListener('input', resizeComposeInput);
         refs.composeInput?.addEventListener('paste', () => setTimeout(resizeComposeInput, 0));
         refs.composeInput?.addEventListener('focus', () => { if (isMobileView()) document.body.classList.add('messages-input-focused'); });
-        refs.composeInput?.addEventListener('blur', () => document.body.classList.remove('messages-input-focused'));
-        if (window.visualViewport) {
-            const syncFocus = () => {
-                if (!isMobileView() || !window.visualViewport) return;
-                if (window.visualViewport.height > window.innerHeight * 0.75) {
+        /* Defer shrinking .messages-main: sync blur used to reflow before click/touchend on Send finished,
+           moving the button so the first tap missed (especially with keyboard open). */
+        refs.composeInput?.addEventListener('blur', () => {
+            if (!isMobileView()) {
+                document.body.classList.remove('messages-input-focused');
+                return;
+            }
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    const wrap = document.querySelector('.messages-chat-compose');
+                    const ae = document.activeElement;
+                    if (wrap && ae && wrap.contains(ae)) return;
                     document.body.classList.remove('messages-input-focused');
-                    refs.composeInput?.blur();
-                }
+                });
+            });
+        });
+        if (window.visualViewport) {
+            let vvTimer = null;
+            const vvCollapseIfKeyboardClosed = () => {
+                if (!isMobileView() || !window.visualViewport) return;
+                if (window.visualViewport.height <= window.innerHeight * 0.75) return;
+                clearTimeout(vvTimer);
+                vvTimer = setTimeout(() => {
+                    vvTimer = null;
+                    if (!window.visualViewport || window.visualViewport.height <= window.innerHeight * 0.75) return;
+                    const wrap = document.querySelector('.messages-chat-compose');
+                    const ae = document.activeElement;
+                    if (wrap && ae && wrap.contains(ae)) return;
+                    document.body.classList.remove('messages-input-focused');
+                    const ci = getComposeInputEl();
+                    if (ci && document.activeElement === ci) ci.blur();
+                }, 180);
             };
-            window.visualViewport.addEventListener('resize', syncFocus);
-            window.visualViewport.addEventListener('scroll', syncFocus);
+            window.visualViewport.addEventListener('resize', vvCollapseIfKeyboardClosed);
+            window.visualViewport.addEventListener('scroll', vvCollapseIfKeyboardClosed);
         }
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) document.body.classList.remove('messages-input-focused');
@@ -606,8 +630,35 @@ export function createMessaging(config) {
         /* Attachment */
         refs.attachBtn?.addEventListener('click', () => refs.attachInput?.click());
 
-        /* Send: single click handler; duplicate touch + click paths could race and skip clearing. */
-        refs.sendBtn?.addEventListener('click', doSendMessage);
+        /* Send: first tap with keyboard open — layout reflow from blur could lose the delayed click.
+           Touch path uses pointerup/touchend + preventDefault so send runs before reflow; suppress duplicate click. */
+        if (refs.sendBtn) {
+            let suppressNextClick = false;
+            const sendFromTouchLike = (e) => {
+                if (!isMobileView()) return;
+                if (!refs.sendBtn.contains(e.target)) return;
+                if (e.button != null && e.button !== 0) return;
+                suppressNextClick = true;
+                setTimeout(() => { suppressNextClick = false; }, 450);
+                e.preventDefault();
+                doSendMessage();
+            };
+            if (window.PointerEvent) {
+                refs.sendBtn.addEventListener('pointerup', (e) => {
+                    if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
+                    sendFromTouchLike(e);
+                }, { passive: false });
+            } else {
+                refs.sendBtn.addEventListener('touchend', sendFromTouchLike, { passive: false });
+            }
+            refs.sendBtn.addEventListener('click', (e) => {
+                if (isMobileView() && suppressNextClick) {
+                    e.preventDefault();
+                    return;
+                }
+                doSendMessage();
+            });
+        }
 
         /* Dropdown toggles */
         const dropdowns = dropdownIds.map(base => $(`${base}-dropdown`));
