@@ -4,6 +4,18 @@ import { formatAppointmentDateNoWeekday } from '../../appointment/shared/time.js
 import { ownerDisplayName, vetDisplayName } from '../../messaging/shared-messaging.js';
 import { buildSharedMediaMarkup } from '../utils/shared-media.js';
 
+function userProfilePhotoFromDoc(data = {}) {
+    return String(
+        data.photoURL || data.photoUrl || data.avatarUrl || data.profileImageUrl || '',
+    ).trim();
+}
+
+function petProfileImageUrl(petData = {}) {
+    return String(
+        petData.imageUrl || petData.photoURL || petData.photoUrl || petData.image || '',
+    ).trim();
+}
+
 /** VC header datetime: avoid duplicating date when `timeDisplay` already includes it (pet-owner bookings). */
 function formatConsultationHeaderDatetime(appointmentData) {
     const dateRaw = String(appointmentData.dateStr || appointmentData.date || '').trim();
@@ -58,11 +70,12 @@ export async function populateVideoCallAppointmentUI(options = {}) {
         try {
             const petSnap = await getDoc(doc(db, 'users', ownerId, 'pets', petId));
             const petData = petSnap.exists() ? petSnap.data() : {};
-            if (petImgEl && petData.imageUrl) {
+            const petPic = petProfileImageUrl(petData);
+            if (petImgEl && petPic) {
                 petImgEl.style.opacity = '0';
                 petImgEl.style.transition = 'opacity 0.35s ease';
                 petImgEl.onload = () => { requestAnimationFrame(() => { petImgEl.style.opacity = '1'; }); };
-                petImgEl.src = petData.imageUrl;
+                petImgEl.src = petPic;
                 petImgEl.alt = petName;
                 if (petImageWrap) petImageWrap.classList.add('has-pet-image');
             }
@@ -77,11 +90,11 @@ export async function populateVideoCallAppointmentUI(options = {}) {
             const detailsPetImg = $('details-pet-img');
             const detailsPetFallback = $('details-pet-fallback');
             const detailsPetAvatar = detailsPetImg?.closest('.details-pet-avatar');
-            if (detailsPetImg && petData.imageUrl) {
+            if (detailsPetImg && petPic) {
                 detailsPetImg.style.opacity = '0';
                 detailsPetImg.style.transition = 'opacity 0.35s ease';
                 detailsPetImg.onload = () => { requestAnimationFrame(() => { detailsPetImg.style.opacity = '1'; }); };
-                detailsPetImg.src = petData.imageUrl;
+                detailsPetImg.src = petPic;
                 detailsPetImg.alt = petName;
                 detailsPetImg.removeAttribute('aria-hidden');
                 if (detailsPetFallback) detailsPetFallback.setAttribute('aria-hidden', 'true');
@@ -151,7 +164,7 @@ export async function populateVideoCallAppointmentUI(options = {}) {
                 ? vetDisplayName(otherData, withDr)
                 : ownerDisplayName(otherData);
             if (otherParticipantNameEl) otherParticipantNameEl.textContent = displayOtherName;
-            const photoURL = otherData.photoURL || otherData.photoUrl || '';
+            const photoURL = userProfilePhotoFromDoc(otherData);
             otherPhotoURL = photoURL;
             if (photoURL && otherParticipantImgEl) {
                 otherParticipantImgEl.style.opacity = '0';
@@ -235,7 +248,7 @@ export async function populateVideoCallAppointmentUI(options = {}) {
         const meSnap = await getDoc(doc(db, 'users', user.uid));
         const meData = meSnap.exists() ? meSnap.data() : {};
         myName = (meData.displayName || user.displayName || '').trim() || myName;
-        myPhotoURL = meData.photoURL || meData.photoUrl || '';
+        myPhotoURL = userProfilePhotoFromDoc(meData) || String(user?.photoURL || '').trim();
     } catch (e) {
         console.warn('Could not load current user for label', e);
     }
@@ -244,8 +257,10 @@ export async function populateVideoCallAppointmentUI(options = {}) {
     if (otherParticipantLabelEl) otherParticipantLabelEl.classList.add('is-hidden');
 
     const convoNameEl = document.getElementById('convo-panel-with-name');
-    const ownerNameForTitle = isPetOwner ? myName : (otherParticipantNameEl?.textContent || '');
-    if (convoNameEl) convoNameEl.textContent = `${petName} – ${ownerNameForTitle}`;
+    if (convoNameEl && isVet) {
+        const ownerLine = (otherParticipantNameEl?.textContent || '').trim();
+        if (ownerLine) convoNameEl.textContent = `${petName} – ${ownerLine}`;
+    }
 
     if (consultationTitleEl) {
         const title = (appointmentData.title && String(appointmentData.title).trim()) || '';

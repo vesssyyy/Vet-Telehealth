@@ -189,6 +189,8 @@ export function initVideoCallPage(options = {}) {
         let currentConvId = null;
         let messagesUnsubscribe = null;
         let appointmentData = null;
+        let myPhotoURL = '';
+        let otherPhotoURL = '';
         let rtcConfig = { ...DEFAULT_RTC_CONFIG };
         /** Set after `initVideoCallNotes` in the load try block; used by schedule-end + vet leave modal. */
         let getNotesFromForm;
@@ -245,8 +247,8 @@ export function initVideoCallPage(options = {}) {
             const petName = hydrated.petName;
             const myName = hydrated.myName;
             const otherParticipantNameEl = hydrated.otherParticipantNameEl;
-            const myPhotoURL = hydrated.myPhotoURL || '';
-            const otherPhotoURL = hydrated.otherPhotoURL || '';
+            myPhotoURL = hydrated.myPhotoURL || '';
+            otherPhotoURL = hydrated.otherPhotoURL || '';
 
             /* Vet: Clinical notes — auto-save, load saved notes, save on terminate */
             const notesController = initVideoCallNotes({
@@ -719,7 +721,7 @@ export function initVideoCallPage(options = {}) {
             const audioEnabled = typeof patch.audioEnabled === 'boolean' ? patch.audioEnabled : !!audioTrack?.enabled;
             const videoEnabled = typeof patch.videoEnabled === 'boolean' ? patch.videoEnabled : !!videoTrack?.enabled;
             setIndicatorState(localMicIndicator, { enabled: audioEnabled, iconOn: 'fa fa-microphone', iconOff: 'fa fa-microphone-slash' });
-            setIndicatorState(localCamIndicator, { enabled: videoEnabled, iconOn: 'fa fa-video-camera', iconOff: 'fa fa-video-slash' });
+            setIndicatorState(localCamIndicator, { enabled: videoEnabled, iconOn: 'fa fa-video-camera', iconOff: 'fa fa-ban' });
             await updateDoc(videoCallRef, {
                 [`mediaStates.${user.uid}`]: {
                     audioEnabled,
@@ -742,7 +744,7 @@ export function initVideoCallPage(options = {}) {
             $,
             btnId: 'video-toggle',
             getTracks: () => localStream?.getVideoTracks() || [],
-            icons: ['fa fa-video-camera', 'fa fa-video-slash'],
+            icons: ['fa fa-video-camera', 'fa fa-ban'],
             labels: ['Turn off camera', 'Turn on camera'],
             onToggle: (enabled) => publishLocalMediaState({ videoEnabled: enabled }),
         });
@@ -818,11 +820,11 @@ export function initVideoCallPage(options = {}) {
             const remoteState = remoteUid ? (mediaStates[remoteUid] || null) : null;
             if (remoteState) {
                 setIndicatorState(remoteMicIndicator, { enabled: remoteState.audioEnabled !== false, iconOn: 'fa fa-microphone', iconOff: 'fa fa-microphone-slash' });
-                setIndicatorState(remoteCamIndicator, { enabled: remoteState.videoEnabled !== false, iconOn: 'fa fa-video-camera', iconOff: 'fa fa-video-slash' });
+                setIndicatorState(remoteCamIndicator, { enabled: remoteState.videoEnabled !== false, iconOn: 'fa fa-video-camera', iconOff: 'fa fa-ban' });
             } else {
                 // Default to "enabled" unless we know otherwise.
                 setIndicatorState(remoteMicIndicator, { enabled: true, iconOn: 'fa fa-microphone', iconOff: 'fa fa-microphone-slash' });
-                setIndicatorState(remoteCamIndicator, { enabled: true, iconOn: 'fa fa-video-camera', iconOff: 'fa fa-video-slash' });
+                setIndicatorState(remoteCamIndicator, { enabled: true, iconOn: 'fa fa-video-camera', iconOff: 'fa fa-ban' });
             }
 
             isOfferer = appointmentData?.ownerId

@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     <link href="https://fonts.googleapis.com/css?family=Lalezar" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
         body { visibility: hidden; }
@@ -72,7 +73,7 @@
         </div>
     </aside>
 
-    <main class="main-content">
+    <main class="main-content about-main">
         <header class="app-top-header">
             <div class="header-left">
                 <button class="mobile-menu-toggle" aria-label="Toggle Menu">
@@ -86,13 +87,63 @@
                 </button>
             </div>
         </header>
-        <div class="page-header">
-            <h1 class="page-title">About</h1>
-            <p class="page-subtitle">Learn more about us</p>
-        </div>
+        <h1 class="about-sr-only">About Televet Health</h1>
 
-        <div class="content-wrapper">
-            <!-- Page content will go here -->
+        <div class="content-wrapper about-page">
+            <div class="mission fade-up">
+                <div class="mission-header">
+                    <span class="mission-icon" aria-hidden="true">🐾</span>
+                    <h2>Our Mission</h2>
+                </div>
+                <p>Welcome to our Veterinary Telehealth System with Image-Based Dog and Cat Skin Disease Identification. This platform was developed to bridge the gap between pet owners and veterinary care by combining modern telehealth services with advanced image-based disease detection technology.</p>
+            </div>
+
+            <div class="card fade-up">
+                <h3>How It Works</h3>
+                <p>Our system utilizes the <span class="highlight">EfficientNet-B0</span> deep learning model to assist in identifying common skin diseases in dogs and cats through uploaded images. By integrating artificial intelligence with veterinary teleconsultation, the platform aims to provide a convenient, accessible, and time-efficient solution for early detection and professional guidance.</p>
+            </div>
+
+            <div class="features-grid">
+                <div class="feature-card fade-up">
+                    <div class="feature-icon" aria-hidden="true">🧠</div>
+                    <div>
+                        <h4>AI-Powered Detection</h4>
+                        <p>EfficientNet-B0 deep learning model identifies common skin diseases in dogs and cats through uploaded images.</p>
+                    </div>
+                </div>
+                <div class="feature-card fade-up">
+                    <div class="feature-icon" aria-hidden="true">📅</div>
+                    <div>
+                        <h4>Appointment Scheduling</h4>
+                        <p>Book veterinary consultations at your convenience with our streamlined scheduling system.</p>
+                    </div>
+                </div>
+                <div class="feature-card fade-up">
+                    <div class="feature-icon" aria-hidden="true">🎥</div>
+                    <div>
+                        <h4>Video Consultations</h4>
+                        <p>Connect face-to-face with licensed veterinarians from the comfort of your home.</p>
+                    </div>
+                </div>
+                <div class="feature-card fade-up">
+                    <div class="feature-icon" aria-hidden="true">💬</div>
+                    <div>
+                        <h4>Real-Time Messaging</h4>
+                        <p>Communicate directly with veterinary professionals for quick guidance and follow-ups.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bottom-grid">
+                <div class="card fade-up">
+                    <h3>Our Team</h3>
+                    <p>We are a team of researchers and developers dedicated to improving pet healthcare through technology. This system was designed to support veterinarians in their diagnostic process and empower pet owners with preliminary insights into their pets' conditions.</p>
+                </div>
+                <div class="disclaimer-card fade-up">
+                    <h3><span aria-hidden="true">🛡️</span> Disclaimer</h3>
+                    <p>While the system provides helpful identification results, it is intended to <span class="bold-text">assist and not replace</span> professional veterinary diagnosis. Our goal is to promote better decision-making and timely medical attention for pets.</p>
+                </div>
+            </div>
         </div>
     </main>
 
@@ -107,5 +158,23 @@
     <script src="../../scripts/core/app/sidebar.js"></script>
     <script type="module" src="../../scripts/core/authentication/route-guard.js"></script>
     <script type="module" src="../../scripts/feature/profile/petowner-profile.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var root = document.querySelector('.about-page');
+            if (!root) return;
+            var elements = root.querySelectorAll('.fade-up');
+            var observer = new IntersectionObserver(function (entries) {
+                entries.forEach(function (entry, index) {
+                    if (entry.isIntersecting) {
+                        setTimeout(function () {
+                            entry.target.classList.add('visible');
+                        }, index * 80);
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.1 });
+            elements.forEach(function (el) { observer.observe(el); });
+        });
+    </script>
 </body>
 </html>
