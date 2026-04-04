@@ -115,7 +115,7 @@ export function createViewRenderingApi(ctx) {
         WEEK_START_HOUR, WEEK_END_HOUR, HOUR_HEIGHT, WEEKDAY_LABELS,
         slotEffectiveStatus, dedupeSlots, ensureSlotExpiry, isSlotExpired, getMinAdvanceMinutes,
         ensureSchedulesLoaded, enrichSchedulesWithAppointmentStatus, filterSchedules, getActiveSlotFilter,
-        toLocalDateString, getGridViewActive, openSlotDetailsModal, openEditDayModal
+        toLocalDateString, getTodayDateString, getGridViewActive, openSlotDetailsModal, openEditDayModal
     } = ctx;
 
     function renderSchedulesView(schedules, slotFilter) {
@@ -179,7 +179,10 @@ export function createViewRenderingApi(ctx) {
                 : slotsFilteredByExpiry;
             if (!filtered.length) return '';
             const slotHtml = filtered.map((s) => renderSlot(s, dateStr, filter === 'expired')).join('');
-            const showEditDay = filter !== 'booked' && filter !== 'completed' && filter !== 'expired';
+            const todayStr = getTodayDateString();
+            const isPastCalendarDate = dateStr && todayStr && dateStr < todayStr;
+            const showEditDay = filter !== 'booked' && filter !== 'completed' && filter !== 'expired'
+                && !(filter === 'all' && isPastCalendarDate);
             const editDayBtn = showEditDay ? `<button type="button" class="schedules-edit-day-btn" data-date="${escapeHtml(dateStr)}" aria-label="Edit this day"><i class="fa fa-pencil" aria-hidden="true"></i> Edit day</button>` : '';
             return `<div class="schedules-date-block" data-date="${escapeHtml(dateStr)}">
                 <div class="schedules-schedule-header">
@@ -271,6 +274,8 @@ export function createViewRenderingApi(ctx) {
         const weekDisplayEl = $('weekly-schedule-week-display');
         if (weekDisplayEl) weekDisplayEl.textContent = `Viewing week: ${weekDisplayText}`;
         if (labelEl) labelEl.textContent = weekDisplayText;
+
+        const todayStr = getTodayDateString();
 
         if (getGridViewActive()) {
             wrapEl?.classList.remove('is-hidden');
@@ -388,10 +393,14 @@ export function createViewRenderingApi(ctx) {
                 });
             } else {
                 const slotLabel = status === 'expired' ? 'Expired' : status === 'available' ? 'Available' : status;
+                const hideEditPastAll = filter === 'all' && todayStr && dateStr < todayStr;
+                const editBtnHtml = hideEditPastAll
+                    ? ''
+                    : `<button type="button" class="weekly-schedule-event-btn" data-date="${escapeHtml(dateStr)}" aria-label="Edit this day"><i class="fa fa-pencil" aria-hidden="true"></i> Edit</button>`;
                 eventEl.innerHTML = `
                     <span class="weekly-schedule-event-name">${escapeHtml(slotLabel)}</span>
                     <span class="weekly-schedule-event-pet weekly-schedule-event-time">${escapeHtml(formatTimeRangeCompact(slot.start, slot.end))}</span>
-                    <button type="button" class="weekly-schedule-event-btn" data-date="${escapeHtml(dateStr)}" aria-label="Edit this day"><i class="fa fa-pencil" aria-hidden="true"></i> Edit</button>
+                    ${editBtnHtml}
                 `;
                 eventEl.querySelector('.weekly-schedule-event-btn')?.addEventListener('click', () => openEditDayModal(dateStr));
             }

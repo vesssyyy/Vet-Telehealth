@@ -86,14 +86,23 @@ export function createTemplateApi(ctx) {
     function createSlotRow(slotsArray, idx, onRemove, opts = {}) {
         const { isEditDay = false } = opts;
         const slot = slotsArray[idx];
-        const isBooked = isEditDay && (slot?.status || 'available') === 'booked';
-        const disabled = isBooked ? ' disabled' : '';
-        const statusIcon = isBooked ? '<span class="template-slot-status-icon template-slot-status-booked" title="Booked"><i class="fa fa-calendar-check-o" aria-hidden="true"></i></span>' : '<span class="template-slot-status-icon" aria-hidden="true"></span>';
-        const deleteBtnHtml = isBooked
-            ? `<button type="button" class="template-slot-delete" data-slot-index="${idx}" disabled aria-label="Booked slots cannot be removed"><i class="fa fa-trash-o" aria-hidden="true"></i></button>`
+        const st = slot?.status || 'available';
+        const isProtectedSlot = isEditDay && (st === 'booked' || st === 'ongoing' || st === 'completed');
+        const disabled = isProtectedSlot ? ' disabled' : '';
+        const iconTitle = st === 'completed' ? 'Completed' : st === 'ongoing' ? 'Ongoing' : 'Booked';
+        const protectAria = st === 'completed'
+            ? 'Completed consultations cannot be removed'
+            : st === 'ongoing'
+            ? 'Ongoing appointments cannot be removed'
+            : 'Booked slots cannot be removed';
+        const statusIcon = isProtectedSlot
+            ? `<span class="template-slot-status-icon template-slot-status-booked" title="${iconTitle}"><i class="fa fa-calendar-check-o" aria-hidden="true"></i></span>`
+            : '<span class="template-slot-status-icon" aria-hidden="true"></span>';
+        const deleteBtnHtml = isProtectedSlot
+            ? `<button type="button" class="template-slot-delete" data-slot-index="${idx}" disabled aria-label="${protectAria}"><i class="fa fa-trash-o" aria-hidden="true"></i></button>`
             : `<button type="button" class="template-slot-delete" data-slot-index="${idx}" aria-label="Delete slot"><i class="fa fa-trash-o" aria-hidden="true"></i></button>`;
         const row = document.createElement('div');
-        row.className = 'template-slot-row' + (isBooked ? ' template-slot-row-booked' : '');
+        row.className = 'template-slot-row' + (isProtectedSlot ? ' template-slot-row-booked' : '');
         row.innerHTML = (isEditDay ? statusIcon : '') + `
             <div class="template-slot-time-wrap">
                 <i class="fa fa-clock-o" aria-hidden="true"></i>
@@ -111,7 +120,7 @@ export function createTemplateApi(ctx) {
         const update = () => { slotsArray[idx].start = startInput?.value ?? ''; slotsArray[idx].end = endInput?.value ?? ''; };
         startInput?.addEventListener('change', update);
         endInput?.addEventListener('change', update);
-        if (!isBooked && deleteBtn) deleteBtn.addEventListener('click', () => { slotsArray.splice(idx, 1); onRemove(); });
+        if (!isProtectedSlot && deleteBtn) deleteBtn.addEventListener('click', () => { slotsArray.splice(idx, 1); onRemove(); });
         return row;
     }
 

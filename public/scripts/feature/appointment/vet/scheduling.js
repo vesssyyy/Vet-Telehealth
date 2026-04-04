@@ -850,7 +850,7 @@ import { registerBlockDatesEvents, createBlockDatesApi } from './block-dates.js'
             WEEK_START_HOUR, WEEK_END_HOUR, HOUR_HEIGHT, WEEKDAY_LABELS,
             slotEffectiveStatus, dedupeSlots, ensureSlotExpiry, isSlotExpired, getMinAdvanceMinutes,
             ensureSchedulesLoaded, enrichSchedulesWithAppointmentStatus, filterSchedules, getActiveSlotFilter,
-            toLocalDateString,
+            toLocalDateString, getTodayDateString,
             getGridViewActive: () => gridViewActive,
             openSlotDetailsModal,
             openEditDayModal: (dateStr) => editDayApi.openEditDayModal(dateStr)

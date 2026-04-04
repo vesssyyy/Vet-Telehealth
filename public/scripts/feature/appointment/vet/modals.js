@@ -189,7 +189,8 @@ export function createEditDayApi(ctx) {
         });
         const beforeCount = slotsToSave.length;
         slotsToSave = slotsToSave.filter((s) => {
-            if ((s.status || 'available') === 'booked') return true;
+            const st = s.status || 'available';
+            if (st === 'booked' || st === 'ongoing' || st === 'completed') return true;
             return !isSlotExpired(s, Date.now()) && !isSlotPastCutoff(editDayDateStr, s.start, minAdvance);
         });
         const removedCount = beforeCount - slotsToSave.length;
