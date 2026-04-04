@@ -43,18 +43,25 @@ export function registerModalEvents(ctx) {
         const backdrop = lb?.querySelector('.details-media-lightbox-backdrop');
         const listEl = $('details-shared-images-list');
 
-        const closeLB = () => {
-            if (!lb) return;
-            lb.classList.add('is-hidden');
-            lb.setAttribute('aria-hidden', 'true');
-            document.body.style.overflow = (detailsApi.detailsOverlay()?.classList.contains('is-open') ? 'hidden' : '');
+    const closeLB = () => {
+        if (!lb) return;
+        lb.classList.add('is-hidden');
+        lb.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = (detailsApi.detailsOverlay()?.classList.contains('is-open') ? 'hidden' : '');
+        setTimeout(() => {
             if (lbImg) { lbImg.src = ''; lbImg.classList.remove('is-hidden'); }
             if (lbIframe) { lbIframe.src = ''; lbIframe.classList.add('is-hidden'); }
-        };
+        }, 280);
+    };
         const openLB = (url, isImage) => {
             if (!lb) return;
             if (isImage) {
-                if (lbImg) { lbImg.src = url; lbImg.classList.remove('is-hidden'); }
+                if (lbImg) {
+                    lbImg.style.opacity = '0';
+                    lbImg.onload = () => { requestAnimationFrame(() => { lbImg.style.opacity = '1'; }); };
+                    lbImg.src = url;
+                    lbImg.classList.remove('is-hidden');
+                }
                 if (lbIframe) { lbIframe.src = ''; lbIframe.classList.add('is-hidden'); }
             } else {
                 if (lbIframe) { lbIframe.src = url; lbIframe.classList.remove('is-hidden'); }
@@ -316,14 +323,19 @@ export function createDetailsApi(ctx) {
             titleEl.classList.toggle('is-empty', !(apt.title && apt.title.trim()));
         }
         if (ownerNameEl) ownerNameEl.textContent = apt.ownerName || apt.owner || '—';
-        if (ownerImg) { ownerImg.style.display = 'none'; ownerImg.src = ''; ownerImg.alt = apt.ownerName || 'Owner'; }
+        if (ownerImg) { ownerImg.style.display = 'none'; ownerImg.src = ''; ownerImg.style.opacity = ''; ownerImg.alt = apt.ownerName || 'Owner'; }
         if (ownerFallback) ownerFallback.classList.add('visible');
         if (apt.ownerId) {
             getDoc(doc(db, 'users', apt.ownerId)).then((ownerSnap) => {
                 if (ownerSnap.exists() && ownerSnap.data()?.photoURL && ownerImg) {
+                    ownerImg.style.opacity = '0';
+                    ownerImg.style.transition = 'opacity 0.35s ease';
+                    ownerImg.onload = () => {
+                        requestAnimationFrame(() => { ownerImg.style.opacity = '1'; });
+                        if (ownerFallback) ownerFallback.classList.remove('visible');
+                    };
                     ownerImg.src = ownerSnap.data().photoURL;
                     ownerImg.style.display = '';
-                    if (ownerFallback) ownerFallback.classList.remove('visible');
                 }
             }).catch(() => {});
         }
@@ -338,6 +350,7 @@ export function createDetailsApi(ctx) {
         if (petImg) {
             petImg.style.display = 'none';
             petImg.src = '';
+            petImg.style.opacity = '';
             petImg.alt = petName !== '—' ? String(petName) : 'Pet';
         }
         if (petFallback) {
@@ -355,9 +368,14 @@ export function createDetailsApi(ctx) {
                     const pSp = (pet.species || apt.petSpecies || '').trim();
                     if (petSpeciesEl) petSpeciesEl.textContent = pSp ? pSp.charAt(0).toUpperCase() + pSp.slice(1).toLowerCase() : '—';
                     if (pet.imageUrl && petImg) {
+                        petImg.style.opacity = '0';
+                        petImg.style.transition = 'opacity 0.35s ease';
+                        petImg.onload = () => {
+                            requestAnimationFrame(() => { petImg.style.opacity = '1'; });
+                            if (petFallback) petFallback.classList.remove('visible');
+                        };
                         petImg.src = pet.imageUrl;
                         petImg.style.display = '';
-                        if (petFallback) petFallback.classList.remove('visible');
                     }
                     if (petFallback && (pet.species || '').toLowerCase() === 'cat') petFallback.innerHTML = '<i class="fa-solid fa-cat" aria-hidden="true"></i>';
                 }
@@ -398,10 +416,11 @@ export function createDetailsApi(ctx) {
                     btn.dataset.url = url;
                     btn.dataset.isImage = 'true';
                     const img = document.createElement('img');
-                    img.src = url;
                     img.alt = `Shared image ${idx + 1}`;
                     img.className = 'details-shared-image-thumb';
                     img.loading = 'lazy';
+                    img.onload = () => img.classList.add('is-loaded');
+                    img.src = url;
                     btn.appendChild(img);
                     item.appendChild(btn);
                 } else {

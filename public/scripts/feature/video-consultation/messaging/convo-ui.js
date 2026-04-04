@@ -73,6 +73,8 @@ export function initVideoCallConvoLightbox(options = {}) {
         const lbImg = lb?.querySelector('.messages-image-lightbox-img');
         const lbTab = lb?.querySelector('.messages-image-lightbox-open-tab');
         if (lb && lbImg) {
+            lbImg.style.opacity = '0';
+            lbImg.onload = () => { requestAnimationFrame(() => { lbImg.style.opacity = '1'; }); };
             lbImg.src = img.src;
             lbImg.alt = 'Enlarged image';
             if (lbTab) lbTab.href = img.src;
@@ -89,7 +91,7 @@ export function initVideoCallConvoLightbox(options = {}) {
         lb.setAttribute('aria-hidden', 'true');
         document.body.style.overflow = '';
         const lbImg = lb.querySelector('.messages-image-lightbox-img');
-        if (lbImg) lbImg.removeAttribute('src');
+        setTimeout(() => { if (lbImg) lbImg.removeAttribute('src'); }, 280);
     };
 
     $('messages-image-lightbox')?.querySelector('.messages-image-lightbox-close')?.addEventListener('click', closeLightbox);

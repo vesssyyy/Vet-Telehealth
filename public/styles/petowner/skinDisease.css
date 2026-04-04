@@ -1,5 +1,18 @@
 /* Skin Health — inner page layout only (sidebar/header use shared styles) */
 
+/* Identify view is taller than species selection; reserve scrollbar space so it does not pop in and shift width. */
+@media (min-width: 769px) {
+    html:has(.skin-content-wrapper) {
+        scrollbar-gutter: stable;
+    }
+}
+
+@media (max-width: 768px) {
+    .content-wrapper.skin-content-wrapper {
+        scrollbar-gutter: stable;
+    }
+}
+
 .skin-content-wrapper {
     margin-top: 20px;
     flex: 1;
@@ -156,13 +169,14 @@
     color: #5a6b7a;
 }
 
-/* Selection + identify fill below stepper */
+/* Selection + identify fill below stepper (opacity-only entrance: no translateY scroll/overflow flash) */
 .skin-selection-view,
 .skin-identify-view {
     flex: 1;
     padding: 28px 32px 36px;
     display: flex;
     flex-direction: column;
+    animation: smoothFadeInOnly 0.3s ease both;
 }
 
 .skin-selection-view {
@@ -346,8 +360,17 @@
     margin-bottom: 24px;
 }
 
-.skin-back-btn.is-hidden {
-    display: none !important;
+/* Keep back control in the flex row so the stepper width never jumps (no display:none). */
+.skin-stepper-bar .skin-back-btn.is-hidden {
+    display: inline-flex !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    opacity: 0;
+}
+
+.skin-stepper-bar .skin-back-btn:not(.is-hidden) {
+    visibility: visible;
+    opacity: 1;
 }
 
 .skin-stepper-bar .skin-back-btn {
@@ -356,19 +379,26 @@
     justify-content: center;
     align-self: center;
     flex-shrink: 0;
-    width: auto;
-    height: auto;
+    box-sizing: border-box;
+    width: 44px;
+    height: 44px;
     min-width: 44px;
     min-height: 44px;
     margin: 0;
-    padding: 10px;
+    padding: 0;
     background: transparent;
     border: none;
     border-radius: 10px;
     color: var(--text-dark, #2d3748);
     cursor: pointer;
-    transition: background 0.2s ease, color 0.2s ease;
+    transition: background 0.2s ease, color 0.2s ease, opacity 0.18s ease, visibility 0.18s ease;
     -webkit-tap-highlight-color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .skin-stepper-bar .skin-back-btn {
+        transition: background 0.2s ease, color 0.2s ease;
+    }
 }
 
 .skin-stepper-bar .skin-back-btn:hover {
@@ -1173,6 +1203,7 @@
 .skin-results-view {
     flex: 1;
     display: flex;
+    animation: smoothFadeIn 0.35s ease both;
     align-items: flex-start;
     justify-content: center;
     padding: 28px 32px 36px;

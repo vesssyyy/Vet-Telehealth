@@ -144,6 +144,8 @@ export function initMessagingImageLightbox({ lightboxEl, chatBodyEl }) {
 
     const open = (src) => {
         if (!lbImg) return;
+        lbImg.style.opacity = '0';
+        lbImg.onload = () => { requestAnimationFrame(() => { lbImg.style.opacity = '1'; }); };
         lbImg.src = src;
         lbImg.alt = 'Enlarged image';
         if (lbTab) lbTab.href = src;
@@ -155,7 +157,7 @@ export function initMessagingImageLightbox({ lightboxEl, chatBodyEl }) {
         lb.classList.add('is-hidden');
         lb.setAttribute('aria-hidden', 'true');
         document.body.style.overflow = '';
-        lbImg?.removeAttribute('src');
+        setTimeout(() => { lbImg?.removeAttribute('src'); }, 280);
     };
 
     lb.querySelector('.messages-image-lightbox-close')?.addEventListener('click', close);

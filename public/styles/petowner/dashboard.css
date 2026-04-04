@@ -52,7 +52,7 @@
 body.dashboard-waiting .dashboard-loading { display: flex; }
 body.dashboard-ready .dashboard-loading { display: none; }
 .dashboard-content.is-loading { display: none !important; }
-body.dashboard-ready .dashboard-content { display: flex !important; }
+body.dashboard-ready .dashboard-content { display: flex !important; animation: smoothFadeIn 0.35s ease both; }
 .dashboard-content { flex-direction: column; gap: 25px; min-height: auto; }
 .dashboard-content.has-no-pets .dashboard-row-three,
 .dashboard-content.has-no-pets .past-appointments-card { display: none !important; }
@@ -81,7 +81,7 @@ body.dashboard-ready .dashboard-content { display: flex !important; }
     display: flex; align-items: center; justify-content: center;
     position: relative; border: 3px solid var(--border-color);
 }
-.pet-avatar-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pet-avatar-img { width: 100%; height: 100%; object-fit: cover; display: block; transition: opacity 0.35s ease; }
 .pet-avatar-fallback {
     position: absolute; inset: 0;
     display: flex; align-items: center; justify-content: center;
@@ -417,7 +417,12 @@ body.dashboard-ready .dashboard-content { display: flex !important; }
     border: 1px solid var(--border-color);
     border-radius: 12px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    animation: smoothFadeIn 0.3s ease both;
 }
+.dashboard-appointment-row:nth-child(2) { animation-delay: 40ms; }
+.dashboard-appointment-row:nth-child(3) { animation-delay: 80ms; }
+.dashboard-appointment-row:nth-child(4) { animation-delay: 120ms; }
+.dashboard-appointment-row:nth-child(n+5) { animation-delay: 150ms; }
 .dashboard-appointment-row.is-next {
     border-color: rgba(74, 144, 164, 0.55);
     background: linear-gradient(135deg, rgba(74, 144, 164, 0.08) 0%, rgba(44, 95, 125, 0.04) 100%);
@@ -457,6 +462,7 @@ body.dashboard-ready .dashboard-content { display: flex !important; }
     object-position: center;
     border-radius: 50%;
     display: block;
+    transition: opacity 0.35s ease;
 }
 .dashboard-appt-avatar-initials {
     font-size: 12px;
@@ -691,6 +697,7 @@ body.dashboard-ready .dashboard-content { display: flex !important; }
 .pet-empty-state {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     text-align: center; padding: 50px 25px; min-height: 200px;
+    animation: smoothFadeIn 0.35s ease both;
 }
 .pet-empty-icon {
     width: 80px; height: 80px; border-radius: 50%;

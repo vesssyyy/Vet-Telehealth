@@ -544,8 +544,17 @@ function renderPetProfile(pets) {
             </div>
         </div>`;
     const img = card.querySelector('.pet-avatar-img');
-    if (img) img.style.display = avatarUrl ? '' : 'none';
-    if (avatarUrl && img) img.src = avatarUrl;
+    if (img) {
+        if (avatarUrl) {
+            img.style.opacity = '0';
+            img.style.transition = 'opacity 0.35s ease';
+            img.onload = () => { requestAnimationFrame(() => { img.style.opacity = '1'; }); };
+            img.src = avatarUrl;
+            img.style.display = '';
+        } else {
+            img.style.display = 'none';
+        }
+    }
     bindAddPetButton(card);
     bindPetSwitch(card, pets);
 }

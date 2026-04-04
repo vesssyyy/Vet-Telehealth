@@ -1792,8 +1792,14 @@ body.video-call-fullscreen .video-call-controls .participant-btn-mobile {
     justify-content: center;
     padding: 20px;
     box-sizing: border-box;
+    transition: opacity 0.25s ease, visibility 0.25s ease;
 }
-.messages-image-lightbox.is-hidden { display: none; }
+.messages-image-lightbox.is-hidden {
+    display: flex !important;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
 .messages-image-lightbox-backdrop {
     position: absolute;
     inset: 0;
@@ -1836,6 +1842,7 @@ body.video-call-fullscreen .video-call-controls .participant-btn-mobile {
     object-fit: contain;
     border-radius: 8px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    transition: opacity 0.3s ease;
 }
 .messages-image-lightbox-open-tab {
     padding: 8px 14px;

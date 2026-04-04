@@ -88,7 +88,16 @@ import { attachLogoutButton } from './logout.js';
             petsReadyDone = false;
             history.pushState(null, document.title, window.location.href);
             history.pushState(null, document.title, window.location.href);
+            document.body.style.opacity = '0';
             document.body.style.visibility = 'visible';
+            requestAnimationFrame(function () {
+                document.body.style.transition = 'opacity 0.3s ease';
+                document.body.style.opacity = '1';
+            });
+
+            import('../messaging/message-notifications.js').then(function (mod) {
+                mod.initMessageNotifications({ role: 'petowner', uid: user.uid });
+            }).catch(function () {});
 
             if (isFirstLoad()) document.body.classList.add('profile-loading', 'profile-loading-full-page');
             else if (!isDashboard() && !isProfilePage()) document.body.classList.add('profile-loading');
@@ -143,7 +152,17 @@ import { attachLogoutButton } from './logout.js';
             loggedIn = true;
             profileDone = false;
             history.pushState(null, document.title, window.location.href);
+            document.body.style.opacity = '0';
             document.body.style.visibility = 'visible';
+            requestAnimationFrame(function () {
+                document.body.style.transition = 'opacity 0.3s ease';
+                document.body.style.opacity = '1';
+            });
+
+            import('../messaging/message-notifications.js').then(function (mod) {
+                mod.initMessageNotifications({ role: 'vet', uid: user.uid });
+            }).catch(function () {});
+
             if (isFirst()) document.body.classList.add('profile-loading', 'profile-loading-full-page');
             if (isDash()) setTimeout(() => !document.body.classList.contains('dashboard-ready') && document.body.classList.add('dashboard-waiting'), 150);
         });
@@ -170,7 +189,12 @@ import { attachLogoutButton } from './logout.js';
             return;
         }
         sessionStorage.removeItem('telehealthLoggedOut');
+        document.body.style.opacity = '0';
         document.body.style.visibility = 'visible';
+        requestAnimationFrame(function () {
+            document.body.style.transition = 'opacity 0.3s ease';
+            document.body.style.opacity = '1';
+        });
         document.body.classList.remove('profile-loading', 'profile-loading-full-page');
         document.querySelector('.profile-loading-overlay')?.setAttribute('aria-hidden', 'true');
         const nameEl = document.getElementById('sidebar-name');

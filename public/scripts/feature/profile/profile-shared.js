@@ -55,9 +55,21 @@ const writeCache = (uid, p) => {
 function setPhoto(url, name, imgEl, placeholderEl = null, initialsEl = null, defaultInitials = '') {
     if (!imgEl) return;
     const show = Boolean(url);
-    if (show) { imgEl.src = url; imgEl.alt = name ? `${name} profile photo` : 'Profile photo'; }
-    else imgEl.removeAttribute('src');
-    imgEl.classList.toggle('is-hidden', !show);
+    if (show) {
+        imgEl.alt = name ? `${name} profile photo` : 'Profile photo';
+        imgEl.style.opacity = '0';
+        imgEl.style.transition = 'opacity 0.35s ease';
+        imgEl.classList.remove('is-hidden');
+        const reveal = () => requestAnimationFrame(() => { imgEl.style.opacity = '1'; });
+        imgEl.onload = reveal;
+        imgEl.src = url;
+        if (imgEl.complete && imgEl.naturalWidth > 0) reveal();
+    } else {
+        imgEl.removeAttribute('src');
+        imgEl.style.opacity = '';
+        imgEl.style.transition = '';
+        imgEl.classList.add('is-hidden');
+    }
     if (placeholderEl) {
         placeholderEl.classList.toggle('is-hidden', show);
         placeholderEl.textContent = name ? getInitials(name) : defaultInitials;

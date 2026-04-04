@@ -28,10 +28,17 @@ export function initPetownerMessagingPage() {
     const shared = createMessaging({
         readField:             'lastReadAt_vetId',
         deliveredField:        'lastDeliveredAt_vetId',
+        selfReadField:         'lastReadAt_ownerId',
+        selfUnreadCountField:  'unreadCount_owner',
+        peerUnreadCountField:  'unreadCount_vet',
         sentAvatarIcon:        'fa-user',
         receivedAvatarIcon:    'fa-user-md',
         getAppointmentsForConv,
-        buildConvItem: conv => `
+        buildConvItem: (conv, { unreadCount = 0 } = {}) => {
+            const badge = unreadCount > 0
+                ? `<span class="messages-conv-unread-badge" aria-label="${unreadCount} unread">${unreadCount > 99 ? '99+' : unreadCount}</span>`
+                : '';
+            return `
             <div class="messages-conv-avatar"><i class="fa fa-user-md" aria-hidden="true"></i></div>
             <div class="messages-conv-body">
                 <div class="messages-conv-title">
@@ -40,8 +47,12 @@ export function initPetownerMessagingPage() {
                     <span class="conv-vet">${escapeHtml(withDr(conv.vetName))}</span>
                 </div>
                 <div class="messages-conv-preview">${escapeHtml(conv.lastMessage || 'No messages yet')}</div>
-                <div class="messages-conv-meta">${formatConversationMeta(conv.lastMessageAt)}</div>
-            </div>`,
+                <div class="messages-conv-footer">
+                    <span class="messages-conv-meta">${formatConversationMeta(conv.lastMessageAt)}</span>
+                    ${badge}
+                </div>
+            </div>`;
+        },
     });
 
     const {
@@ -109,9 +120,15 @@ export function initPetownerMessagingPage() {
 
         const myId = auth.currentUser?.uid;
         if (myId && conv.ownerId === myId) {
-            updateDoc(doc(db, 'conversations', conv.id), { lastReadAt_ownerId: serverTimestamp() }).catch(() => {});
+            updateDoc(doc(db, 'conversations', conv.id), {
+                lastReadAt_ownerId: serverTimestamp(),
+                unreadCount_owner: 0,
+            }).catch(() => {});
         }
-        subscribeMessages(conv, myId, () => updateDoc(doc(db, 'conversations', conv.id), { lastReadAt_ownerId: serverTimestamp() }));
+        subscribeMessages(conv, myId, () => updateDoc(doc(db, 'conversations', conv.id), {
+            lastReadAt_ownerId: serverTimestamp(),
+            unreadCount_owner: 0,
+        }));
     }
 
     function subscribeToConversations() {
@@ -188,6 +205,8 @@ export function initPetownerMessagingPage() {
                 petName: petTrigger || 'Pet', vetName: withDr(vetTrigger || 'Vet'), vetSpecialty: '',
                 participants: [user.uid, vetId],
                 lastMessage: initMsg || '', lastMessageAt: serverTimestamp(), createdAt: serverTimestamp(),
+                unreadCount_owner: 0,
+                unreadCount_vet: initMsg ? 1 : 0,
             });
             if (initMsg) {
                 await addDoc(collection(db, 'conversations', convRef.id, 'messages'), { senderId: user.uid, text: initMsg, sentAt: serverTimestamp() });
@@ -199,6 +218,8 @@ export function initPetownerMessagingPage() {
                 petName: petTrigger || 'Pet', vetName: withDr(vetTrigger || 'Vet'), vetSpecialty: '',
                 participants: [user.uid, vetId],
                 lastMessage: initMsg || '', lastMessageAt: new Date(), createdAt: new Date(),
+                unreadCount_owner: 0,
+                unreadCount_vet: initMsg ? 1 : 0,
             };
             if (!state.conversations.find(c => c.id === newConv.id)) state.conversations = [newConv, ...state.conversations];
             setListState(false, false, true);
@@ -272,12 +293,16 @@ export function initPetownerMessagingPage() {
                 petName, vetName, vetSpecialty: '',
                 participants: [user.uid, vetId],
                 lastMessage: '', lastMessageAt: serverTimestamp(), createdAt: serverTimestamp(),
+                unreadCount_owner: 0,
+                unreadCount_vet: 0,
             });
             conv = {
                 id: convRef.id, ownerId: user.uid, ownerName, vetId, petId,
                 petName, vetName, vetSpecialty: '',
                 participants: [user.uid, vetId],
                 lastMessage: '', lastMessageAt: new Date(), createdAt: new Date(),
+                unreadCount_owner: 0,
+                unreadCount_vet: 0,
             };
             if (!state.conversations.find(c => c.id === conv.id)) {
                 state.conversations = [conv, ...state.conversations];

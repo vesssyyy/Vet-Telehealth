@@ -418,7 +418,12 @@ async function runPayMongoThenBook(booking) {
     });
     var d = attachRes.data || {};
     if (method === 'qrph' && d.nextActionType === 'consume_qr' && d.qrImageUrl) {
-        if (qrImage) qrImage.src = d.qrImageUrl;
+        if (qrImage) {
+            qrImage.style.opacity = '0';
+            qrImage.style.transition = 'opacity 0.35s ease';
+            qrImage.onload = function () { requestAnimationFrame(function () { qrImage.style.opacity = '1'; }); };
+            qrImage.src = d.qrImageUrl;
+        }
         if (qrPanel) qrPanel.classList.add('is-visible');
         if (qrNote) qrNote.textContent = 'QR generated. It expires in about 30 minutes and is one-time use.';
         qrSessionLocked = true;

@@ -64,7 +64,8 @@
                 <div class="appointments-toolbar">
                     <div class="appointments-tabs" role="tablist" aria-label="Appointments">
                         <button type="button" class="appointments-tab active" role="tab" aria-selected="true" data-tab="upcoming">Upcoming</button>
-                        <button type="button" class="appointments-tab" role="tab" aria-selected="false" data-tab="history">History</button>
+                        <button type="button" class="appointments-tab" role="tab" aria-selected="false" data-tab="completed">Completed</button>
+                        <button type="button" class="appointments-tab" role="tab" aria-selected="false" data-tab="all">All</button>
                     </div>
                     <button type="button" class="appointments-book-btn" id="book-appointment-btn" aria-label="Book new online consultation">
                         <i class="fa fa-plus" aria-hidden="true"></i> Book consultation
@@ -78,8 +79,11 @@
                     <div class="appointments-tab-panel" id="panel-upcoming" role="tabpanel" aria-hidden="false">
                         <div id="upcoming-appointments-root"></div>
                     </div>
-                    <div class="appointments-tab-panel is-hidden" id="panel-history" role="tabpanel">
-                        <div id="history-appointments-root"></div>
+                    <div class="appointments-tab-panel is-hidden" id="panel-completed" role="tabpanel" aria-hidden="true">
+                        <div id="completed-appointments-root"></div>
+                    </div>
+                    <div class="appointments-tab-panel is-hidden" id="panel-all" role="tabpanel" aria-hidden="true">
+                        <div id="all-appointments-root"></div>
                     </div>
                 </div>
             </div>
@@ -186,7 +190,8 @@
                     <button type="button" class="details-modal-close" id="details-modal-close" aria-label="Close"><i class="fa fa-times" aria-hidden="true"></i></button>
                 </div>
                 <div class="details-modal-body">
-                    <h3 class="details-title-block" id="details-title">-</h3>
+                    <h4 class="details-section-header"><i class="fa fa-tag" aria-hidden="true"></i> Title</h4>
+                    <div class="details-title-value" id="details-title">-</div>
                     <h4 class="details-section-header"><i class="fa fa-user-md" aria-hidden="true"></i> Veterinarian</h4>
                     <div class="details-doctor-section">
                         <div class="details-doctor-avatar-wrap">

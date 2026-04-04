@@ -27,10 +27,17 @@ export function initVetMessagingPage() {
     const shared = createMessaging({
         readField:             'lastReadAt_ownerId',
         deliveredField:        'lastDeliveredAt_ownerId',
+        selfReadField:         'lastReadAt_vetId',
+        selfUnreadCountField:  'unreadCount_vet',
+        peerUnreadCountField:  'unreadCount_owner',
         sentAvatarIcon:        'fa-user-md',
         receivedAvatarIcon:    'fa-user',
         getAppointmentsForConv,
-        buildConvItem: conv => `
+        buildConvItem: (conv, { unreadCount = 0 } = {}) => {
+            const badge = unreadCount > 0
+                ? `<span class="messages-conv-unread-badge" aria-label="${unreadCount} unread">${unreadCount > 99 ? '99+' : unreadCount}</span>`
+                : '';
+            return `
             <div class="messages-conv-avatar"><i class="fa fa-user" aria-hidden="true"></i></div>
             <div class="messages-conv-body">
                 <div class="messages-conv-title">
@@ -39,8 +46,12 @@ export function initVetMessagingPage() {
                     <span class="conv-owner">${escapeHtml(conv.ownerName || 'Pet Owner')}</span>
                 </div>
                 <div class="messages-conv-preview">${escapeHtml(conv.lastMessage || 'No messages yet')}</div>
-                <div class="messages-conv-meta">${formatConversationMeta(conv.lastMessageAt)}</div>
-            </div>`,
+                <div class="messages-conv-footer">
+                    <span class="messages-conv-meta">${formatConversationMeta(conv.lastMessageAt)}</span>
+                    ${badge}
+                </div>
+            </div>`;
+        },
     });
 
     const {
@@ -142,9 +153,15 @@ export function initVetMessagingPage() {
 
         const myId = auth.currentUser?.uid;
         if (myId && conv.vetId === myId) {
-            updateDoc(doc(db, 'conversations', conv.id), { lastReadAt_vetId: serverTimestamp() }).catch(() => {});
+            updateDoc(doc(db, 'conversations', conv.id), {
+                lastReadAt_vetId: serverTimestamp(),
+                unreadCount_vet: 0,
+            }).catch(() => {});
         }
-        subscribeMessages(conv, myId, () => updateDoc(doc(db, 'conversations', conv.id), { lastReadAt_vetId: serverTimestamp() }));
+        subscribeMessages(conv, myId, () => updateDoc(doc(db, 'conversations', conv.id), {
+            lastReadAt_vetId: serverTimestamp(),
+            unreadCount_vet: 0,
+        }));
     }
 
     function subscribeToConversations() {
@@ -247,12 +264,16 @@ export function initVetMessagingPage() {
                 petName, vetName, vetSpecialty: '',
                 participants: [ownerId, user.uid],
                 lastMessage: '', lastMessageAt: serverTimestamp(), createdAt: serverTimestamp(),
+                unreadCount_owner: 0,
+                unreadCount_vet: 0,
             });
             conv = {
                 id: convRef.id, ownerId, ownerName, vetId: user.uid, petId,
                 petName, vetName, vetSpecialty: '',
                 participants: [ownerId, user.uid],
                 lastMessage: '', lastMessageAt: new Date(), createdAt: new Date(),
+                unreadCount_owner: 0,
+                unreadCount_vet: 0,
             };
             state.conversations = [conv, ...state.conversations];
             setListState(false, false, true);
@@ -302,6 +323,8 @@ export function initVetMessagingPage() {
                 petName: petTrigger || 'Pet', vetName, vetSpecialty: '',
                 participants: [ownerId, user.uid],
                 lastMessage: initMsg || '', lastMessageAt: serverTimestamp(), createdAt: serverTimestamp(),
+                unreadCount_owner: initMsg ? 1 : 0,
+                unreadCount_vet: 0,
             });
             if (initMsg) {
                 await addDoc(collection(db, 'conversations', convRef.id, 'messages'), {
@@ -314,6 +337,8 @@ export function initVetMessagingPage() {
                 petName: petTrigger || 'Pet', vetName, vetSpecialty: '',
                 participants: [ownerId, user.uid],
                 lastMessage: initMsg || '', lastMessageAt: new Date(), createdAt: new Date(),
+                unreadCount_owner: initMsg ? 1 : 0,
+                unreadCount_vet: 0,
             };
             state.conversations = [newConv, ...state.conversations];
             setListState(false, false, true);

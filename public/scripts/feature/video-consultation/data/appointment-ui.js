@@ -38,6 +38,9 @@ export async function populateVideoCallAppointmentUI(options = {}) {
             const petSnap = await getDoc(doc(db, 'users', ownerId, 'pets', petId));
             const petData = petSnap.exists() ? petSnap.data() : {};
             if (petImgEl && petData.imageUrl) {
+                petImgEl.style.opacity = '0';
+                petImgEl.style.transition = 'opacity 0.35s ease';
+                petImgEl.onload = () => { requestAnimationFrame(() => { petImgEl.style.opacity = '1'; }); };
                 petImgEl.src = petData.imageUrl;
                 petImgEl.alt = petName;
                 if (petImageWrap) petImageWrap.classList.add('has-pet-image');
@@ -54,6 +57,9 @@ export async function populateVideoCallAppointmentUI(options = {}) {
             const detailsPetFallback = $('details-pet-fallback');
             const detailsPetAvatar = detailsPetImg?.closest('.details-pet-avatar');
             if (detailsPetImg && petData.imageUrl) {
+                detailsPetImg.style.opacity = '0';
+                detailsPetImg.style.transition = 'opacity 0.35s ease';
+                detailsPetImg.onload = () => { requestAnimationFrame(() => { detailsPetImg.style.opacity = '1'; }); };
                 detailsPetImg.src = petData.imageUrl;
                 detailsPetImg.alt = petName;
                 detailsPetImg.removeAttribute('aria-hidden');
@@ -125,6 +131,9 @@ export async function populateVideoCallAppointmentUI(options = {}) {
             if (otherParticipantNameEl) otherParticipantNameEl.textContent = displayOtherName;
             const photoURL = otherData.photoURL || otherData.photoUrl || '';
             if (photoURL && otherParticipantImgEl) {
+                otherParticipantImgEl.style.opacity = '0';
+                otherParticipantImgEl.style.transition = 'opacity 0.35s ease';
+                otherParticipantImgEl.onload = () => { requestAnimationFrame(() => { otherParticipantImgEl.style.opacity = '1'; }); };
                 otherParticipantImgEl.src = photoURL;
                 otherParticipantImgEl.alt = displayOtherName;
                 if (otherAvatarWrap) otherAvatarWrap.classList.add('has-avatar');
@@ -140,6 +149,9 @@ export async function populateVideoCallAppointmentUI(options = {}) {
             const detailsOtherAvatarWrap = $('details-other-avatar-wrap');
             if (detailsOtherName) detailsOtherName.textContent = displayOtherName;
             if (photoURL && detailsOtherImg) {
+                detailsOtherImg.style.opacity = '0';
+                detailsOtherImg.style.transition = 'opacity 0.35s ease';
+                detailsOtherImg.onload = () => { requestAnimationFrame(() => { detailsOtherImg.style.opacity = '1'; }); };
                 detailsOtherImg.src = photoURL;
                 detailsOtherImg.alt = displayOtherName;
                 detailsOtherImg.removeAttribute('aria-hidden');
@@ -156,6 +168,9 @@ export async function populateVideoCallAppointmentUI(options = {}) {
             const convoFallbackEl = document.getElementById('convo-panel-avatar-fallback');
             if (convoNameEl) convoNameEl.textContent = displayOtherName;
             if (photoURL && convoImgEl) {
+                convoImgEl.style.opacity = '0';
+                convoImgEl.style.transition = 'opacity 0.35s ease';
+                convoImgEl.onload = () => { requestAnimationFrame(() => { convoImgEl.style.opacity = '1'; }); };
                 convoImgEl.src = photoURL;
                 convoImgEl.alt = displayOtherName;
                 convoImgEl.classList.remove('is-hidden');

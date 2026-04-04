@@ -10,7 +10,12 @@ import {
     getAvailableDatesAndSlots,
     checkSlotAvailability,
 } from './services.js';
-import { formatAppointmentDate, getAppointmentTimeDisplay, isUpcoming } from '../shared/time.js';
+import {
+    formatAppointmentDate,
+    getAppointmentTimeDisplay,
+    getTodayDateString,
+    isUpcoming,
+} from '../shared/time.js';
 import { CLINIC_HOURS_PLACEHOLDER } from '../shared/constants.js';
 import { auth, db } from '../../../core/firebase/firebase-config.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js';
@@ -168,14 +173,13 @@ function renderAppointmentCard(apt, isHistory = false) {
     const statusRaw = (apt.status === 'confirmed' ? 'completed' : (apt.status || 'completed')).toLowerCase();
     const statusChip = isHistory
         ? `<span class="appointment-card-chip appointment-card-chip--${escapeHtml(statusRaw)}">${escapeHtml(statusRaw)}</span>`
-        : (apt.paid === true
-            ? '<span class="appointment-card-chip appointment-card-chip--paid"><i class="fa fa-check" aria-hidden="true"></i>Paid</span>'
-            : '');
+        : '<span class="appointment-card-chip appointment-card-chip--upcoming">upcoming</span>';
+    const variantClass = isHistory ? 'appointment-card--completed' : 'appointment-card--upcoming';
     const title = escapeHtml(apt.title?.trim() || 'Consultation');
     const pet = escapeHtml(apt.petName || 'Pet');
     const vetLine = [apt.vetName, apt.clinicName].filter(Boolean).map((s) => escapeHtml(s)).join(' · ');
     return `
-        <article class="appointment-card${isHistory ? ' appointment-card--history' : ''}" data-appointment-id="${escapeHtml(apt.id)}">
+        <article class="appointment-card ${variantClass}" data-appointment-id="${escapeHtml(apt.id)}">
             <div class="appointment-card-pet">
                 <div class="appointment-card-pet-img${isCat ? ' appointment-card-pet-img--cat' : ''}" aria-hidden="true">${speciesIcon(apt.petSpecies)}</div>
             </div>
@@ -202,6 +206,74 @@ function groupByDate(apts, dateKey) {
     return byDate;
 }
 
+function getAppointmentStartSortMs(apt) {
+    const dateStr = apt.date || apt.dateStr || '';
+    const slot = apt.slotStart;
+    if (dateStr && slot) {
+        const t = new Date(`${dateStr}T${slot}`).getTime();
+        if (Number.isFinite(t)) return t;
+    }
+    if (dateStr) {
+        const t = new Date(`${dateStr}T12:00:00`).getTime();
+        if (Number.isFinite(t)) return t;
+    }
+    return 0;
+}
+
+/** Today first, then later dates ascending; “No date” / “Other” last. */
+function sortDateHeadingKeysUpcoming(keys) {
+    const today = getTodayDateString();
+    return [...keys].sort((a, b) => {
+        const aUndated = a === 'No date';
+        const bUndated = b === 'No date';
+        if (aUndated !== bUndated) return aUndated ? 1 : -1;
+        if (a === today && b !== today) return -1;
+        if (b === today && a !== today) return 1;
+        return String(a).localeCompare(String(b));
+    });
+}
+
+/** Today first, then older dates descending; fallback bucket last. */
+function sortDateHeadingKeysPast(keys) {
+    const today = getTodayDateString();
+    return [...keys].sort((a, b) => {
+        const aOther = a === 'Other';
+        const bOther = b === 'Other';
+        if (aOther !== bOther) return aOther ? 1 : -1;
+        if (a === today && b !== today) return -1;
+        if (b === today && a !== today) return 1;
+        return String(b).localeCompare(String(a));
+    });
+}
+
+const ALL_UNDATED_KEYS = new Set(['Undated', 'No date', 'Other']);
+
+/**
+ * All tab: today + future dates ascending, then past dates descending, undated last.
+ * @param {string[]} keys
+ */
+function sortDateHeadingKeysAll(keys) {
+    const today = getTodayDateString();
+    const undated = keys.filter((k) => ALL_UNDATED_KEYS.has(k));
+    const dated = keys.filter((k) => !ALL_UNDATED_KEYS.has(k));
+    const futureOrToday = dated.filter((k) => k >= today).sort((a, b) => a.localeCompare(b));
+    const pastOnly = dated.filter((k) => k < today).sort((a, b) => b.localeCompare(a));
+    return [...futureOrToday, ...pastOnly, ...undated.sort((a, b) => a.localeCompare(b))];
+}
+
+function formatAllTabDateHeading(dateStr) {
+    if (ALL_UNDATED_KEYS.has(dateStr)) return 'Scheduled';
+    return formatAppointmentDate(dateStr);
+}
+
+function sortAppointmentsInGroup(apts, direction) {
+    return [...apts].sort((a, b) => {
+        const da = getAppointmentStartSortMs(a);
+        const db = getAppointmentStartSortMs(b);
+        return direction === 'asc' ? da - db : db - da;
+    });
+}
+
 /** Render upcoming appointments into panel */
 export function renderUpcomingPanel(panelEl, appointments) {
     if (!panelEl) return;
@@ -216,32 +288,74 @@ export function renderUpcomingPanel(panelEl, appointments) {
         return;
     }
     const byDate = groupByDate(upcoming, 'No date');
-    panelEl.innerHTML = Object.keys(byDate).sort().map(dateStr => `
+    const dateKeys = sortDateHeadingKeysUpcoming(Object.keys(byDate));
+    panelEl.innerHTML = dateKeys
+        .map((dateStr) => {
+            const apts = sortAppointmentsInGroup(byDate[dateStr], 'asc');
+            return `
         <section class="appointments-date-group">
             <h3 class="appointments-date-heading">${escapeHtml(dateStr === 'No date' ? 'Scheduled' : formatAppointmentDate(dateStr))}</h3>
-            ${byDate[dateStr].map(apt => renderAppointmentCard(apt, false)).join('')}
-        </section>`).join('');
+            ${apts.map((apt) => renderAppointmentCard(apt, false)).join('')}
+        </section>`;
+        })
+        .join('');
 }
 
-/** Render history panel */
-export function renderHistoryPanel(panelEl, appointments) {
+/** Render completed / past appointments (not upcoming). */
+export function renderCompletedPanel(panelEl, appointments) {
     if (!panelEl) return;
-    const history = (appointments || []).filter(a => !isUpcoming(a));
-    if (history.length === 0) {
+    const completed = (appointments || []).filter((a) => !isUpcoming(a));
+    if (completed.length === 0) {
         panelEl.innerHTML = `
             <div class="appointments-empty-state">
                 <i class="fa fa-calendar-o" aria-hidden="true"></i>
-                <p>No past visits</p>
-                <span class="appointments-empty-hint">Switch to Upcoming or book first.</span>
+                <p>No completed visits</p>
+                <span class="appointments-empty-hint">Switch to Upcoming or All, or book a consultation.</span>
             </div>`;
         return;
     }
-    const byDate = groupByDate(history, 'Other');
-    panelEl.innerHTML = Object.keys(byDate).sort().reverse().map(dateStr => `
+    const byDate = groupByDate(completed, 'Other');
+    const dateKeys = sortDateHeadingKeysPast(Object.keys(byDate));
+    panelEl.innerHTML = dateKeys
+        .map((dateStr) => {
+            const apts = sortAppointmentsInGroup(byDate[dateStr], 'desc');
+            return `
         <section class="appointments-date-group">
             <h3 class="appointments-date-heading">${escapeHtml(formatAppointmentDate(dateStr))}</h3>
-            ${byDate[dateStr].map(apt => renderAppointmentCard(apt, true)).join('')}
-        </section>`).join('');
+            ${apts.map((apt) => renderAppointmentCard(apt, true)).join('')}
+        </section>`;
+        })
+        .join('');
+}
+
+/** @deprecated Use renderCompletedPanel */
+export const renderHistoryPanel = renderCompletedPanel;
+
+/** Single date-grouped list for the All tab (no Upcoming / Past section labels). */
+export function renderAllAppointmentsPanel(panelEl, appointments) {
+    if (!panelEl) return;
+    const all = appointments || [];
+    if (all.length === 0) {
+        panelEl.innerHTML = `
+            <div class="appointments-empty-state">
+                <i class="fa fa-calendar" aria-hidden="true"></i>
+                <p>No appointments yet</p>
+                <span class="appointments-empty-hint">Use Book consultation to schedule.</span>
+            </div>`;
+        return;
+    }
+    const byDate = groupByDate(all, 'Undated');
+    const dateKeys = sortDateHeadingKeysAll(Object.keys(byDate));
+    panelEl.innerHTML = dateKeys
+        .map((dateStr) => {
+            const apts = sortAppointmentsInGroup(byDate[dateStr], 'asc');
+            return `
+        <section class="appointments-date-group">
+            <h3 class="appointments-date-heading">${escapeHtml(formatAllTabDateHeading(dateStr))}</h3>
+            ${apts.map((apt) => renderAppointmentCard(apt, !isUpcoming(apt))).join('')}
+        </section>`;
+        })
+        .join('');
 }
 
 
@@ -255,7 +369,8 @@ const confirmBtn = $('booking-confirm-btn');
 const formError = $('booking-form-error');
 const appointmentsLoading = $('appointments-loading');
 const upcomingRoot = $('upcoming-appointments-root');
-const historyRoot = $('history-appointments-root');
+const completedRoot = $('completed-appointments-root');
+const allAppointmentsRoot = $('all-appointments-root');
 const bookingDate = $('booking-date');
 const bookingTime = $('booking-time');
 const bookingVet = $('booking-vet');
@@ -522,7 +637,16 @@ function switchToTab(tabKey) {
         tb.setAttribute('aria-selected', tb === tab ? 'true' : 'false');
     });
     document.querySelectorAll('.appointments-tab-panel').forEach((p) => {
-        p.classList.toggle('is-hidden', p.id !== 'panel-' + tabKey);
+        const visible = p.id === `panel-${tabKey}`;
+        p.classList.toggle('is-hidden', !visible);
+        p.setAttribute('aria-hidden', visible ? 'false' : 'true');
+        if (visible) {
+            p.classList.remove('is-entering');
+            void p.offsetWidth;
+            p.classList.add('is-entering');
+        } else {
+            p.classList.remove('is-entering');
+        }
     });
 }
 
@@ -533,10 +657,13 @@ document.querySelectorAll('.appointments-tab').forEach((tab) => {
     });
 });
 
-// If redirected from session-ended (e.g. ?tab=history), open History tab
+// Session-ended redirect uses tab=history; also accept tab=completed
 const urlParams = new URLSearchParams(window.location.search);
-if (urlParams.get('tab') === 'history') {
-    switchToTab('history');
+const tabParam = urlParams.get('tab');
+if (tabParam === 'history' || tabParam === 'completed') {
+    switchToTab('completed');
+} else if (tabParam === 'all') {
+    switchToTab('all');
 }
 
 document.addEventListener('click', (e) => {
@@ -695,6 +822,7 @@ document.addEventListener('click', (e) => {
                 img.alt = `Shared image ${idx + 1}`;
                 img.className = 'details-shared-image-thumb';
                 img.loading = 'lazy';
+                img.onload = () => img.classList.add('is-loaded');
                 btn.appendChild(img);
                 item.appendChild(btn);
             } else {
@@ -715,9 +843,14 @@ document.addEventListener('click', (e) => {
     if (vetFallback) vetFallback.classList.add('visible');
     loadVetProfile(apt.vetId).then((vet) => {
         if (vet?.photoURL && vetImg) {
+            vetImg.style.opacity = '0';
+            vetImg.style.transition = 'opacity 0.35s ease';
+            vetImg.onload = () => {
+                requestAnimationFrame(() => { vetImg.style.opacity = '1'; });
+                if (vetFallback) vetFallback.classList.remove('visible');
+            };
             vetImg.src = vet.photoURL;
             vetImg.style.display = '';
-            if (vetFallback) vetFallback.classList.remove('visible');
         }
     });
     const petImg = $('details-pet-img');
@@ -743,9 +876,14 @@ document.addEventListener('click', (e) => {
                 const sp = (pet.species || apt.petSpecies || '').trim();
                 $('details-pet-species').textContent = sp ? sp.charAt(0).toUpperCase() + sp.slice(1).toLowerCase() : '-';
                 if (pet.imageUrl && petImg) {
+                    petImg.style.opacity = '0';
+                    petImg.style.transition = 'opacity 0.35s ease';
+                    petImg.onload = () => {
+                        requestAnimationFrame(() => { petImg.style.opacity = '1'; });
+                        if (petFallback) petFallback.classList.remove('visible');
+                    };
                     petImg.src = pet.imageUrl;
                     petImg.style.display = '';
-                    if (petFallback) petFallback.classList.remove('visible');
                 }
                 if (petFallback && (pet.species || '').toLowerCase() === 'cat') petFallback.innerHTML = '<i class="fa-solid fa-cat" aria-hidden="true"></i>';
             }
@@ -827,13 +965,20 @@ function initDetailsMediaLightbox() {
         lb.classList.add('is-hidden');
         lb.setAttribute('aria-hidden', 'true');
         document.body.style.overflow = (detailsOverlay?.classList.contains('is-open') ? 'hidden' : '');
-        if (lbImg) { lbImg.src = ''; lbImg.classList.remove('is-hidden'); }
-        if (lbIframe) { lbIframe.src = ''; lbIframe.classList.add('is-hidden'); }
+        setTimeout(() => {
+            if (lbImg) { lbImg.src = ''; lbImg.classList.remove('is-hidden'); }
+            if (lbIframe) { lbIframe.src = ''; lbIframe.classList.add('is-hidden'); }
+        }, 280);
     };
     const openLB = (url, isImage) => {
         if (!lb) return;
         if (isImage) {
-            if (lbImg) { lbImg.src = url; lbImg.classList.remove('is-hidden'); }
+            if (lbImg) {
+                lbImg.style.opacity = '0';
+                lbImg.src = url;
+                lbImg.classList.remove('is-hidden');
+                lbImg.onload = () => { requestAnimationFrame(() => { lbImg.style.opacity = '1'; }); };
+            }
             if (lbIframe) { lbIframe.src = ''; lbIframe.classList.add('is-hidden'); }
         } else {
             if (lbIframe) { lbIframe.src = url; lbIframe.classList.remove('is-hidden'); }
@@ -863,9 +1008,13 @@ function initDetailsMediaLightbox() {
 initDetailsMediaLightbox();
 
 function hideAppointmentsLoading() {
-    if (!appointmentsLoading) return;
-    appointmentsLoading.setAttribute('aria-hidden', 'true');
-    appointmentsLoading.classList.add('is-hidden');
+    if (!appointmentsLoading || appointmentsLoading.classList.contains('is-hidden')) return;
+    appointmentsLoading.classList.add('is-fading-out');
+    setTimeout(() => {
+        appointmentsLoading.setAttribute('aria-hidden', 'true');
+        appointmentsLoading.classList.add('is-hidden');
+        appointmentsLoading.classList.remove('is-fading-out');
+    }, 350);
 }
 
 /**
@@ -893,14 +1042,16 @@ onAuthStateChanged(auth, async (userFromCallback) => {
     if (!user) {
         hideAppointmentsLoading();
         renderUpcomingPanel(upcomingRoot, []);
-        renderHistoryPanel(historyRoot, []);
+        renderCompletedPanel(completedRoot, []);
+        renderAllAppointmentsPanel(allAppointmentsRoot, []);
         return;
     }
     const callback = (appointments) => {
         window._appointmentsCache = appointments;
         hideAppointmentsLoading();
         renderUpcomingPanel(upcomingRoot, appointments);
-        renderHistoryPanel(historyRoot, appointments);
+        renderCompletedPanel(completedRoot, appointments);
+        renderAllAppointmentsPanel(allAppointmentsRoot, appointments);
     };
     const unsub = subscribeAppointments(user.uid, callback);
     window._appointmentsUnsub = unsub;
@@ -929,7 +1080,8 @@ setTimeout(() => {
     hideAppointmentsLoading();
     if (!window._appointmentsCache) {
         renderUpcomingPanel(upcomingRoot, []);
-        renderHistoryPanel(historyRoot, []);
+        renderCompletedPanel(completedRoot, []);
+        renderAllAppointmentsPanel(allAppointmentsRoot, []);
     }
 }, APPOINTMENTS_LOADING_FALLBACK_MS);
 

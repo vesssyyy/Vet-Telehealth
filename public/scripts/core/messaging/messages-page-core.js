@@ -22,7 +22,7 @@ import {
 } from './messages-ui-core.js';
 import {
     collection, doc, getDoc, addDoc, updateDoc,
-    query, orderBy, onSnapshot, serverTimestamp,
+    query, orderBy, onSnapshot, serverTimestamp, increment,
 } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 
 const $ = id => document.getElementById(id);
@@ -32,7 +32,11 @@ const isMobileView = () => window.matchMedia('(max-width: 768px)').matches;
    Factory
 ───────────────────────────────────────────────────────────────────────── */
 export function createMessaging(config) {
-    const { readField, deliveredField, sentAvatarIcon, receivedAvatarIcon, buildConvItem } = config;
+    const {
+        readField, deliveredField, selfReadField,
+        selfUnreadCountField, peerUnreadCountField,
+        sentAvatarIcon, receivedAvatarIcon, buildConvItem,
+    } = config;
 
     /* ── DOM refs ──────────────────────────────────────────────────── */
     const refs = {
@@ -173,16 +177,28 @@ export function createMessaging(config) {
         }
     }
 
+    function resolveUnreadCount(conv) {
+        if (!selfUnreadCountField || conv.id === state.currentConvId) return 0;
+        const n = conv[selfUnreadCountField];
+        if (typeof n === 'number' && !Number.isNaN(n) && n > 0) return Math.min(Math.floor(n), 999);
+        if (selfReadField && timestampToMs(conv.lastMessageAt) > timestampToMs(conv[selfReadField])) return 1;
+        return 0;
+    }
+
     function renderConversationList() {
         if (!refs.listRoot) return;
         refs.listRoot.innerHTML = '';
         const unique = [...new Map(state.conversations.map(c => [c.id, c])).values()];
         unique.forEach(conv => {
+            const unreadCount = resolveUnreadCount(conv);
+            const isUnread = unreadCount > 0;
             const item = document.createElement('li');
-            item.className = 'messages-conversation-item' + (conv.id === state.currentConvId ? ' is-active' : '');
+            item.className = 'messages-conversation-item'
+                + (conv.id === state.currentConvId ? ' is-active' : '')
+                + (isUnread ? ' is-unread' : '');
             item.setAttribute('role', 'listitem');
             item.dataset.convId = conv.id;
-            item.innerHTML = buildConvItem(conv);
+            item.innerHTML = buildConvItem(conv, { unreadCount });
             refs.listRoot.appendChild(item);
         });
         refs.listRoot.style.display = unique.length ? '' : 'none';
@@ -298,9 +314,10 @@ export function createMessaging(config) {
                 status:   'sending',
                 ...(attachPlaceholder && { attachment: attachPlaceholder }),
             });
-            await updateDoc(doc(db, 'conversations', state.currentConvId), {
-                lastMessage: lastPreview, lastMessageAt: serverTimestamp(),
-            });
+            const convUpdate = { lastMessage: lastPreview, lastMessageAt: serverTimestamp() };
+            if (selfReadField) convUpdate[selfReadField] = serverTimestamp();
+            if (peerUnreadCountField) convUpdate[peerUnreadCountField] = increment(1);
+            await updateDoc(doc(db, 'conversations', state.currentConvId), convUpdate);
 
             const conv = state.conversations.find(c => c.id === state.currentConvId);
             if (conv) { conv.lastMessage = lastPreview; conv.lastMessageAt = new Date(); renderConversationList(); }

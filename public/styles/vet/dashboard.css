@@ -281,7 +281,7 @@
 body.dashboard-waiting .dashboard-loading { display: flex; }
 body.dashboard-ready .dashboard-loading { display: none; }
 .dashboard-content.is-loading { display: none !important; }
-body.dashboard-ready .dashboard-content { display: flex !important; }
+body.dashboard-ready .dashboard-content { display: flex !important; animation: smoothFadeIn 0.35s ease both; }
 .dashboard-content { flex-direction: column; gap: 16px; min-height: auto; }
 
 /* Custom date range modal (vet dashboard) */
@@ -924,6 +924,7 @@ body.dashboard-ready .dashboard-content { display: flex !important; }
 .vet-empty-state {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     text-align: center; padding: 50px 25px; min-height: 180px;
+    animation: smoothFadeIn 0.35s ease both;
 }
 .vet-empty-icon {
     width: 70px; height: 70px; border-radius: 50%;
@@ -1044,6 +1045,8 @@ body.dashboard-ready .dashboard-content { display: flex !important; }
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.04);
     display: flex;
     flex-direction: column;
+    animation: smoothFadeIn 0.4s ease both;
+    animation-delay: 100ms;
 }
 .dashboard-booking-rate-card {
     min-width: 0;
@@ -1263,6 +1266,7 @@ body.dashboard-ready .dashboard-content { display: flex !important; }
     pointer-events: none;
     opacity: 0;
     visibility: hidden;
+    transition: opacity 0.18s ease, visibility 0.18s ease;
 }
 .dashboard-schedule-donut-tooltip.is-visible {
     opacity: 1;
@@ -1273,10 +1277,10 @@ body.dashboard-ready .dashboard-content { display: flex !important; }
     height: 100%;
     border-radius: 50%;
     box-sizing: border-box;
-    /* Filled by vet-dashboard.js from live slot counts; neutral placeholder before/without data */
     background: conic-gradient(from -90deg at 50% 50%, #e5e7eb 0deg 360deg);
     -webkit-mask: radial-gradient(circle, transparent 59px, black 60px);
     mask: radial-gradient(circle, transparent 59px, black 60px);
+    transition: background 0.5s ease;
 }
 .dashboard-consultations-donut-hole-label {
     position: absolute;
@@ -1355,6 +1359,7 @@ body.dashboard-ready .dashboard-content { display: flex !important; }
     text-align: right;
     justify-self: end;
     min-width: 2.5ch;
+    transition: color 0.25s ease;
 }
 
 .dashboard-appointments-table {
@@ -1491,7 +1496,12 @@ body.dashboard-ready .dashboard-content { display: flex !important; }
     border: 1px solid var(--border-color);
     border-radius: 12px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    animation: smoothFadeIn 0.3s ease both;
 }
+.dashboard-appointment-row:nth-child(2) { animation-delay: 40ms; }
+.dashboard-appointment-row:nth-child(3) { animation-delay: 80ms; }
+.dashboard-appointment-row:nth-child(4) { animation-delay: 120ms; }
+.dashboard-appointment-row:nth-child(n+5) { animation-delay: 150ms; }
 .dashboard-appointment-row.is-next {
     border-color: rgba(74, 144, 164, 0.55);
     background: linear-gradient(135deg, rgba(74, 144, 164, 0.08) 0%, rgba(44, 95, 125, 0.04) 100%);
@@ -1526,6 +1536,7 @@ body.dashboard-ready .dashboard-content { display: flex !important; }
     height: 100%;
     object-fit: cover;
     display: block;
+    transition: opacity 0.35s ease;
 }
 .dashboard-appt-avatar-initials {
     font-size: 12px;
@@ -1579,6 +1590,7 @@ body.dashboard-ready .dashboard-content { display: flex !important; }
     height: 100%;
     object-fit: cover;
     display: block;
+    transition: opacity 0.35s ease;
 }
 .dashboard-appt-pet-avatar-fallback {
     display: inline-flex;

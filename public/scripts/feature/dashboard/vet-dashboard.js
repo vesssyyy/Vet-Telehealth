@@ -50,6 +50,26 @@ function getAppointmentCreatedAtDate(data) {
     return null;
 }
 
+/** @param {unknown} c Firestore Timestamp, Date, seconds object, or ms number */
+function getFirestoreTimestampMs(c) {
+    if (c == null) return NaN;
+    if (typeof c.toDate === 'function') {
+        const t = c.toDate().getTime();
+        return Number.isFinite(t) ? t : NaN;
+    }
+    if (c instanceof Date && Number.isFinite(c.getTime())) return c.getTime();
+    if (typeof c.seconds === 'number') {
+        const t = c.seconds * 1000;
+        return Number.isFinite(t) ? t : NaN;
+    }
+    if (typeof c._seconds === 'number') {
+        const t = c._seconds * 1000;
+        return Number.isFinite(t) ? t : NaN;
+    }
+    if (typeof c === 'number' && Number.isFinite(c)) return c;
+    return NaN;
+}
+
 /** Timestamp (ms) for when a consultation completed, or scheduled start as fallback (for older docs). */
 function getAppointmentCompletedAtMs(data) {
     const c = data?.completedAt;
@@ -112,7 +132,19 @@ let todaysNewBookingsCache = [];
 /** @type {Array<{ ownerName: string, dateStr: string, timeDisplay: string, title: string, costCentavos: number, createdMs: number }>} */
 let transactionsCache = [];
 
-/** @type {Array<{ ownerName: string, petName: string, title: string, dateStr: string, timeDisplay: string, completedMs: number }>} */
+/**
+ * @type {Array<{
+ *   id: string,
+ *   ownerName: string,
+ *   petName: string,
+ *   title: string,
+ *   dateStr: string,
+ *   timeDisplay: string,
+ *   completedMs: number,
+ *   videoSessionEndedAt: unknown,
+ *   needsRoomEndedAt: boolean,
+ * }>}
+ */
 let completedConsultationsCache = [];
 
 /** Created-at timestamps (ms) for all appointments — booking rate chart */
@@ -493,7 +525,7 @@ function buildUpcomingAppointmentRowsMarkup(rows) {
                             ownerPhotoUrl
                                 ? `<img class="dashboard-appt-avatar-img" src="${escapeHtml(
                                       ownerPhotoUrl,
-                                  )}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">`
+                                  )}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" style="opacity:0;transition:opacity .35s ease" onload="this.style.opacity='1'" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">`
                                 : ''
                         }
                         <span class="dashboard-appt-avatar-initials"${
@@ -511,7 +543,7 @@ function buildUpcomingAppointmentRowsMarkup(rows) {
                                 petPhotoUrl
                                     ? `<img class="dashboard-appt-pet-avatar-img" src="${escapeHtml(
                                           petPhotoUrl,
-                                      )}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex'">`
+                                      )}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" style="opacity:0;transition:opacity .35s ease" onload="this.style.opacity='1'" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex'">`
                                     : ''
                             }
                             <span class="dashboard-appt-pet-avatar-fallback"${
@@ -642,6 +674,56 @@ async function hydrateAvatarsForUpcomingRows(rows) {
     });
 }
 
+function patchAvatarsInPlace(containerEl, rows) {
+    if (!containerEl) return;
+    for (const r of rows) {
+        const row = containerEl.querySelector(`[data-appointment-id="${CSS.escape(r.id)}"]`);
+        if (!row) continue;
+        if (r.ownerPhotoUrl) {
+            const avatarEl = row.querySelector('.dashboard-appt-avatar');
+            if (avatarEl && !avatarEl.querySelector('.dashboard-appt-avatar-img')) {
+                const img = document.createElement('img');
+                img.className = 'dashboard-appt-avatar-img';
+                img.src = r.ownerPhotoUrl;
+                img.alt = '';
+                img.loading = 'lazy';
+                img.decoding = 'async';
+                img.referrerPolicy = 'no-referrer';
+                img.style.opacity = '0';
+                img.style.transition = 'opacity 0.35s ease';
+                img.onload = () => { requestAnimationFrame(() => { img.style.opacity = '1'; }); };
+                img.onerror = () => { img.style.display = 'none'; };
+                avatarEl.prepend(img);
+                const initials = avatarEl.querySelector('.dashboard-appt-avatar-initials');
+                if (initials) initials.style.display = 'none';
+            }
+        }
+        if (r.petPhotoUrl) {
+            const petAvatar = row.querySelector('.dashboard-appt-pet-avatar');
+            if (petAvatar && !petAvatar.querySelector('.dashboard-appt-pet-avatar-img')) {
+                const img = document.createElement('img');
+                img.className = 'dashboard-appt-pet-avatar-img';
+                img.src = r.petPhotoUrl;
+                img.alt = '';
+                img.loading = 'lazy';
+                img.decoding = 'async';
+                img.referrerPolicy = 'no-referrer';
+                img.style.opacity = '0';
+                img.style.transition = 'opacity 0.35s ease';
+                img.onload = () => { requestAnimationFrame(() => { img.style.opacity = '1'; }); };
+                img.onerror = () => {
+                    img.style.display = 'none';
+                    const fallback = petAvatar.querySelector('.dashboard-appt-pet-avatar-fallback');
+                    if (fallback) fallback.style.display = 'inline-flex';
+                };
+                petAvatar.prepend(img);
+                const fallback = petAvatar.querySelector('.dashboard-appt-pet-avatar-fallback');
+                if (fallback) fallback.style.display = 'none';
+            }
+        }
+    }
+}
+
 function renderCompletedConsultationsModalBody(listEl, rows) {
     if (!listEl) return;
     if (!rows.length) {
@@ -656,11 +738,16 @@ function renderCompletedConsultationsModalBody(listEl, rows) {
             const timePart =
                 extractTimeRangeFromDisplay(r.timeDisplay) ?? (r.timeDisplay || '—');
             const scheduledAt = `${escapeHtml(dateFormatted)} <span class="dashboard-new-bookings-sep" aria-hidden="true">·</span> ${escapeHtml(timePart)}`;
-            return `<tr>
+            const vcMs = getFirestoreTimestampMs(r.videoSessionEndedAt);
+            const endedAtLabel =
+                Number.isFinite(vcMs) && vcMs > 0 ? formatCompactDateTime(vcMs) : '—';
+            const apptIdAttr = r.id ? escapeHtml(r.id) : '';
+            return `<tr data-appt-id="${apptIdAttr}">
                 <td>${escapeHtml(r.ownerName)}</td>
                 <td>${escapeHtml(r.petName)}</td>
                 <td>${escapeHtml(title)}</td>
                 <td>${scheduledAt}</td>
+                <td class="dashboard-completed-ended-at">${escapeHtml(endedAtLabel)}</td>
             </tr>`;
         })
         .join('');
@@ -670,9 +757,34 @@ function renderCompletedConsultationsModalBody(listEl, rows) {
 <th scope="col">Pet name</th>
 <th scope="col">Appointment Title</th>
 <th scope="col">Scheduled at</th>
+<th scope="col">Ended At</th>
 </tr></thead>
 <tbody>${trs}</tbody>
 </table></div>`;
+}
+
+/**
+ * Fill "Ended At" from `appointments/{id}/videoCall/room` when `videoSessionEndedAt` was not on the appointment doc.
+ * @param {HTMLElement | null} listEl
+ * @param {typeof completedConsultationsCache} rows
+ */
+function hydrateCompletedConsultationsEndedAt(listEl, rows) {
+    if (!listEl || !rows.length) return;
+    for (const r of rows) {
+        if (!r.needsRoomEndedAt || !r.id) continue;
+        const tr = listEl.querySelector(`tr[data-appt-id="${CSS.escape(r.id)}"]`);
+        const cell = tr?.querySelector('.dashboard-completed-ended-at');
+        if (!cell) continue;
+        getDoc(doc(db, 'appointments', r.id, 'videoCall', 'room'))
+            .then((snap) => {
+                if (!snap.exists()) return;
+                const roomMs = getFirestoreTimestampMs(snap.data()?.endedAt);
+                if (Number.isFinite(roomMs) && roomMs > 0) {
+                    cell.textContent = formatCompactDateTime(roomMs);
+                }
+            })
+            .catch(() => {});
+    }
 }
 
 function renderTodayNewBookingsModalBody(listEl, bookings) {
@@ -978,6 +1090,7 @@ document.addEventListener('DOMContentLoaded', () => {
             !completedConsultationsOverlay.classList.contains('is-hidden')
         ) {
             renderCompletedConsultationsModalBody(completedConsultationsListEl, filtered);
+            hydrateCompletedConsultationsEndedAt(completedConsultationsListEl, filtered);
         }
     }
 
@@ -1104,16 +1217,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (needCompleted) {
                     completedConsultationsCache = snap.docs
-                        .map((d) => d.data())
-                        .filter((data) => String(data?.status || '').toLowerCase() === 'completed')
-                        .map((data) => ({
-                            ownerName: data.ownerName || '—',
-                            petName: data.petName || '—',
-                            title: (data.title && String(data.title).trim()) || '',
-                            dateStr: data.dateStr || data.date || '',
-                            timeDisplay: data.timeDisplay || getAppointmentTimeDisplay(data) || '—',
-                            completedMs: getAppointmentCompletedAtMs(data),
-                        }))
+                        .filter((d) => String(d.data()?.status || '').toLowerCase() === 'completed')
+                        .map((d) => {
+                            const data = d.data();
+                            const vcMs = getFirestoreTimestampMs(data.videoSessionEndedAt);
+                            const hasVcEnded = Number.isFinite(vcMs) && vcMs > 0;
+                            return {
+                                id: d.id,
+                                ownerName: data.ownerName || '—',
+                                petName: data.petName || '—',
+                                title: (data.title && String(data.title).trim()) || '',
+                                dateStr: data.dateStr || data.date || '',
+                                timeDisplay:
+                                    data.timeDisplay || getAppointmentTimeDisplay(data) || '—',
+                                completedMs: getAppointmentCompletedAtMs(data),
+                                videoSessionEndedAt: data.videoSessionEndedAt,
+                                needsRoomEndedAt: !hasVcEnded,
+                            };
+                        })
                         .sort((a, b) => b.completedMs - a.completedMs);
                     refreshCompletedConsultationsDisplay();
                 }
@@ -1154,11 +1275,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     renderUpcomingAppointmentsPanel(upcomingRowsEl, visible);
                     hydrateAvatarsForUpcomingRows(visible)
                         .then((hydrated) => {
-                            // Only rerender if the visible set is still the same order/ids.
                             const idsNow = visible.map((r) => r.id).join('|');
                             const idsHydrated = hydrated.map((r) => r.id).join('|');
                             if (idsNow !== idsHydrated) return;
-                            renderUpcomingAppointmentsPanel(upcomingRowsEl, hydrated);
+                            patchAvatarsInPlace(upcomingRowsEl, hydrated);
                         })
                         .catch((e) => console.warn('hydrateAvatarsForUpcomingRows:', e));
                 }
@@ -1248,6 +1368,7 @@ document.addEventListener('DOMContentLoaded', () => {
             isTransactionCreatedInPeriod(row.completedMs, transactionPeriod),
         );
         renderCompletedConsultationsModalBody(completedConsultationsListEl, filtered);
+        hydrateCompletedConsultationsEndedAt(completedConsultationsListEl, filtered);
         completedConsultationsOverlay.classList.remove('is-hidden');
         completedConsultationsOverlay.setAttribute('aria-hidden', 'false');
         completedConsultationsTrigger?.setAttribute('aria-expanded', 'true');

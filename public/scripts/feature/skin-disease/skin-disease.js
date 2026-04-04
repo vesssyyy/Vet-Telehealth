@@ -70,6 +70,19 @@
     var lastResultObjectUrl = null;
     var $ = function (id) { return document.getElementById(id); };
 
+    function setBackBtnVisible(visible) {
+        var backBtn = $('skin-back-btn');
+        if (!backBtn) return;
+        backBtn.classList.toggle('is-hidden', !visible);
+        if (visible) {
+            backBtn.setAttribute('aria-hidden', 'false');
+            backBtn.removeAttribute('tabindex');
+        } else {
+            backBtn.setAttribute('aria-hidden', 'true');
+            backBtn.setAttribute('tabindex', '-1');
+        }
+    }
+
     function revokeResultPreview() {
         if (lastResultObjectUrl) {
             URL.revokeObjectURL(lastResultObjectUrl);
@@ -115,10 +128,9 @@
         hideAll();
         var sel = $('skin-selection-view');
         var id = $('skin-identify-view');
-        var backBtn = $('skin-back-btn');
         if (sel) sel.classList.toggle('is-hidden', !selectionVisible);
         if (id) id.classList.toggle('is-hidden', selectionVisible);
-        if (backBtn) backBtn.classList.toggle('is-hidden', selectionVisible);
+        setBackBtnVisible(!selectionVisible);
         setStepperStep(selectionVisible ? 1 : 2);
     }
 
@@ -146,18 +158,16 @@
 
         hideAll();
         var idv = $('skin-identify-view');
-        var backBtn = $('skin-back-btn');
         if (idv) { idv.classList.remove('is-hidden'); idv.setAttribute('data-current-pet', petType); }
-        if (backBtn) backBtn.classList.remove('is-hidden');
+        setBackBtnVisible(true);
         setStepperStep(2);
     }
 
     function showAnalyzingView() {
         hideAll();
         var an = $('skin-analyzing-view');
-        var backBtn = $('skin-back-btn');
         if (an) an.classList.remove('is-hidden');
-        if (backBtn) backBtn.classList.remove('is-hidden');
+        setBackBtnVisible(true);
         setStepperStep(3);
     }
 
@@ -194,9 +204,8 @@
 
         hideAll();
         var res = $('skin-results-view');
-        var backBtn = $('skin-back-btn');
         if (res) res.classList.remove('is-hidden');
-        if (backBtn) backBtn.classList.remove('is-hidden');
+        setBackBtnVisible(true);
         setStepperStep(4);
     }
 
@@ -206,9 +215,8 @@
 
         hideAll();
         var err = $('skin-error-view');
-        var backBtn = $('skin-back-btn');
         if (err) err.classList.remove('is-hidden');
-        if (backBtn) backBtn.classList.remove('is-hidden');
+        setBackBtnVisible(true);
         setStepperStep(3);
     }
 

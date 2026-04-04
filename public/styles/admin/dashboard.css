@@ -101,7 +101,7 @@
     color: var(--text-dark);
     outline: none;
 }
-.admin-content-wrapper { position: relative; min-height: 320px; }
+.admin-content-wrapper { position: relative; min-height: 320px; animation: smoothFadeIn 0.35s ease both; }
 .admin-loading.is-hidden,
 .admin-error.is-hidden,
 .admin-list-wrapper.is-hidden,
@@ -198,13 +198,17 @@
 .admin-empty i { font-size: 48px; margin-bottom: 16px; opacity: 0.6; }
 .admin-modal-overlay {
     position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); z-index: 1200;
+    opacity: 0; visibility: hidden; transition: opacity 0.25s ease, visibility 0.25s ease;
 }
+.admin-modal-overlay:not(.is-hidden) { opacity: 1; visibility: visible; }
 .admin-modal {
     position: fixed; inset: 0; z-index: 1201;
     display: flex; align-items: center; justify-content: center; padding: 16px;
+    opacity: 0; visibility: hidden; transition: opacity 0.25s ease, visibility 0.25s ease;
 }
+.admin-modal:not(.is-hidden) { opacity: 1; visibility: visible; }
 .admin-modal.is-hidden,
-.admin-modal-overlay.is-hidden { display: none !important; }
+.admin-modal-overlay.is-hidden { pointer-events: none; }
 .admin-modal-card {
     background: var(--bg-white); border-radius: 12px;
     box-shadow: 0 18px 45px rgba(15, 23, 42, 0.25);

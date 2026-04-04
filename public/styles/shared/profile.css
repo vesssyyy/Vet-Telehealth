@@ -75,6 +75,7 @@ body { background: #f0f2f5; font-family: 'Segoe UI', system-ui, -apple-system, s
     width: 72px;
     height: 72px;
     border-radius: 50%;
+    transition: opacity 0.35s ease;
     border: 2px solid #e8ecf1;
     background: #f1f3f6;
     object-fit: cover;

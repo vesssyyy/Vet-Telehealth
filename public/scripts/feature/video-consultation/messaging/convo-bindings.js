@@ -58,6 +58,8 @@ export async function resolveVideoCallConversation(options = {}) {
                 lastMessage: '',
                 lastMessageAt: serverTimestamp(),
                 createdAt: serverTimestamp(),
+                unreadCount_owner: 0,
+                unreadCount_vet: 0,
             });
             return convRef.id;
         }

@@ -52,6 +52,7 @@ import {
     onSnapshot,
     serverTimestamp,
     deleteField,
+    increment,
 } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 
 /* Default ICE servers; TURN can be loaded dynamically from Cloud Functions. */
@@ -324,7 +325,12 @@ export function initVideoCallPage(options = {}) {
                 } else {
                     await updateDoc(doc(db, 'conversations', currentConvId, 'messages', msgRef.id), { status: 'sent' }).catch(() => {});
                 }
-                await updateDoc(doc(db, 'conversations', currentConvId), { lastMessageAt: serverTimestamp(), lastMessage: text || '(attachment)' }).catch(() => {});
+                const peerUnreadField = isVet ? 'unreadCount_owner' : 'unreadCount_vet';
+                await updateDoc(doc(db, 'conversations', currentConvId), {
+                    lastMessageAt: serverTimestamp(),
+                    lastMessage: text || '(attachment)',
+                    [peerUnreadField]: increment(1),
+                }).catch(() => {});
             });
         }
 

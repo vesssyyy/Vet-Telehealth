@@ -67,5 +67,60 @@
         document.querySelector('.profile-header-btn')?.addEventListener('click', function () {
             window.location.href = 'profile.html';
         });
+
+        document.querySelectorAll('.nav-item[href="messages.html"]').forEach(function (el) {
+            var dot = document.createElement('span');
+            dot.className = 'nav-unread-dot';
+            dot.setAttribute('aria-hidden', 'true');
+            el.appendChild(dot);
+        });
+        document.querySelectorAll('.bottom-nav-item[href="messages.html"]').forEach(function (el) {
+            var dot = document.createElement('span');
+            dot.className = 'bottom-nav-unread-dot';
+            dot.setAttribute('aria-hidden', 'true');
+            el.appendChild(dot);
+        });
     });
+
+    /* ── Global smooth image reveal ───────────────────────────────────── *
+     * Automatically fades in any <img> that is dynamically added to the  *
+     * DOM via innerHTML or createElement. Images already loaded (e.g.    *
+     * from cache) are left untouched so they appear instantly.           *
+     * ─────────────────────────────────────────────────────────────────── */
+    (function () {
+        var DUR = '0.35s';
+        function prep(img) {
+            if (img._siFade) return;
+            img._siFade = true;
+            if (img.complete && img.naturalWidth > 0 && img.style.opacity !== '0') return;
+            if (!img.style.transition) img.style.transition = 'opacity ' + DUR + ' ease';
+            if (img.style.opacity !== '0') img.style.opacity = '0';
+            img.addEventListener('load', function () {
+                requestAnimationFrame(function () { img.style.opacity = '1'; });
+            }, { once: true });
+            img.addEventListener('error', function () {
+                img.style.opacity = '';
+                img.style.transition = '';
+            }, { once: true });
+        }
+        if (typeof MutationObserver === 'undefined') return;
+        var obs = new MutationObserver(function (list) {
+            for (var m = 0; m < list.length; m++) {
+                var nodes = list[m].addedNodes;
+                for (var n = 0; n < nodes.length; n++) {
+                    var nd = nodes[n];
+                    if (nd.nodeType !== 1) continue;
+                    if (nd.tagName === 'IMG') prep(nd);
+                    else if (nd.getElementsByTagName) {
+                        var imgs = nd.getElementsByTagName('img');
+                        for (var i = 0; i < imgs.length; i++) prep(imgs[i]);
+                    }
+                }
+            }
+        });
+        if (document.body) obs.observe(document.body, { childList: true, subtree: true });
+        else document.addEventListener('DOMContentLoaded', function () {
+            obs.observe(document.body, { childList: true, subtree: true });
+        });
+    })();
 })();

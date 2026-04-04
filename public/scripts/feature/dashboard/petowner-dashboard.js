@@ -271,14 +271,20 @@ function hydrateVetAvatar(vetId, imgEl, initialsEl, vetName) {
     const apply = (vet) => {
         const url = vet?.photoURL || '';
         if (!url) return;
-        imgEl.src = url;
-        imgEl.style.display = '';
-        initialsEl.style.display = 'none';
+        imgEl.style.opacity = '0';
+        imgEl.style.transition = 'opacity 0.35s ease';
+        imgEl.onload = () => {
+            requestAnimationFrame(() => { imgEl.style.opacity = '1'; });
+        };
         imgEl.onerror = () => {
             imgEl.style.display = 'none';
+            imgEl.style.opacity = '';
             initialsEl.style.display = '';
             imgEl.onerror = null;
         };
+        imgEl.src = url;
+        imgEl.style.display = '';
+        initialsEl.style.display = 'none';
     };
     if (cached) {
         Promise.resolve(cached).then(apply).catch(() => {});
@@ -545,7 +551,12 @@ function closeDetailsModal() {
 function openDetailsModal(apt) {
     if (!apt || !detailsOverlay || !detailsModalEl) return;
 
-    $('details-title').textContent = apt.title?.trim() || '-';
+    const detailsTitleEl = $('details-title');
+    if (detailsTitleEl) {
+        const t = apt.title?.trim();
+        detailsTitleEl.textContent = t || '-';
+        detailsTitleEl.classList.toggle('is-empty', !t);
+    }
     $('details-vet-name').textContent = apt.vetName || '-';
     $('details-date').textContent = formatAppointmentDate(apt.date || apt.dateStr);
     $('details-time').textContent = getAppointmentTimeDisplay(apt);
@@ -572,10 +583,11 @@ function openDetailsModal(apt) {
                 btn.dataset.url = url;
                 btn.dataset.isImage = 'true';
                 const img = document.createElement('img');
-                img.src = url;
                 img.alt = `Shared image ${idx + 1}`;
                 img.className = 'details-shared-image-thumb';
                 img.loading = 'lazy';
+                img.onload = () => img.classList.add('is-loaded');
+                img.src = url;
                 btn.appendChild(img);
                 item.appendChild(btn);
             } else {
@@ -593,20 +605,25 @@ function openDetailsModal(apt) {
 
     const vetImg = $('details-vet-img');
     const vetFallback = $('details-vet-avatar-fallback');
-    if (vetImg) { vetImg.style.display = 'none'; vetImg.src = ''; }
+    if (vetImg) { vetImg.style.display = 'none'; vetImg.src = ''; vetImg.style.opacity = ''; }
     if (vetFallback) vetFallback.classList.add('visible');
     loadVetProfile(apt.vetId).then((vet) => {
         if (vet?.photoURL && vetImg) {
+            vetImg.style.opacity = '0';
+            vetImg.style.transition = 'opacity 0.35s ease';
+            vetImg.onload = () => {
+                requestAnimationFrame(() => { vetImg.style.opacity = '1'; });
+                if (vetFallback) vetFallback.classList.remove('visible');
+            };
             vetImg.src = vet.photoURL;
             vetImg.style.display = '';
-            if (vetFallback) vetFallback.classList.remove('visible');
         }
     });
 
     const petImg = $('details-pet-img');
     const petFallback = $('details-pet-avatar-fallback');
     const petAvatarWrap = $('details-pet-avatar-wrap');
-    if (petImg) { petImg.style.display = 'none'; petImg.src = ''; }
+    if (petImg) { petImg.style.display = 'none'; petImg.src = ''; petImg.style.opacity = ''; }
     if (petFallback) {
         petFallback.classList.add('visible');
         petFallback.innerHTML = (apt.petSpecies || '').toLowerCase() === 'cat'
@@ -628,9 +645,14 @@ function openDetailsModal(apt) {
             const sp = (pet.species || apt.petSpecies || '').trim();
             $('details-pet-species').textContent = sp ? sp.charAt(0).toUpperCase() + sp.slice(1).toLowerCase() : '-';
             if (pet.imageUrl && petImg) {
+                petImg.style.opacity = '0';
+                petImg.style.transition = 'opacity 0.35s ease';
+                petImg.onload = () => {
+                    requestAnimationFrame(() => { petImg.style.opacity = '1'; });
+                    if (petFallback) petFallback.classList.remove('visible');
+                };
                 petImg.src = pet.imageUrl;
                 petImg.style.display = '';
-                if (petFallback) petFallback.classList.remove('visible');
             }
         });
     }
@@ -708,13 +730,20 @@ detailsJoinBtn?.addEventListener('click', () => {
         lb.classList.add('is-hidden');
         lb.setAttribute('aria-hidden', 'true');
         document.body.style.overflow = detailsOverlay?.classList.contains('is-open') ? 'hidden' : '';
-        if (lbImg) { lbImg.src = ''; lbImg.classList.remove('is-hidden'); }
-        if (lbIframe) { lbIframe.src = ''; lbIframe.classList.add('is-hidden'); }
+        setTimeout(() => {
+            if (lbImg) { lbImg.src = ''; lbImg.classList.remove('is-hidden'); }
+            if (lbIframe) { lbIframe.src = ''; lbIframe.classList.add('is-hidden'); }
+        }, 280);
     };
     const openLB = (url, isImage) => {
         if (!lb) return;
         if (isImage) {
-            if (lbImg) { lbImg.src = url; lbImg.classList.remove('is-hidden'); }
+            if (lbImg) {
+                lbImg.style.opacity = '0';
+                lbImg.onload = () => { requestAnimationFrame(() => { lbImg.style.opacity = '1'; }); };
+                lbImg.src = url;
+                lbImg.classList.remove('is-hidden');
+            }
             if (lbIframe) { lbIframe.src = ''; lbIframe.classList.add('is-hidden'); }
         } else {
             if (lbIframe) { lbIframe.src = url; lbIframe.classList.remove('is-hidden'); }

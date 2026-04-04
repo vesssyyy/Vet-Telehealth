@@ -49,6 +49,8 @@ export async function findConversationByRolePair({ roleField, roleUid, peerField
 
 export async function createConversationDoc(payload) {
     const convRef = await addDoc(collection(db, 'conversations'), {
+        unreadCount_owner: 0,
+        unreadCount_vet: 0,
         ...payload,
         lastMessageAt: serverTimestamp(),
         createdAt: serverTimestamp(),

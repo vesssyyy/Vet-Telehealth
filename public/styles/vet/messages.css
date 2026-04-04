@@ -276,6 +276,7 @@
     text-decoration: none;
     color: inherit;
     border-radius: 0;
+    position: relative;
 }
 .messages-conversation-item:hover { background: var(--bg-light); }
 .messages-conversation-item.is-active {
@@ -323,7 +324,47 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.messages-conv-meta { font-size: 12px; color: var(--text-light); }
+.messages-conv-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-height: 18px;
+}
+.messages-conv-meta { font-size: 12px; color: var(--text-light); flex-shrink: 0; }
+
+/* Unread row — subtle tint (chat-app style) */
+.messages-conversation-item.is-unread {
+    background: rgba(15, 23, 42, 0.055);
+}
+.messages-conversation-item.is-unread:hover {
+    background: rgba(15, 23, 42, 0.085);
+}
+.messages-conversation-item.is-unread .messages-conv-preview {
+    color: var(--text-dark);
+    font-weight: 600;
+}
+.messages-conversation-item.is-unread .messages-conv-meta {
+    color: var(--text-light);
+    font-weight: 500;
+}
+
+.messages-conv-unread-badge {
+    flex-shrink: 0;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    color: #fff;
+    background: #dc2626;
+    border-radius: 10px;
+    box-sizing: border-box;
+}
 
 /* Chat panel */
 .messages-chat-panel {
@@ -604,8 +645,14 @@
     justify-content: center;
     padding: 20px;
     box-sizing: border-box;
+    transition: opacity 0.25s ease, visibility 0.25s ease;
 }
-.messages-image-lightbox.is-hidden { display: none; }
+.messages-image-lightbox.is-hidden {
+    display: flex !important;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
 .messages-image-lightbox-backdrop {
     position: absolute;
     inset: 0;
@@ -644,6 +691,7 @@
     max-width: 100%;
     max-height: 85vh;
     width: auto;
+    transition: opacity 0.3s ease;
     height: auto;
     object-fit: contain;
     border-radius: 8px;
