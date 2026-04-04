@@ -187,12 +187,16 @@ export function initVetMessagingPage() {
         if (shared.isMobileView()) history.pushState({ conv: conv.id }, '', location.href);
         if (!conv.ownerName && conv.ownerId) await ensureOwnerNames([conv]);
         updateChatHeader(conv);
+        shared.showChat();
 
         const myId = auth.currentUser?.uid;
         const [myPhoto, peerPhoto] = await Promise.all([
             fetchPhotoURL(myId),
             fetchPhotoURL(conv.ownerId),
         ]);
+
+        if (state.currentConvId !== conv.id) return;
+
         state.sentAvatarUrl = myPhoto;
         state.receivedAvatarUrl = peerPhoto;
 
@@ -415,8 +419,6 @@ export function initVetMessagingPage() {
             subscribeToConversations();
             tryOpenConversationFromParams();
             setTimeout(() => { tryOpenConversationFromParams(); }, 1500);
-        } else {
-            setListState(false, true, false);
         }
     });
 }

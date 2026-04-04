@@ -17,6 +17,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 
 let _unsubscribe = null;
+let _lastOpts = null;
 
 function isOnMessagesPage() {
     return (window.location.pathname.split('/').pop() || '') === 'messages.html';
@@ -55,7 +56,16 @@ function unreadCountForConversation(data, readField, unreadCountField) {
  * @param {{ role: 'petowner'|'vet', uid: string }} opts
  */
 export function initMessageNotifications({ role, uid }) {
+    _lastOpts = { role: role, uid: uid };
+    _applyNotifications();
+}
+
+function _applyNotifications() {
     if (_unsubscribe) { _unsubscribe(); _unsubscribe = null; }
+
+    if (!_lastOpts) return;
+    var role = _lastOpts.role;
+    var uid  = _lastOpts.uid;
 
     if (isOnMessagesPage()) {
         setSidebarUnreadBadge(0);
@@ -85,5 +95,10 @@ export function initMessageNotifications({ role, uid }) {
 
 export function destroyMessageNotifications() {
     if (_unsubscribe) { _unsubscribe(); _unsubscribe = null; }
+    _lastOpts = null;
     setSidebarUnreadBadge(0);
 }
+
+window.addEventListener('spa:afternavigate', function () {
+    _applyNotifications();
+});

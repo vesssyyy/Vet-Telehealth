@@ -154,12 +154,16 @@ export function initPetownerMessagingPage() {
 
         if (shared.isMobileView()) history.pushState({ conv: conv.id }, '', location.href);
         updateChatHeader(conv);
+        shared.showChat();
 
         const myId = auth.currentUser?.uid;
         const [myPhoto, peerPhoto] = await Promise.all([
             fetchPhotoURL(myId),
             fetchPhotoURL(conv.vetId),
         ]);
+
+        if (state.currentConvId !== conv.id) return;
+
         state.sentAvatarUrl = myPhoto;
         state.receivedAvatarUrl = peerPhoto;
 
@@ -381,8 +385,6 @@ export function initPetownerMessagingPage() {
             subscribeToConversations();
             tryOpenConversationFromParams();
             setTimeout(() => { tryOpenConversationFromParams(); }, 1500);
-        } else {
-            setListState(false, true, false);
         }
     });
 }
