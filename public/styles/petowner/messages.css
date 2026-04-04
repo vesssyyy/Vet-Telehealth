@@ -311,6 +311,7 @@
     color: white;
     font-size: 20px;
 }
+.messages-conv-avatar-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 .messages-conv-avatar--cat { background: linear-gradient(135deg, #6b7280, #9ca3af); }
 .messages-conv-body { flex: 1; min-width: 0; }
 .messages-conv-title {
@@ -535,7 +536,8 @@
     color: white;
     font-size: 14px;
 }
-.message-row-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.message-row-avatar img,
+.message-row-avatar-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 .message-row--sent .message-row-avatar {
     background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
 }

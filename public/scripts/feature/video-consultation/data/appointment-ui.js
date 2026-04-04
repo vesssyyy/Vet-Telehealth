@@ -141,6 +141,7 @@ export async function populateVideoCallAppointmentUI(options = {}) {
     const otherParticipantImgEl = document.getElementById('other-participant-img');
     const otherParticipantInitialEl = document.getElementById('other-participant-initial');
     const otherAvatarWrap = document.getElementById('other-participant-avatar');
+    let otherPhotoURL = '';
 
     try {
         if (otherUid) {
@@ -151,6 +152,7 @@ export async function populateVideoCallAppointmentUI(options = {}) {
                 : ownerDisplayName(otherData);
             if (otherParticipantNameEl) otherParticipantNameEl.textContent = displayOtherName;
             const photoURL = otherData.photoURL || otherData.photoUrl || '';
+            otherPhotoURL = photoURL;
             if (photoURL && otherParticipantImgEl) {
                 otherParticipantImgEl.style.opacity = '0';
                 otherParticipantImgEl.style.transition = 'opacity 0.35s ease';
@@ -228,10 +230,12 @@ export async function populateVideoCallAppointmentUI(options = {}) {
     }
 
     let myName = isVet ? 'Vet' : 'Pet Owner';
+    let myPhotoURL = '';
     try {
         const meSnap = await getDoc(doc(db, 'users', user.uid));
         const meData = meSnap.exists() ? meSnap.data() : {};
         myName = (meData.displayName || user.displayName || '').trim() || myName;
+        myPhotoURL = meData.photoURL || meData.photoUrl || '';
     } catch (e) {
         console.warn('Could not load current user for label', e);
     }
@@ -257,6 +261,8 @@ export async function populateVideoCallAppointmentUI(options = {}) {
         vetId,
         otherParticipantNameEl,
         myName,
+        myPhotoURL,
+        otherPhotoURL,
     };
 }
 

@@ -75,6 +75,8 @@ export function createMessaging(config) {
         deliveredUpdateTimeouts:    new Map(),
         selectedTimestampMessageId: null,
         defaultTimestampMessageId:  null,
+        sentAvatarUrl:              '',
+        receivedAvatarUrl:          '',
     };
 
     /* ── List / chat view ──────────────────────────────────────────── */
@@ -143,12 +145,16 @@ export function createMessaging(config) {
             const showTime = msg.id === state.defaultTimestampMessageId || msg.id === state.selectedTimestampMessageId;
             const timeText = showTime ? formatBubbleTimestamp(msg.sentAt) : '';
             const footerHtml = buildMessageFooterHtml({ timeText, statusIconHtml: statusIcon });
+            const avatarUrl = isSent ? state.sentAvatarUrl : state.receivedAvatarUrl;
+            const avatarInner = avatarUrl
+                ? `<img src="${escapeHtml(avatarUrl)}" alt="" class="message-row-avatar-img">`
+                : `<i class="fa ${avatarIcon}" aria-hidden="true"></i>`;
             const row        = document.createElement('div');
             row.className    = `message-row message-row--${side}`;
             row.setAttribute('role', 'article');
             row.setAttribute('aria-label', 'Message');
             row.innerHTML = `
-                <div class="message-row-avatar"><i class="fa ${avatarIcon}" aria-hidden="true"></i></div>
+                <div class="message-row-avatar">${avatarInner}</div>
                 <div class="message-bubble message-bubble--${side}" data-message-id="${escapeHtml(msg.id)}">
                     ${msg.attachment ? renderAttachment(msg.attachment, isSending) : ''}
                     ${bubbleText ? `<div>${escapeHtml(bubbleText)}</div>` : ''}

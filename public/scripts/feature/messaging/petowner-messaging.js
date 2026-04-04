@@ -11,6 +11,22 @@ import { normalizeId, getCurrentOwnerDisplayName, vetDisplayName } from './share
 
 const $ = id => document.getElementById(id);
 
+const photoCache = new Map();
+
+async function fetchPhotoURL(uid) {
+    if (!uid) return '';
+    if (photoCache.has(uid)) return photoCache.get(uid);
+    try {
+        const snap = await getDoc(doc(db, 'users', uid));
+        const url = snap.exists() ? (snap.data().photoURL || snap.data().photoUrl || '') : '';
+        photoCache.set(uid, url);
+        return url;
+    } catch (_) {
+        photoCache.set(uid, '');
+        return '';
+    }
+}
+
 async function getAppointmentsForConv(conv) {
     const user = auth.currentUser;
     if (!user?.uid || !conv?.vetId || !conv?.petId) return [];
@@ -38,8 +54,12 @@ export function initPetownerMessagingPage() {
             const badge = unreadCount > 0
                 ? `<span class="messages-conv-unread-badge" aria-label="${unreadCount} unread">${unreadCount > 99 ? '99+' : unreadCount}</span>`
                 : '';
+            const peerPhoto = conv._peerPhotoURL || '';
+            const avatarInner = peerPhoto
+                ? `<img src="${escapeHtml(peerPhoto)}" alt="" class="messages-conv-avatar-img">`
+                : `<i class="fa fa-user-md" aria-hidden="true"></i>`;
             return `
-            <div class="messages-conv-avatar"><i class="fa fa-user-md" aria-hidden="true"></i></div>
+            <div class="messages-conv-avatar">${avatarInner}</div>
             <div class="messages-conv-body">
                 <div class="messages-conv-title">
                     <span class="conv-pet">${escapeHtml(conv.petName)}</span>
@@ -67,6 +87,18 @@ export function initPetownerMessagingPage() {
         if (vetNameEl)   vetNameEl.textContent   = withDr(conv.vetName || '');
         if (specialtyEl) specialtyEl.textContent = conv.vetSpecialty || conv.clinic || 'Veterinarian';
         if (petBadgeEl)  petBadgeEl.textContent  = conv.petName || '';
+
+        const headerImg      = $('messages-chat-vet-img');
+        const headerFallback = $('messages-chat-vet-fallback');
+        const peerPhoto = conv._peerPhotoURL || photoCache.get(conv.vetId) || '';
+        if (peerPhoto && headerImg) {
+            headerImg.src = peerPhoto;
+            headerImg.classList.remove('is-hidden');
+            if (headerFallback) headerFallback.classList.add('is-hidden');
+        } else {
+            if (headerImg) headerImg.classList.add('is-hidden');
+            if (headerFallback) headerFallback.classList.remove('is-hidden');
+        }
     }
 
     async function loadModalData() {
@@ -119,6 +151,13 @@ export function initPetownerMessagingPage() {
         updateChatHeader(conv);
 
         const myId = auth.currentUser?.uid;
+        const [myPhoto, peerPhoto] = await Promise.all([
+            fetchPhotoURL(myId),
+            fetchPhotoURL(conv.vetId),
+        ]);
+        state.sentAvatarUrl = myPhoto;
+        state.receivedAvatarUrl = peerPhoto;
+
         if (myId && conv.ownerId === myId) {
             updateDoc(doc(db, 'conversations', conv.id), {
                 lastReadAt_ownerId: serverTimestamp(),
@@ -131,15 +170,22 @@ export function initPetownerMessagingPage() {
         }));
     }
 
+    async function ensureConvPhotos(convs) {
+        const vetIds = [...new Set(convs.map(c => c.vetId).filter(Boolean))];
+        await Promise.all(vetIds.map(id => fetchPhotoURL(id)));
+        convs.forEach(c => { if (c.vetId) c._peerPhotoURL = photoCache.get(c.vetId) || ''; });
+    }
+
     function subscribeToConversations() {
         const user = auth.currentUser;
         if (!user) return;
         setListState(true, false, false);
         return onSnapshot(
             query(collection(db, 'conversations'), where('ownerId', '==', user.uid), orderBy('lastMessageAt', 'desc')),
-            snap => {
+            async snap => {
                 const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 state.conversations = [...new Map(docs.map(c => [c.id, c])).values()];
+                await ensureConvPhotos(state.conversations);
                 setListState(false, state.conversations.length === 0, state.conversations.length > 0);
                 renderConversationList();
 

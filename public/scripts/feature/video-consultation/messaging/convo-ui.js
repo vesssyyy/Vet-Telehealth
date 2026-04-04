@@ -12,6 +12,8 @@ export function createVideoCallConvoRenderer(options = {}) {
         convoBody,
         isVet = false,
         uid = '',
+        sentAvatarUrl = '',
+        receivedAvatarUrl = '',
     } = options;
 
     function renderConvoMessages(messages) {
@@ -22,15 +24,20 @@ export function createVideoCallConvoRenderer(options = {}) {
         const receivedAvatarIcon = isVet ? 'fa-user' : 'fa-user-md';
 
         const appendMessage = (msg) => {
-            if (msg?.type === 'session_ended') return; // system message not shown in VC
+            if (msg?.type === 'session_ended') return;
 
             const text = msg?.text || '';
             const isSent = msg?.senderId === uid;
             const side = isSent ? 'sent' : 'received';
+            const avatarUrl = isSent ? sentAvatarUrl : receivedAvatarUrl;
+            const avatarIcon = isSent ? sentAvatarIcon : receivedAvatarIcon;
+            const avatarInner = avatarUrl
+                ? `<img src="${escapeHtml(avatarUrl)}" alt="" class="video-call-msg-avatar-img">`
+                : `<i class="fa ${avatarIcon}" aria-hidden="true"></i>`;
             const bubble = document.createElement('div');
             bubble.className = `video-call-msg video-call-msg--${side}`;
             bubble.innerHTML = `
-                <span class="video-call-msg-avatar"><i class="fa ${isSent ? sentAvatarIcon : receivedAvatarIcon}" aria-hidden="true"></i></span>
+                <span class="video-call-msg-avatar">${avatarInner}</span>
                 <div class="video-call-msg-bubble">
                     ${msg?.attachment ? renderAttachment(msg.attachment, msg.status === 'sending') : ''}
                     ${text ? `<span class="video-call-msg-text">${escapeHtml(text)}</span>` : ''}

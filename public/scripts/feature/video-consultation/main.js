@@ -245,6 +245,8 @@ export function initVideoCallPage(options = {}) {
             const petName = hydrated.petName;
             const myName = hydrated.myName;
             const otherParticipantNameEl = hydrated.otherParticipantNameEl;
+            const myPhotoURL = hydrated.myPhotoURL || '';
+            const otherPhotoURL = hydrated.otherPhotoURL || '';
 
             /* Vet: Clinical notes — auto-save, load saved notes, save on terminate */
             const notesController = initVideoCallNotes({
@@ -282,6 +284,8 @@ export function initVideoCallPage(options = {}) {
             convoBody,
             isVet,
             uid: user.uid,
+            sentAvatarUrl: myPhotoURL,
+            receivedAvatarUrl: otherPhotoURL,
         });
 
         if (currentConvId) {

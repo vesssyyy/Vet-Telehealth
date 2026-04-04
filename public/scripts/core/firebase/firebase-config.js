@@ -17,18 +17,10 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export { app };
 export const auth = getAuth(app);
-/** Auto long-polling helps mobile/proxy environments; force-long-poll can misbehave with some tunnels (e.g. ngrok + phone). */
+/** Auto long-polling helps mobile/proxy environments; forced long-polling can misbehave behind some reverse proxies. */
 export const db = initializeFirestore(app, {
     experimentalAutoDetectLongPolling: true,
 });
 export const storage = getStorage(app);
 
 /** PayMongo publishable keys are served via callable (payMongoGetClientConfig) from Functions params. */
-
-if (typeof window !== 'undefined' && /ngrok/i.test(window.location.hostname)) {
-    const h = window.location.hostname;
-    console.info(
-        `[Televet] Ngrok host "${h}": add it to Firebase → Authentication → Authorized domains ` +
-            `(and to Google OAuth "Authorized JavaScript origins" as https://${h} if using Google sign-in).`
-    );
-}

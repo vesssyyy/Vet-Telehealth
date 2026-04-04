@@ -10,6 +10,22 @@ import { normalizeId, ownerDisplayName, getCurrentVetDisplayName } from './share
 
 const $ = id => document.getElementById(id);
 
+const photoCache = new Map();
+
+async function fetchPhotoURL(uid) {
+    if (!uid) return '';
+    if (photoCache.has(uid)) return photoCache.get(uid);
+    try {
+        const snap = await getDoc(doc(db, 'users', uid));
+        const url = snap.exists() ? (snap.data().photoURL || snap.data().photoUrl || '') : '';
+        photoCache.set(uid, url);
+        return url;
+    } catch (_) {
+        photoCache.set(uid, '');
+        return '';
+    }
+}
+
 async function getAppointmentsForConv(conv) {
     const user = auth.currentUser;
     if (!user?.uid || !conv?.ownerId || !conv?.petId) return [];
@@ -37,8 +53,12 @@ export function initVetMessagingPage() {
             const badge = unreadCount > 0
                 ? `<span class="messages-conv-unread-badge" aria-label="${unreadCount} unread">${unreadCount > 99 ? '99+' : unreadCount}</span>`
                 : '';
+            const peerPhoto = conv._peerPhotoURL || '';
+            const avatarInner = peerPhoto
+                ? `<img src="${escapeHtml(peerPhoto)}" alt="" class="messages-conv-avatar-img">`
+                : `<i class="fa fa-user" aria-hidden="true"></i>`;
             return `
-            <div class="messages-conv-avatar"><i class="fa fa-user" aria-hidden="true"></i></div>
+            <div class="messages-conv-avatar">${avatarInner}</div>
             <div class="messages-conv-body">
                 <div class="messages-conv-title">
                     <span class="conv-pet">${escapeHtml(conv.petName)}</span>
@@ -79,6 +99,18 @@ export function initVetMessagingPage() {
         if (ownerNameEl) ownerNameEl.textContent = conv.ownerName || 'Pet Owner';
         if (ownerSubEl)  ownerSubEl.textContent  = 'Pet Owner';
         if (petBadgeEl)  { petBadgeEl.textContent = conv.petName || ''; petBadgeEl.style.display = conv.petName ? '' : 'none'; }
+
+        const headerImg      = $('messages-chat-owner-img');
+        const headerFallback = $('messages-chat-owner-fallback');
+        const peerPhoto = conv._peerPhotoURL || photoCache.get(conv.ownerId) || '';
+        if (peerPhoto && headerImg) {
+            headerImg.src = peerPhoto;
+            headerImg.classList.remove('is-hidden');
+            if (headerFallback) headerFallback.classList.add('is-hidden');
+        } else {
+            if (headerImg) headerImg.classList.add('is-hidden');
+            if (headerFallback) headerFallback.classList.remove('is-hidden');
+        }
     }
 
     async function loadPetOwners() {
@@ -152,6 +184,13 @@ export function initVetMessagingPage() {
         updateChatHeader(conv);
 
         const myId = auth.currentUser?.uid;
+        const [myPhoto, peerPhoto] = await Promise.all([
+            fetchPhotoURL(myId),
+            fetchPhotoURL(conv.ownerId),
+        ]);
+        state.sentAvatarUrl = myPhoto;
+        state.receivedAvatarUrl = peerPhoto;
+
         if (myId && conv.vetId === myId) {
             updateDoc(doc(db, 'conversations', conv.id), {
                 lastReadAt_vetId: serverTimestamp(),
@@ -164,6 +203,12 @@ export function initVetMessagingPage() {
         }));
     }
 
+    async function ensureConvPhotos(convs) {
+        const ownerIds = [...new Set(convs.map(c => c.ownerId).filter(Boolean))];
+        await Promise.all(ownerIds.map(id => fetchPhotoURL(id)));
+        convs.forEach(c => { if (c.ownerId) c._peerPhotoURL = photoCache.get(c.ownerId) || ''; });
+    }
+
     function subscribeToConversations() {
         const user = auth.currentUser;
         if (!user) return;
@@ -173,7 +218,7 @@ export function initVetMessagingPage() {
             async snap => {
                 const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 state.conversations = [...new Map(docs.map(c => [c.id, c])).values()];
-                await ensureOwnerNames(state.conversations);
+                await Promise.all([ensureOwnerNames(state.conversations), ensureConvPhotos(state.conversations)]);
                 setListState(false, state.conversations.length === 0, state.conversations.length > 0);
                 renderConversationList();
 

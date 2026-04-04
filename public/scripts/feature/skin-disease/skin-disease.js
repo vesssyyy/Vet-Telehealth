@@ -10,6 +10,12 @@
     if (base.slice(-1) !== '/') base += '/';
 
     function getApiBase() {
+        var winBase = typeof window !== 'undefined' && window.TELEHEALTH_SKIN_API_BASE;
+        winBase = String(winBase || '').trim();
+        if (winBase) {
+            if (winBase.slice(-1) === '/') winBase = winBase.slice(0, -1);
+            return winBase;
+        }
         var raw = (sc && sc.getAttribute('data-api-base')) || 'http://localhost:5000';
         raw = String(raw || '').trim();
         if (raw.slice(-1) === '/') raw = raw.slice(0, -1);

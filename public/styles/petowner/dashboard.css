@@ -488,6 +488,14 @@ body.dashboard-ready .dashboard-content { display: flex !important; animation: s
 }
 .dashboard-appointment-title {
     min-width: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 6px;
+}
+.dashboard-appointment-title .dashboard-appt-title {
+    flex: 1 1 0;
+    min-width: 0;
 }
 .dashboard-appt-title {
     font-size: 14px;
@@ -503,6 +511,14 @@ body.dashboard-ready .dashboard-content { display: flex !important; animation: s
     font-weight: 600;
     color: var(--primary-color);
     line-height: 1.35;
+}
+.dashboard-appt-mobile-label {
+    display: none;
+}
+.dashboard-appt-when-value {
+    display: block;
+    min-width: 0;
+    word-break: break-word;
 }
 .dashboard-appt-sep {
     color: var(--text-light);
@@ -752,6 +768,35 @@ body.dashboard-ready .dashboard-content { display: flex !important; animation: s
     .dashboard-appointment-row { grid-template-columns: 1fr; gap: 12px; padding: 14px; }
     .dashboard-appointment-actions { justify-self: stretch; }
     .btn-dashboard-appt-view { width: 100%; }
+
+    .dashboard-appt-mobile-label {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-light);
+        line-height: 1.3;
+        margin-bottom: 4px;
+    }
+    .dashboard-appointment-title .dashboard-appt-mobile-label {
+        display: inline;
+        flex-shrink: 0;
+        margin-bottom: 0;
+        line-height: 1.35;
+    }
+    .dashboard-appointment-title .dashboard-appt-title {
+        flex: 1 1 0;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .dashboard-appointment-when .dashboard-appt-when-value,
+    .dashboard-appointment-ended .dashboard-appt-ended-at {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--primary-color);
+        line-height: 1.4;
+    }
 }
 @media (max-width: 480px) {
     .dashboard-header { margin-left: -15px; margin-right: -15px; padding: 12px 15px; }

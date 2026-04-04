@@ -334,12 +334,15 @@ function renderPastConsultations() {
                 <span class="dashboard-appt-client-name">${escapeHtml(vetName)}</span>
             </div>
             <div class="dashboard-appointment-cell dashboard-appointment-title" role="cell">
+                <span class="dashboard-appt-mobile-label">Title:</span>
                 <span class="dashboard-appt-title" title="${escapeHtml(apptTitle)}">${escapeHtml(apptTitle)}</span>
             </div>
             <div class="dashboard-appointment-cell dashboard-appointment-when" role="cell">
-                ${escapeHtml(scheduledAtLabel || '—')}
+                <span class="dashboard-appt-mobile-label">Sched at:</span>
+                <span class="dashboard-appt-when-value">${escapeHtml(scheduledAtLabel || '—')}</span>
             </div>
             <div class="dashboard-appointment-cell dashboard-appointment-ended" role="cell">
+                <span class="dashboard-appt-mobile-label">Ended at:</span>
                 <span class="dashboard-appt-ended-at">${escapeHtml(endedAtLabelInitial)}</span>
             </div>
             <div class="dashboard-appointment-cell dashboard-appointment-actions" role="cell">
