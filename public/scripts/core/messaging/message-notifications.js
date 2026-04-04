@@ -43,7 +43,12 @@ function setSidebarUnreadBadge(total) {
 
 function unreadCountForConversation(data, readField, unreadCountField) {
     var c = data[unreadCountField];
-    if (typeof c === 'number' && !Number.isNaN(c) && c > 0) return Math.floor(c);
+    if (typeof c === 'number' && !Number.isNaN(c)) {
+        if (c > 0) return Math.floor(c);
+        /* Explicit zero from Firestore: trust it. Timestamp fallback fights counter updates
+           and causes sidebar badge flicker during deployment / multi-field writes. */
+        return 0;
+    }
     if (timestampToMs(data.lastMessageAt) > timestampToMs(data[readField])) return 1;
     return 0;
 }

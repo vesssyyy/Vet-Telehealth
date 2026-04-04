@@ -611,7 +611,13 @@
 }
 .message-status--sending { opacity: 0.85; }
 .message-status--sent .fa-check { font-size: 12px; }
-.message-status--delivered .fa-check-double { font-size: 13px; }
+.message-status--delivered .message-status-dbl {
+    display: inline-flex;
+    align-items: center;
+    letter-spacing: -0.35em;
+    font-size: 12px;
+}
+.message-status--delivered .message-status-dbl .fa-check { font-size: 11px; }
 .message-status--seen .fa-eye { font-size: 13px; color: var(--primary-color); }
 .message-bubble--sent .message-status--seen .fa-eye { color: rgba(255, 255, 255, 0.95); }
 

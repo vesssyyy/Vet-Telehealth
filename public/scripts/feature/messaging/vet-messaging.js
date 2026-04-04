@@ -43,6 +43,7 @@ export function initVetMessagingPage() {
     const shared = createMessaging({
         readField:             'lastReadAt_ownerId',
         deliveredField:        'lastDeliveredAt_ownerId',
+        incomingDeliveredField: 'lastDeliveredAt_vetId',
         selfReadField:         'lastReadAt_vetId',
         selfUnreadCountField:  'unreadCount_vet',
         peerUnreadCountField:  'unreadCount_owner',
@@ -77,6 +78,7 @@ export function initVetMessagingPage() {
     const {
         state, setListState, renderChatMessages, renderConversationList, subscribeMessages,
         showModalError, setTriggerText, openModal, closeModal, initSharedUI,
+        onConversationListUpdated, clearListDeliveryScheduling,
     } = shared;
 
     async function ensureOwnerNames(convs) {
@@ -200,12 +202,8 @@ export function initVetMessagingPage() {
         state.sentAvatarUrl = myPhoto;
         state.receivedAvatarUrl = peerPhoto;
 
-        if (myId && conv.vetId === myId) {
-            updateDoc(doc(db, 'conversations', conv.id), {
-                lastReadAt_vetId: serverTimestamp(),
-                unreadCount_vet: 0,
-            }).catch(() => {});
-        }
+        /* lastReadAt / unread are flushed from subscribeMessages (debounced) so lastDeliveredAt can
+           land first; an immediate read here hid the double-check because seen always beat delivered. */
         subscribeMessages(conv, myId, () => updateDoc(doc(db, 'conversations', conv.id), {
             lastReadAt_vetId: serverTimestamp(),
             unreadCount_vet: 0,
@@ -218,29 +216,32 @@ export function initVetMessagingPage() {
         convs.forEach(c => { if (c.ownerId) c._peerPhotoURL = photoCache.get(c.ownerId) || ''; });
     }
 
+    let conversationListUnsub = null;
+
     function subscribeToConversations() {
         const user = auth.currentUser;
         if (!user) return;
-        return onSnapshot(
+        if (conversationListUnsub) {
+            conversationListUnsub();
+            conversationListUnsub = null;
+        }
+        conversationListUnsub = onSnapshot(
             query(collection(db, 'conversations'), where('vetId', '==', user.uid), orderBy('lastMessageAt', 'desc')),
             async snap => {
                 const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                state.conversations = [...new Map(docs.map(c => [c.id, c])).values()];
+                const byId = new Map(docs.map(c => [c.id, c]));
+                if (state.currentConvId && !byId.has(state.currentConvId)) {
+                    const keep = state.conversations.find(c => c.id === state.currentConvId)
+                        || (state.currentConvData?.id === state.currentConvId ? state.currentConvData : null);
+                    if (keep) byId.set(state.currentConvId, { id: state.currentConvId, ...keep });
+                }
+                state.conversations = [...byId.values()].sort(
+                    (a, b) => timestampToMs(b.lastMessageAt) - timestampToMs(a.lastMessageAt)
+                );
                 await Promise.all([ensureOwnerNames(state.conversations), ensureConvPhotos(state.conversations)]);
                 setListState(false, state.conversations.length === 0, state.conversations.length > 0);
                 renderConversationList();
-
-                const myId = user.uid;
-                state.conversations.forEach(conv => {
-                    if (conv.vetId !== myId) return;
-                    if (timestampToMs(conv.lastMessageAt) <= timestampToMs(conv.lastDeliveredAt_vetId)) return;
-                    if (state.deliveredUpdateTimeouts.has(conv.id)) return;
-                    const t = setTimeout(() => {
-                        state.deliveredUpdateTimeouts.delete(conv.id);
-                        updateDoc(doc(db, 'conversations', conv.id), { lastDeliveredAt_vetId: serverTimestamp() }).catch(() => {});
-                    }, 800);
-                    state.deliveredUpdateTimeouts.set(conv.id, t);
-                });
+                onConversationListUpdated(state.conversations);
 
                 if (state.currentConvId) {
                     const conv = state.conversations.find(c => c.id === state.currentConvId);
@@ -253,12 +254,14 @@ export function initVetMessagingPage() {
                 tryOpenConversationFromParams();
             }
         );
+        return conversationListUnsub;
     }
 
     let hasHandledParams = false;
     async function tryOpenConversationFromParams() {
-        if (hasHandledParams) return;
         const params = new URLSearchParams(location.search);
+        if (!params.get('ownerId') && !params.get('petId') && !params.get('appointmentId')) return;
+        if (hasHandledParams) return;
         let ownerId = normalizeId(params.get('ownerId') || '');
         let petId = normalizeId(params.get('petId') || '');
         const appointmentId = params.get('appointmentId') || '';
@@ -376,6 +379,7 @@ export function initVetMessagingPage() {
                 petName: petTrigger || 'Pet', vetName, vetSpecialty: '',
                 participants: [ownerId, user.uid],
                 lastMessage: initMsg || '', lastMessageAt: serverTimestamp(), createdAt: serverTimestamp(),
+                ...(initMsg ? { lastMessageSenderId: user.uid } : {}),
                 unreadCount_owner: initMsg ? 1 : 0,
                 unreadCount_vet: 0,
             });
@@ -412,6 +416,15 @@ export function initVetMessagingPage() {
         onConvClick:  openConversation,
         dropdownIds:  ['new-conv-owner', 'new-conv-pet'],
     });
+
+    window.__telehealthMessagesTeardown = () => {
+        if (conversationListUnsub) {
+            conversationListUnsub();
+            conversationListUnsub = null;
+        }
+        clearListDeliveryScheduling();
+        shared.goBackToList();
+    };
 
     onAuthStateChanged(auth, user => {
         if (user) {

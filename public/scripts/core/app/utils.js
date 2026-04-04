@@ -112,7 +112,8 @@ export function timestampToMs(ts) {
     if (ts == null) return 0;
     if (typeof ts.toMillis === 'function') return ts.toMillis();
     if (typeof ts.toDate === 'function') return ts.toDate().getTime();
-    if (typeof ts.seconds === 'number') return ts.seconds * 1000;
+    const sec = typeof ts.seconds === 'number' ? ts.seconds : ts._seconds;
+    if (typeof sec === 'number') return sec * 1000;
     return 0;
 }
 

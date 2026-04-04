@@ -35,6 +35,7 @@ const isMobileView = () => window.matchMedia('(max-width: 768px)').matches;
 export function createMessaging(config) {
     const {
         readField, deliveredField, selfReadField,
+        incomingDeliveredField,
         selfUnreadCountField, peerUnreadCountField,
         sentAvatarIcon, receivedAvatarIcon, buildConvItem,
     } = config;
@@ -74,11 +75,16 @@ export function createMessaging(config) {
         isSendingMessage:           false,
         lastRenderedMessages:       [],
         currentConvData:            undefined,
-        deliveredUpdateTimeouts:    new Map(),
         selectedTimestampMessageId: null,
         defaultTimestampMessageId:  null,
         sentAvatarUrl:              '',
         receivedAvatarUrl:          '',
+        incomingDeliveredTimer:     null,
+        peerMessagesFingerprint:    null,
+        threadMarkReadTimer:        null,
+        threadDeliveryPrimed:     false,
+        listDeliveryFingerprints:   new Map(),
+        listDeliveryTimers:         new Map(),
     };
 
     /* ── List / chat view ──────────────────────────────────────────── */
@@ -100,10 +106,15 @@ export function createMessaging(config) {
     }
 
     function setChatView(active) {
-        refs.chatWelcome?.classList.toggle('is-hidden', active);
-        refs.chatActive?.classList.toggle('is-hidden', !active);
-        if (refs.messagesWrapper && isMobileView()) {
-            refs.messagesWrapper.classList.toggle('messages-wrapper--conversation-open', active);
+        /* Always target live nodes: SPA swaps main content; stale refs would toggle detached elements
+           so the list updates (fresh getElementById in render) but the chat pane stays on the placeholder. */
+        const chatWelcome = document.getElementById('messages-chat-welcome');
+        const chatActive = document.getElementById('messages-chat-active');
+        const wrap = document.getElementById('messages-wrapper');
+        chatWelcome?.classList.toggle('is-hidden', active);
+        chatActive?.classList.toggle('is-hidden', !active);
+        if (wrap && isMobileView()) {
+            wrap.classList.toggle('messages-wrapper--conversation-open', active);
         }
     }
     const showPlaceholder = () => setChatView(false);
@@ -191,7 +202,10 @@ export function createMessaging(config) {
     function resolveUnreadCount(conv) {
         if (!selfUnreadCountField || conv.id === state.currentConvId) return 0;
         const n = conv[selfUnreadCountField];
-        if (typeof n === 'number' && !Number.isNaN(n) && n > 0) return Math.min(Math.floor(n), 999);
+        if (typeof n === 'number' && !Number.isNaN(n)) {
+            if (n > 0) return Math.min(Math.floor(n), 999);
+            return 0;
+        }
         if (selfReadField && timestampToMs(conv.lastMessageAt) > timestampToMs(conv[selfReadField])) return 1;
         return 0;
     }
@@ -216,7 +230,64 @@ export function createMessaging(config) {
     }
 
     /* ── Message subscription ──────────────────────────────────────── */
+    /** Stable across sentAt resolution and peer sending→sent; avoids resetting the delivery timer every snapshot. */
+    function fingerprintPeerMessages(messages, uid) {
+        if (!uid) return '';
+        return messages
+            .filter(m => m.senderId !== uid)
+            .map(m => m.id)
+            .sort()
+            .join(',');
+    }
+
+    /**
+     * When the peer sends, the conversation list snapshot still updates even if this user never
+     * opens the thread. Writing incomingDeliveredField here matches “delivered to their app/session.”
+     */
+    function onConversationListUpdated(conversations) {
+        const myId = auth.currentUser?.uid;
+        if (!incomingDeliveredField || !myId || !conversations?.length) return;
+
+        for (const conv of conversations) {
+            const sid = conv.lastMessageSenderId;
+            if (sid == null || sid === '') continue;
+            if (String(sid) === String(myId)) continue;
+
+            const fp = `${timestampToMs(conv.lastMessageAt)}|${sid}`;
+            if (state.listDeliveryFingerprints.get(conv.id) === fp) continue;
+            state.listDeliveryFingerprints.set(conv.id, fp);
+
+            const prevT = state.listDeliveryTimers.get(conv.id);
+            if (prevT) clearTimeout(prevT);
+            state.listDeliveryTimers.set(
+                conv.id,
+                setTimeout(() => {
+                    state.listDeliveryTimers.delete(conv.id);
+                    updateDoc(doc(db, 'conversations', conv.id), {
+                        [incomingDeliveredField]: serverTimestamp(),
+                    }).catch(() => {});
+                }, 400)
+            );
+        }
+    }
+
+    function clearListDeliveryScheduling() {
+        for (const t of state.listDeliveryTimers.values()) clearTimeout(t);
+        state.listDeliveryTimers.clear();
+        state.listDeliveryFingerprints.clear();
+    }
+
     function subscribeMessages(conv, myId, markReadFn) {
+        state.peerMessagesFingerprint = null;
+        state.threadDeliveryPrimed = false;
+        if (state.incomingDeliveredTimer) {
+            clearTimeout(state.incomingDeliveredTimer);
+            state.incomingDeliveredTimer = null;
+        }
+        if (state.threadMarkReadTimer) {
+            clearTimeout(state.threadMarkReadTimer);
+            state.threadMarkReadTimer = null;
+        }
         if (state.conversationDocUnsubscribe) state.conversationDocUnsubscribe();
         state.conversationDocUnsubscribe = onSnapshot(
             doc(db, 'conversations', conv.id),
@@ -233,7 +304,35 @@ export function createMessaging(config) {
             query(collection(db, 'conversations', conv.id, 'messages'), orderBy('sentAt', 'asc')),
             snap => {
                 const messages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                if (myId && messages.some(m => m.senderId !== myId)) markReadFn().catch(() => {});
+                const hasPeerMessage = Boolean(myId && messages.some(m => m.senderId !== myId));
+                const fp = fingerprintPeerMessages(messages, myId);
+                const peerChanged = fp !== state.peerMessagesFingerprint;
+                state.peerMessagesFingerprint = fp;
+
+                /* Delivery: peer has this thread open and their listener saw peer-authored messages.
+                   Primed path covers first snapshot (fp goes null→ids) so opening the thread always
+                   acks delivery once; peerChanged covers new messages while staying open. */
+                if (incomingDeliveredField && hasPeerMessage && (peerChanged || !state.threadDeliveryPrimed)) {
+                    state.threadDeliveryPrimed = true;
+                    if (state.incomingDeliveredTimer) clearTimeout(state.incomingDeliveredTimer);
+                    state.incomingDeliveredTimer = setTimeout(() => {
+                        state.incomingDeliveredTimer = null;
+                        if (state.currentConvId !== conv.id) return;
+                        updateDoc(doc(db, 'conversations', conv.id), {
+                            [incomingDeliveredField]: serverTimestamp(),
+                        }).catch(() => {});
+                    }, 400);
+                }
+
+                /* Read/unread: debounce after delivery so lastDeliveredAt can commit before lastReadAt
+                   (otherwise UI never shows double-check — read always wins in Firestore ordering). */
+                if (state.threadMarkReadTimer) clearTimeout(state.threadMarkReadTimer);
+                state.threadMarkReadTimer = setTimeout(() => {
+                    state.threadMarkReadTimer = null;
+                    if (state.currentConvId !== conv.id) return;
+                    markReadFn().catch(() => {});
+                }, 900);
+
                 renderChatMessages(messages, state.currentConvData || conv);
             },
             err => console.error('Messages listener error:', err)
@@ -247,6 +346,14 @@ export function createMessaging(config) {
     function goBackToList() {
         refs.composeInput?.blur();
         document.body.classList.remove('messages-input-focused');
+        if (state.incomingDeliveredTimer) {
+            clearTimeout(state.incomingDeliveredTimer);
+            state.incomingDeliveredTimer = null;
+        }
+        if (state.threadMarkReadTimer) {
+            clearTimeout(state.threadMarkReadTimer);
+            state.threadMarkReadTimer = null;
+        }
         state.currentConvId = null;
         for (const key of ['conversationDocUnsubscribe', 'messagesUnsubscribe']) {
             if (state[key]) { state[key](); state[key] = null; }
@@ -325,7 +432,11 @@ export function createMessaging(config) {
                 status:   'sending',
                 ...(attachPlaceholder && { attachment: attachPlaceholder }),
             });
-            const convUpdate = { lastMessage: lastPreview, lastMessageAt: serverTimestamp() };
+            const convUpdate = {
+                lastMessage: lastPreview,
+                lastMessageAt: serverTimestamp(),
+                lastMessageSenderId: auth.currentUser.uid,
+            };
             if (selfReadField) convUpdate[selfReadField] = serverTimestamp();
             if (peerUnreadCountField) convUpdate[peerUnreadCountField] = increment(1);
             await updateDoc(doc(db, 'conversations', state.currentConvId), convUpdate);
@@ -499,9 +610,20 @@ export function createMessaging(config) {
         setListState, setPageBootstrap, setChatView, showPlaceholder, showChat,
         renderChatMessages, renderConversationList,
         subscribeMessages, goBackToList,
+        onConversationListUpdated, clearListDeliveryScheduling,
         showModalError, setTriggerText, openModal, closeModal,
         resizeComposeInput,
         doSendMessage, initSharedUI,
     };
+}
+
+/** SPA: unsubscribe Firestore + reset chat so a previous visit’s listeners cannot drive the DOM. */
+if (typeof window !== 'undefined' && !window.__telehealthMessagesSpaLeaveWired) {
+    window.__telehealthMessagesSpaLeaveWired = true;
+    window.addEventListener('spa:beforeleave', () => {
+        try {
+            window.__telehealthMessagesTeardown?.();
+        } catch (_) { /* ignore */ }
+    });
 }
 

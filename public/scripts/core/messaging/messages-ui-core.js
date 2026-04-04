@@ -39,11 +39,30 @@ export function renderMessageStatusIcon({ msg, convData, readField, deliveredFie
     if ((msg.status || 'sent') === 'sending') {
         return '<span class="message-status message-status--sending" aria-label="Sending"><i class="fa fa-spinner fa-spin"></i></span>';
     }
-    const msgMs       = timestampToMs(msg.sentAt);
+    const msgMs = timestampToMs(msg.sentAt);
+    // Pending local/server write: sentAt is often null until the snapshot resolves; comparing to 0
+    // would wrongly show delivered/seen against any historical read/delivery timestamp.
+    if (!msgMs) {
+        return '<span class="message-status message-status--sent" aria-label="Sent"><i class="fa fa-check"></i></span>';
+    }
     const lastReadMs  = timestampToMs(convData?.[readField]);
     const lastDelivMs = timestampToMs(convData?.[deliveredField]);
-    if (lastReadMs  >= msgMs) return '<span class="message-status message-status--seen"      aria-label="Seen"><i class="fa fa-eye"></i></span>';
-    if (lastDelivMs >= msgMs) return '<span class="message-status message-status--delivered" aria-label="Delivered"><i class="fa fa-check-double"></i></span>';
+    /* Require positive read/delivery times so missing fields never match via 0 >= msgMs edge cases.
+       Seen only when read cursor is strictly after the delivery watermark for this message; otherwise
+       an immediate lastReadAt on thread open beats lastDeliveredAt and hides the double-check forever. */
+    const readCovers    = lastReadMs > 0 && lastReadMs >= msgMs;
+    const delivCovers   = lastDelivMs > 0 && lastDelivMs >= msgMs;
+    const seenAfterDeliv = readCovers && delivCovers && lastReadMs > lastDelivMs;
+    if (seenAfterDeliv) {
+        return '<span class="message-status message-status--seen" aria-label="Seen"><i class="fa fa-eye"></i></span>';
+    }
+    if (delivCovers) {
+        /* fa-check-double is not in FA4; messages pages load FA4 after FA6 and override .fa. */
+        return '<span class="message-status message-status--delivered" aria-label="Delivered"><span class="message-status-dbl" aria-hidden="true"><i class="fa fa-check"></i><i class="fa fa-check"></i></span></span>';
+    }
+    if (readCovers) {
+        return '<span class="message-status message-status--seen" aria-label="Seen"><i class="fa fa-eye"></i></span>';
+    }
     return '<span class="message-status message-status--sent" aria-label="Sent"><i class="fa fa-check"></i></span>';
 }
 

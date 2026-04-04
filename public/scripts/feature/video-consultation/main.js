@@ -335,6 +335,7 @@ export function initVideoCallPage(options = {}) {
                 await updateDoc(doc(db, 'conversations', currentConvId), {
                     lastMessageAt: serverTimestamp(),
                     lastMessage: text || '(attachment)',
+                    lastMessageSenderId: user.uid,
                     [peerUnreadField]: increment(1),
                 }).catch(() => {});
             });
