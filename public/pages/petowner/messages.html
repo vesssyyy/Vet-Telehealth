@@ -39,8 +39,7 @@
             <a href="skinDisease.html" class="nav-item"><i class="fa fa-stethoscope"></i> Skin Health Analysis</a>
         </nav>
         <nav class="footer-nav">
-            <a href="aboutUs.html" class="nav-item"><i class="fa fa-info-circle"></i> About Us</a>
-            <a href="feedback.html" class="nav-item"><i class="fa fa-comment"></i> Feedback</a>
+            <a href="aboutUs.html" class="nav-item"><i class="fa fa-info-circle"></i> About</a>
         </nav>
         <div class="logout-section">
             <button id="logout-btn" class="logout-btn"><i class="fa fa-sign-out"></i> Logout</button>
@@ -54,7 +53,6 @@
                 <span class="role-badge"><i class="fa fa-id-badge" aria-hidden="true"></i> Pet Owner</span>
             </div>
             <div class="header-right">
-                <button type="button" class="dark-mode-toggle" aria-label="Toggle dark mode"><i class="fa fa-moon-o" aria-hidden="true"></i></button>
                 <button type="button" class="profile-header-btn" aria-label="Profile"><i class="fa fa-user-circle" aria-hidden="true"></i></button>
             </div>
         </header>
@@ -121,7 +119,7 @@
                         </div>
                         <div class="messages-compose-row">
                             <div class="messages-compose-input-wrap">
-                                <input type="file" id="messages-attach-input" class="messages-attach-input" accept="image/*,.pdf,.doc,.docx" hidden aria-label="Attach file">
+                                <input type="file" id="messages-attach-input" class="messages-attach-input" accept="image/*,video/*,.mp4,.webm,.mov,.m4v,.ogv,.pdf,.doc,.docx" hidden aria-label="Attach file">
                                 <div class="messages-compose-icons">
                                     <button type="button" class="messages-compose-icon-btn" id="messages-attach-btn" aria-label="Attach file"><i class="fa fa-paperclip" aria-hidden="true"></i></button>
                                     <button type="button" class="messages-compose-icon-btn" id="messages-emoji-btn" aria-label="Insert emoji" aria-haspopup="true" aria-expanded="false"><i class="fa fa-smile-o" aria-hidden="true"></i></button>
@@ -190,11 +188,12 @@
         </form>
     </div>
 
-    <div id="messages-image-lightbox" class="messages-image-lightbox is-hidden" role="dialog" aria-modal="true" aria-label="Enlarged image">
+    <div id="messages-image-lightbox" class="messages-image-lightbox is-hidden" role="dialog" aria-modal="true" aria-label="Media viewer">
         <button type="button" class="messages-image-lightbox-close" aria-label="Close"><i class="fa fa-times"></i></button>
         <div class="messages-image-lightbox-backdrop"></div>
         <div class="messages-image-lightbox-content">
             <img src="" alt="" class="messages-image-lightbox-img">
+            <video class="messages-media-lightbox-video is-hidden" controls playsinline preload="none" title="Video"></video>
             <a href="#" target="_blank" rel="noopener noreferrer" class="messages-image-lightbox-open-tab" aria-label="Open in new tab"><i class="fa fa-external-link"></i></a>
         </div>
     </div>

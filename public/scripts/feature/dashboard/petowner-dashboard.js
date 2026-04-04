@@ -21,6 +21,7 @@ import { getAppointmentSlotEndDate,
 import { downloadConsultationReportForAppointment } from '../consultation/consultation-pdf-download.js';
 import { loadPets, loadVetProfile } from '../appointment/petowner/services.js';
 import { escapeHtml } from '../../core/app/utils.js';
+import { getAppointmentSharedMediaKind } from '../../core/app/appointment-media-kind.js';
 
 const dateEl = document.getElementById('dashboard-date');
 if (dateEl) {
@@ -576,14 +577,52 @@ function openDetailsModal(apt) {
         listEl.classList.toggle('is-hidden', mediaUrls.length === 0);
         listEl.innerHTML = '';
         mediaUrls.forEach((url, idx) => {
-            const isPdf = /\.pdf(\?|$)/i.test(url);
+            const kind = getAppointmentSharedMediaKind(url);
             const item = document.createElement('div');
             item.className = 'details-shared-image-item';
-            if (!isPdf) {
+            if (kind === 'pdf') {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'details-shared-file-link';
+                btn.dataset.url = url;
+                btn.dataset.mediaKind = 'pdf';
+                btn.dataset.isImage = 'false';
+                btn.innerHTML = '<i class="fa fa-file-pdf-o" aria-hidden="true"></i> View document ' + (idx + 1);
+                item.appendChild(btn);
+            } else if (kind === 'video') {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'details-shared-video-link';
+                btn.dataset.url = url;
+                btn.dataset.mediaKind = 'video';
+                const vid = document.createElement('video');
+                vid.className = 'details-shared-video-thumb';
+                vid.muted = true;
+                vid.playsInline = true;
+                vid.setAttribute('playsinline', '');
+                vid.preload = 'metadata';
+                vid.autoplay = false;
+                vid.setAttribute('aria-label', `Shared video ${idx + 1}`);
+                vid.src = url;
+                const onThumbReady = () => {
+                    vid.pause();
+                    try { vid.currentTime = 0; } catch (_) { /* ignore */ }
+                    vid.classList.add('is-loaded');
+                };
+                vid.addEventListener('loadeddata', onThumbReady, { once: true });
+                const badge = document.createElement('span');
+                badge.className = 'details-shared-video-play-badge';
+                badge.setAttribute('aria-hidden', 'true');
+                badge.innerHTML = '<i class="fa fa-play-circle"></i>';
+                btn.appendChild(vid);
+                btn.appendChild(badge);
+                item.appendChild(btn);
+            } else {
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = 'details-shared-image-link';
                 btn.dataset.url = url;
+                btn.dataset.mediaKind = 'image';
                 btn.dataset.isImage = 'true';
                 const img = document.createElement('img');
                 img.alt = `Shared image ${idx + 1}`;
@@ -592,14 +631,6 @@ function openDetailsModal(apt) {
                 img.onload = () => img.classList.add('is-loaded');
                 img.src = url;
                 btn.appendChild(img);
-                item.appendChild(btn);
-            } else {
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'details-shared-file-link';
-                btn.dataset.url = url;
-                btn.dataset.isImage = 'false';
-                btn.innerHTML = '<i class="fa fa-file-pdf-o" aria-hidden="true"></i> View document ' + (idx + 1);
                 item.appendChild(btn);
             }
             listEl.appendChild(item);
@@ -724,23 +755,34 @@ detailsJoinBtn?.addEventListener('click', () => {
 (function initLightbox() {
     const lb = $('details-media-lightbox');
     const lbImg = lb?.querySelector('.details-media-lightbox-img');
+    const lbVideo = lb?.querySelector('.details-media-lightbox-video');
     const lbIframe = lb?.querySelector('.details-media-lightbox-iframe');
     const closeBtn = lb?.querySelector('.details-media-lightbox-close');
     const backdrop = lb?.querySelector('.details-media-lightbox-backdrop');
     const imgList = $('details-shared-images-list');
     const closeLB = () => {
         if (!lb) return;
+        if (lbVideo) {
+            lbVideo.pause();
+            lbVideo.removeAttribute('src');
+            lbVideo.load?.();
+        }
         lb.classList.add('is-hidden');
         lb.setAttribute('aria-hidden', 'true');
         document.body.style.overflow = detailsOverlay?.classList.contains('is-open') ? 'hidden' : '';
         setTimeout(() => {
             if (lbImg) { lbImg.src = ''; lbImg.classList.remove('is-hidden'); }
             if (lbIframe) { lbIframe.src = ''; lbIframe.classList.add('is-hidden'); }
+            if (lbVideo) { lbVideo.classList.add('is-hidden'); }
         }, 280);
     };
-    const openLB = (url, isImage) => {
+    const openLB = (url, kind) => {
         if (!lb) return;
-        if (isImage) {
+        if (lbVideo) {
+            lbVideo.pause();
+            lbVideo.removeAttribute('src');
+        }
+        if (kind === 'image') {
             if (lbImg) {
                 lbImg.style.opacity = '0';
                 lbImg.onload = () => { requestAnimationFrame(() => { lbImg.style.opacity = '1'; }); };
@@ -748,9 +790,26 @@ detailsJoinBtn?.addEventListener('click', () => {
                 lbImg.classList.remove('is-hidden');
             }
             if (lbIframe) { lbIframe.src = ''; lbIframe.classList.add('is-hidden'); }
+            if (lbVideo) { lbVideo.classList.add('is-hidden'); }
+        } else if (kind === 'video') {
+            if (lbImg) { lbImg.src = ''; lbImg.classList.add('is-hidden'); }
+            if (lbIframe) { lbIframe.src = ''; lbIframe.classList.add('is-hidden'); }
+            if (lbVideo) {
+                lbVideo.autoplay = false;
+                lbVideo.removeAttribute('autoplay');
+                lbVideo.src = url;
+                lbVideo.classList.remove('is-hidden');
+                try { lbVideo.load(); } catch (_) { /* ignore */ }
+                lbVideo.pause();
+                lbVideo.addEventListener('loadedmetadata', () => {
+                    lbVideo.pause();
+                    try { lbVideo.currentTime = 0; } catch (_) { /* ignore */ }
+                }, { once: true });
+            }
         } else {
             if (lbIframe) { lbIframe.src = url; lbIframe.classList.remove('is-hidden'); }
             if (lbImg) { lbImg.src = ''; lbImg.classList.add('is-hidden'); }
+            if (lbVideo) { lbVideo.classList.add('is-hidden'); }
         }
         lb.classList.remove('is-hidden');
         lb.setAttribute('aria-hidden', 'false');
@@ -762,10 +821,11 @@ detailsJoinBtn?.addEventListener('click', () => {
         if (e.key === 'Escape' && lb && !lb.classList.contains('is-hidden')) { closeLB(); e.preventDefault(); e.stopPropagation(); }
     }, true);
     imgList?.addEventListener('click', (e) => {
-        const btn = e.target.closest('.details-shared-image-link, .details-shared-file-link');
+        const btn = e.target.closest('.details-shared-image-link, .details-shared-file-link, .details-shared-video-link');
         if (!btn?.dataset?.url) return;
         e.preventDefault();
-        openLB(btn.dataset.url, btn.dataset.isImage === 'true');
+        const kind = btn.dataset.mediaKind || (btn.dataset.isImage === 'true' ? 'image' : 'pdf');
+        openLB(btn.dataset.url, kind);
     });
 })();
 

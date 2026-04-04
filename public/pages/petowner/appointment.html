@@ -39,8 +39,7 @@
             <a href="skinDisease.html" class="nav-item"><i class="fa fa-stethoscope"></i> Skin Health Analysis</a>
         </nav>
         <nav class="footer-nav">
-            <a href="aboutUs.html" class="nav-item"><i class="fa fa-info-circle"></i> About Us</a>
-            <a href="feedback.html" class="nav-item"><i class="fa fa-comment"></i> Feedback</a>
+            <a href="aboutUs.html" class="nav-item"><i class="fa fa-info-circle"></i> About</a>
         </nav>
         <div class="logout-section">
             <button id="logout-btn" class="logout-btn"><i class="fa fa-sign-out"></i> Logout</button>
@@ -54,7 +53,6 @@
                 <span class="role-badge"><i class="fa fa-id-badge" aria-hidden="true"></i> Pet Owner</span>
             </div>
             <div class="header-right">
-                <button type="button" class="dark-mode-toggle" aria-label="Toggle dark mode"><i class="fa fa-moon-o" aria-hidden="true"></i></button>
                 <button type="button" class="profile-header-btn" aria-label="Profile"><i class="fa fa-user-circle" aria-hidden="true"></i></button>
             </div>
         </header>
@@ -156,14 +154,14 @@
                                 <textarea id="booking-reason" name="reason" rows="4" required></textarea>
                             </div>
                             <div class="booking-form-group">
-                                <label class="booking-upload-label">Photos or documents <span class="booking-label-optional">(optional, max 3)</span></label>
-                                <div class="booking-upload-zone" id="booking-upload-zone" role="button" tabindex="0" aria-label="Add photos or documents">
+                                <label class="booking-upload-label">Photos, videos, or documents <span class="booking-label-optional">(optional, max 3)</span></label>
+                                <div class="booking-upload-zone" id="booking-upload-zone" role="button" tabindex="0" aria-label="Add photos, videos, or documents">
                                     <div class="booking-upload-zone-inner">
                                         <i class="fa fa-cloud-upload booking-upload-icon" aria-hidden="true"></i>
                                         <p class="booking-upload-text">Drop or click — up to 3 files</p>
                                     </div>
                                 </div>
-                                <input type="file" id="booking-media" name="media" accept="image/*,.pdf" multiple class="booking-media-input-hidden">
+                                <input type="file" id="booking-media" name="media" accept="image/*,.pdf,video/*,.mp4,.webm,.mov,.m4v" multiple class="booking-media-input-hidden">
                                 <ul class="booking-file-list is-hidden" id="booking-file-list" aria-live="polite"></ul>
                                 <div class="booking-add-more-wrap is-hidden" id="booking-add-more-wrap">
                                     <button type="button" class="booking-add-more-btn" id="booking-add-more-btn" aria-label="Add another file"><i class="fa fa-plus" aria-hidden="true"></i> Add more</button>
@@ -264,6 +262,7 @@
             <div class="details-media-lightbox-backdrop"></div>
             <div class="details-media-lightbox-content">
                 <img src="" alt="" class="details-media-lightbox-img" id="details-media-lightbox-img">
+                <video class="details-media-lightbox-video is-hidden" controls playsinline preload="none" title="Shared video"></video>
                 <iframe src="" class="details-media-lightbox-iframe is-hidden" id="details-media-lightbox-iframe" title="Document viewer"></iframe>
             </div>
         </div>

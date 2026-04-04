@@ -20,6 +20,7 @@ import { CLINIC_HOURS_PLACEHOLDER } from '../shared/constants.js';
 import { auth, db } from '../../../core/firebase/firebase-config.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js';
 import { escapeHtml, formatTime12h } from '../../../core/app/utils.js';
+import { getAppointmentSharedMediaKind } from '../../../core/app/appointment-media-kind.js';
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 import {
     getJoinAvailableLabel,
@@ -382,6 +383,16 @@ const uploadHint = $('booking-upload-hint');
 
 const MIN_MEDIA_FILES = 0;
 const MAX_MEDIA_FILES = 3;
+/** Images, PDFs, and common video formats for vet review in appointment details. */
+function isAllowedBookingMediaFile(f) {
+    if (!f) return false;
+    const t = (f.type || '').toLowerCase();
+    const n = (f.name || '').toLowerCase();
+    if (t.startsWith('image/')) return true;
+    if (t.startsWith('video/')) return true;
+    if (n.endsWith('.pdf')) return true;
+    return /\.(mp4|webm|mov|m4v|ogv)$/i.test(n);
+}
 const BOOKING_MEDIA_DB = 'televet_booking_media';
 const BOOKING_MEDIA_STORE = 'files';
 
@@ -565,7 +576,9 @@ function updateFileList() {
             else if (file.size < 1024 * 1024) sizeStr = (file.size / 1024).toFixed(1) + ' KB';
             else sizeStr = (file.size / (1024 * 1024)).toFixed(1) + ' MB';
         }
-        const icon = (file.type || '').includes('image') ? 'fa-file-image-o' : 'fa-file-pdf-o';
+        const icon = (file.type || '').includes('image') ? 'fa-file-image-o'
+            : ((file.type || '').includes('video') || /\.(mp4|webm|mov|m4v|ogv)$/i.test(file.name || '')) ? 'fa-file-video-o'
+                : 'fa-file-pdf-o';
         li.innerHTML = '<i class="fa ' + icon + '" aria-hidden="true"></i><span class="booking-file-name" title="' + name.replace(/"/g, '&quot;') + '">' + name + '</span><span class="booking-file-size">' + sizeStr + '</span><button type="button" class="booking-file-remove" data-index="' + i + '" aria-label="Remove file"><i class="fa fa-times" aria-hidden="true"></i></button>';
         fileListEl.appendChild(li);
     });
@@ -703,7 +716,7 @@ if (uploadZone && fileInput) {
         if (e.dataTransfer?.files?.length) {
             for (let i = 0; i < e.dataTransfer.files.length; i++) {
                 const f = e.dataTransfer.files[i];
-                if ((f.type?.includes('image')) || (f.name?.toLowerCase().endsWith('.pdf'))) bookingMediaFiles.push(f);
+                if (isAllowedBookingMediaFile(f)) bookingMediaFiles.push(f);
             }
             bookingMediaFiles = bookingMediaFiles.slice(0, MAX_MEDIA_FILES);
             syncFileInputFromBookingMedia();
@@ -714,7 +727,7 @@ if (uploadZone && fileInput) {
 if (fileInput) {
     fileInput.addEventListener('change', () => {
         if (ignoreFileInputChange) return;
-        const newFiles = Array.from(fileInput.files || []);
+        const newFiles = Array.from(fileInput.files || []).filter(isAllowedBookingMediaFile);
         bookingMediaFiles = bookingMediaFiles.concat(newFiles).slice(0, MAX_MEDIA_FILES);
         syncFileInputFromBookingMedia();
         updateFileList();
@@ -807,15 +820,52 @@ document.addEventListener('click', (e) => {
         listEl.classList.toggle('is-hidden', mediaUrls.length === 0);
         listEl.innerHTML = '';
         mediaUrls.forEach((url, idx) => {
-            const isPdf = /\.pdf(\?|$)/i.test(url) || (typeof url === 'string' && url.toLowerCase().includes('pdf'));
-            const isImage = !isPdf;
+            const kind = getAppointmentSharedMediaKind(url);
             const item = document.createElement('div');
             item.className = 'details-shared-image-item';
-            if (isImage) {
+            if (kind === 'pdf') {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'details-shared-file-link';
+                btn.dataset.url = url;
+                btn.dataset.mediaKind = 'pdf';
+                btn.dataset.isImage = 'false';
+                btn.innerHTML = '<i class="fa fa-file-pdf-o" aria-hidden="true"></i> View document ' + (idx + 1);
+                item.appendChild(btn);
+            } else if (kind === 'video') {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'details-shared-video-link';
+                btn.dataset.url = url;
+                btn.dataset.mediaKind = 'video';
+                const vid = document.createElement('video');
+                vid.className = 'details-shared-video-thumb';
+                vid.muted = true;
+                vid.playsInline = true;
+                vid.setAttribute('playsinline', '');
+                vid.preload = 'metadata';
+                vid.autoplay = false;
+                vid.setAttribute('aria-label', `Shared video ${idx + 1}`);
+                vid.src = url;
+                const onThumbReady = () => {
+                    vid.pause();
+                    try { vid.currentTime = 0; } catch (_) { /* ignore */ }
+                    vid.classList.add('is-loaded');
+                };
+                vid.addEventListener('loadeddata', onThumbReady, { once: true });
+                const badge = document.createElement('span');
+                badge.className = 'details-shared-video-play-badge';
+                badge.setAttribute('aria-hidden', 'true');
+                badge.innerHTML = '<i class="fa fa-play-circle"></i>';
+                btn.appendChild(vid);
+                btn.appendChild(badge);
+                item.appendChild(btn);
+            } else {
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = 'details-shared-image-link';
                 btn.dataset.url = url;
+                btn.dataset.mediaKind = 'image';
                 btn.dataset.isImage = 'true';
                 const img = document.createElement('img');
                 img.src = url;
@@ -824,14 +874,6 @@ document.addEventListener('click', (e) => {
                 img.loading = 'lazy';
                 img.onload = () => img.classList.add('is-loaded');
                 btn.appendChild(img);
-                item.appendChild(btn);
-            } else {
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'details-shared-file-link';
-                btn.dataset.url = url;
-                btn.dataset.isImage = 'false';
-                btn.innerHTML = '<i class="fa fa-file-pdf-o" aria-hidden="true"></i> View document ' + (idx + 1);
                 item.appendChild(btn);
             }
             listEl.appendChild(item);
@@ -955,6 +997,7 @@ detailsJoinBtn?.addEventListener('click', () => {
 function initDetailsMediaLightbox() {
     const lb = $('details-media-lightbox');
     const lbImg = lb?.querySelector('.details-media-lightbox-img');
+    const lbVideo = lb?.querySelector('.details-media-lightbox-video');
     const lbIframe = lb?.querySelector('.details-media-lightbox-iframe');
     const closeBtn = lb?.querySelector('.details-media-lightbox-close');
     const backdrop = lb?.querySelector('.details-media-lightbox-backdrop');
@@ -962,17 +1005,27 @@ function initDetailsMediaLightbox() {
 
     const closeLB = () => {
         if (!lb) return;
+        if (lbVideo) {
+            lbVideo.pause();
+            lbVideo.removeAttribute('src');
+            lbVideo.load?.();
+        }
         lb.classList.add('is-hidden');
         lb.setAttribute('aria-hidden', 'true');
         document.body.style.overflow = (detailsOverlay?.classList.contains('is-open') ? 'hidden' : '');
         setTimeout(() => {
             if (lbImg) { lbImg.src = ''; lbImg.classList.remove('is-hidden'); }
             if (lbIframe) { lbIframe.src = ''; lbIframe.classList.add('is-hidden'); }
+            if (lbVideo) { lbVideo.classList.add('is-hidden'); }
         }, 280);
     };
-    const openLB = (url, isImage) => {
+    const openLB = (url, kind) => {
         if (!lb) return;
-        if (isImage) {
+        if (lbVideo) {
+            lbVideo.pause();
+            lbVideo.removeAttribute('src');
+        }
+        if (kind === 'image') {
             if (lbImg) {
                 lbImg.style.opacity = '0';
                 lbImg.src = url;
@@ -980,9 +1033,26 @@ function initDetailsMediaLightbox() {
                 lbImg.onload = () => { requestAnimationFrame(() => { lbImg.style.opacity = '1'; }); };
             }
             if (lbIframe) { lbIframe.src = ''; lbIframe.classList.add('is-hidden'); }
+            if (lbVideo) { lbVideo.classList.add('is-hidden'); }
+        } else if (kind === 'video') {
+            if (lbImg) { lbImg.src = ''; lbImg.classList.add('is-hidden'); }
+            if (lbIframe) { lbIframe.src = ''; lbIframe.classList.add('is-hidden'); }
+            if (lbVideo) {
+                lbVideo.autoplay = false;
+                lbVideo.removeAttribute('autoplay');
+                lbVideo.src = url;
+                lbVideo.classList.remove('is-hidden');
+                try { lbVideo.load(); } catch (_) { /* ignore */ }
+                lbVideo.pause();
+                lbVideo.addEventListener('loadedmetadata', () => {
+                    lbVideo.pause();
+                    try { lbVideo.currentTime = 0; } catch (_) { /* ignore */ }
+                }, { once: true });
+            }
         } else {
             if (lbIframe) { lbIframe.src = url; lbIframe.classList.remove('is-hidden'); }
             if (lbImg) { lbImg.src = ''; lbImg.classList.add('is-hidden'); }
+            if (lbVideo) { lbVideo.classList.add('is-hidden'); }
         }
         lb.classList.remove('is-hidden');
         lb.setAttribute('aria-hidden', 'false');
@@ -999,10 +1069,11 @@ function initDetailsMediaLightbox() {
         }
     }, true);
     listEl?.addEventListener('click', (e) => {
-        const btn = e.target.closest('.details-shared-image-link, .details-shared-file-link');
+        const btn = e.target.closest('.details-shared-image-link, .details-shared-file-link, .details-shared-video-link');
         if (!btn?.dataset?.url) return;
         e.preventDefault();
-        openLB(btn.dataset.url, btn.dataset.isImage === 'true');
+        const kind = btn.dataset.mediaKind || (btn.dataset.isImage === 'true' ? 'image' : 'pdf');
+        openLB(btn.dataset.url, kind);
     });
 }
 initDetailsMediaLightbox();

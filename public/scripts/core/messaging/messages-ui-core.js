@@ -135,29 +135,104 @@ export function createEmojiPicker({ emojiBtn, input, resizeInput }) {
     return { toggle, close, getOrCreateElement: () => pickerEl };
 }
 
-/* ── Image lightbox (for attachments) ───────────────────────────────── */
+/** After injecting message HTML, wire image/video thumbs (placeholders hide when ready). */
+export function wireMessageAttachmentThumbnails(rootEl) {
+    if (!rootEl) return;
+    rootEl.querySelectorAll('.message-attachment-img').forEach((img) => {
+        const wrap = img.closest('.message-attachment--image');
+        if (!wrap) return;
+        const reveal = () => wrap.classList.add('is-loaded');
+        img.addEventListener('load', reveal);
+        img.addEventListener('error', reveal);
+        if (img.complete) reveal();
+    });
+    rootEl.querySelectorAll('.message-attachment--video').forEach((wrap) => {
+        const vid = wrap.querySelector('.message-attachment-video-thumb');
+        if (!vid) return;
+        const reveal = () => {
+            try {
+                vid.pause();
+                vid.currentTime = 0;
+            } catch (_) { /* ignore */ }
+            vid.classList.add('is-loaded');
+            wrap.classList.add('is-loaded');
+        };
+        vid.addEventListener('loadeddata', reveal, { once: true });
+        vid.addEventListener('error', () => { wrap.classList.add('is-loaded'); }, { once: true });
+    });
+}
+
+/* ── Image/video lightbox (attachments; video: no autoplay, like appointment details) ── */
 export function initMessagingImageLightbox({ lightboxEl, chatBodyEl }) {
     const lb = lightboxEl;
     if (!lb || !chatBodyEl) return { close: () => {} };
     const lbImg = lb.querySelector('.messages-image-lightbox-img');
+    const lbVideo = lb.querySelector('.messages-media-lightbox-video');
     const lbTab = lb.querySelector('.messages-image-lightbox-open-tab');
 
-    const open = (src) => {
+    const closeVideo = () => {
+        if (!lbVideo) return;
+        lbVideo.pause();
+        lbVideo.removeAttribute('src');
+        try { lbVideo.load?.(); } catch (_) { /* ignore */ }
+        lbVideo.classList.add('is-hidden');
+    };
+
+    const openImage = (src) => {
+        closeVideo();
         if (!lbImg) return;
+        lbImg.classList.remove('is-hidden');
         lbImg.style.opacity = '0';
         lbImg.onload = () => { requestAnimationFrame(() => { lbImg.style.opacity = '1'; }); };
         lbImg.src = src;
         lbImg.alt = 'Enlarged image';
-        if (lbTab) lbTab.href = src;
+        if (lbTab) {
+            lbTab.href = src;
+            lbTab.classList.remove('is-hidden');
+        }
         lb.classList.remove('is-hidden');
         lb.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
     };
+
+    const openVideo = (src) => {
+        if (lbImg) {
+            lbImg.src = '';
+            lbImg.classList.add('is-hidden');
+        }
+        if (lbTab) {
+            lbTab.href = src;
+            lbTab.classList.remove('is-hidden');
+        }
+        if (lbVideo) {
+            lbVideo.autoplay = false;
+            lbVideo.removeAttribute('autoplay');
+            lbVideo.setAttribute('preload', 'none');
+            lbVideo.src = src;
+            lbVideo.classList.remove('is-hidden');
+            try { lbVideo.load(); } catch (_) { /* ignore */ }
+            lbVideo.pause();
+            lbVideo.addEventListener('loadedmetadata', () => {
+                lbVideo.pause();
+                try { lbVideo.currentTime = 0; } catch (_) { /* ignore */ }
+            }, { once: true });
+        }
+        lb.classList.remove('is-hidden');
+        lb.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+    };
+
     const close = () => {
+        closeVideo();
         lb.classList.add('is-hidden');
         lb.setAttribute('aria-hidden', 'true');
         document.body.style.overflow = '';
-        setTimeout(() => { lbImg?.removeAttribute('src'); }, 280);
+        setTimeout(() => {
+            if (lbImg) {
+                lbImg.removeAttribute('src');
+                lbImg.classList.remove('is-hidden');
+            }
+        }, 280);
     };
 
     lb.querySelector('.messages-image-lightbox-close')?.addEventListener('click', close);
@@ -169,15 +244,22 @@ export function initMessagingImageLightbox({ lightboxEl, chatBodyEl }) {
         }
     });
     chatBodyEl.addEventListener('click', e => {
+        const videoBtn = e.target.closest('.message-attachment-video-btn');
+        if (videoBtn?.dataset?.videoUrl) {
+            e.preventDefault();
+            e.stopPropagation();
+            openVideo(videoBtn.dataset.videoUrl);
+            return;
+        }
         const wrap = e.target.closest('.message-attachment--image');
         if (!wrap) return;
         const img = wrap.querySelector('.message-attachment-img');
         if (!img?.src) return;
         e.preventDefault();
-        open(img.src);
+        openImage(img.src);
     });
 
-    return { close, open };
+    return { close, open: openImage, openVideo };
 }
 
 /**

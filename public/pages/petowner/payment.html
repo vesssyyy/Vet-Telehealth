@@ -54,12 +54,13 @@
             margin-bottom: 16px;
         }
         .payment-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: stretch; margin-top: 20px; }
-        .payment-actions .btn-back,
-        .payment-actions .btn-secondary { flex: 1; min-width: 140px; justify-content: center; }
         .payment-actions .btn-back {
             display: inline-flex;
             align-items: center;
+            justify-content: center;
             gap: 8px;
+            flex: 1;
+            min-width: 140px;
             padding: 11px 18px;
             background: var(--primary-color, #2c5f7d);
             color: white;
@@ -72,21 +73,6 @@
             transition: background 0.2s ease;
         }
         .payment-actions .btn-back:hover { background: var(--primary-dark, #1e4159); }
-        .payment-actions .btn-secondary {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 11px 18px;
-            background: transparent;
-            color: var(--text-dark, #4a5568);
-            border: 1px solid var(--border-color, #cbd5e0);
-            border-radius: 8px;
-            font-size: 0.875rem;
-            font-weight: 600;
-            text-decoration: none;
-            transition: border-color 0.2s ease, background 0.2s ease;
-        }
-        .payment-actions .btn-secondary:hover { background: var(--bg-light, #f7fafc); border-color: #a0aec0; }
         .payment-booking-summary {
             padding: 14px 16px;
             background: var(--bg-light, #f7fafc);
@@ -145,13 +131,17 @@
         .payment-sandbox-hint {
             font-size: 0.75rem; color: var(--text-light, #a0aec0); margin: 0 0 18px 0; line-height: 1.45;
         }
-        .payment-sandbox-hint code { font-size: 0.72rem; background: var(--bg-light, #edf2f7); padding: 1px 5px; border-radius: 4px; }
+        .payment-sandbox-hint code { font-size: 0.72rem; background: var(--bg-light, #edf2f7); padding: 1px 5px; border-radius: 4px; word-break: break-word; }
         .payment-field { display: block; margin-bottom: 16px; }
         .payment-field span { display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-dark, #4a5568); margin-bottom: 6px; }
         .payment-field input {
             width: 100%; max-width: 100%; box-sizing: border-box; padding: 11px 12px;
             border: 1px solid var(--border-color, #cbd5e0); border-radius: 6px;
             font-size: 1rem; background: var(--bg-card, #fff); color: var(--text-dark, #1a202c);
+        }
+        #pm-number {
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 0.03em;
         }
         .payment-field input:focus { outline: none; border-color: var(--primary-color, #2c5f7d); box-shadow: 0 0 0 3px rgba(44, 95, 125, 0.12); }
         .payment-field-row { display: grid; grid-template-columns: 1fr minmax(7rem, 9rem); gap: 16px 20px; align-items: end; }
@@ -295,6 +285,69 @@
         .payment-status-wait { font-size: 0.875rem; color: var(--text-light, #718096); margin-bottom: 14px; }
         .payment-intent-ref { font-size: 0.75rem; color: var(--text-light, #a0aec0); margin: 0 0 12px 0; line-height: 1.45; word-break: break-all; }
 
+        @media (max-width: 768px) {
+            .content-wrapper.payment-page {
+                padding: 10px 10px max(20px, calc(12px + env(safe-area-inset-bottom, 0)));
+                margin: 0;
+                width: 100%;
+                max-width: 100%;
+            }
+            .payment-page-inner { max-width: 100%; }
+            .payment-card { border-radius: 10px; }
+            .payment-card-header { padding: 16px 14px 12px; }
+            .payment-card-title { font-size: 1.05rem; }
+            .payment-card-body { padding: 14px 14px 18px; }
+            .payment-checkout-columns { gap: 16px; }
+            .payment-booking-summary { padding: 12px 14px; margin-bottom: 14px; font-size: 0.8125rem; }
+            .payment-booking-summary .payment-summary-row {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 2px;
+                padding: 8px 0;
+            }
+            .payment-booking-summary .sum-value {
+                text-align: left;
+                font-weight: 600;
+            }
+            .payment-booking-summary .sum-value.payment-summary-title-text {
+                white-space: normal;
+                overflow: visible;
+                text-overflow: unset;
+                max-width: 100%;
+            }
+            .payment-amount-block { padding: 12px 0 14px; margin-bottom: 14px; }
+            .payment-amount-block .payment-fee-line { font-size: 1.5rem; }
+            .payment-method-switch {
+                grid-template-columns: 1fr;
+                gap: 8px;
+                margin-bottom: 14px;
+            }
+            .payment-method-option { padding: 12px 14px; min-height: 48px; }
+            .payment-sandbox-hint { font-size: 0.7rem; margin-bottom: 14px; }
+            .payment-field { margin-bottom: 14px; }
+            .payment-field-row { gap: 12px 14px; }
+            .payment-actions {
+                flex-direction: column;
+                margin-top: 18px;
+                gap: 10px;
+            }
+            .payment-actions .btn-back {
+                flex: 1 1 auto;
+                min-width: 0;
+                width: 100%;
+                min-height: 48px;
+            }
+            .btn-confirm-pay {
+                min-height: 48px;
+                margin-top: 8px;
+            }
+            .payment-qr-panel { padding: 12px; margin-top: 12px; }
+        }
+        @media (max-width: 380px) {
+            .content-wrapper.payment-page { padding-left: 8px; padding-right: 8px; }
+            .payment-card-body { padding-left: 12px; padding-right: 12px; }
+            .payment-card-header { padding-left: 12px; padding-right: 12px; }
+        }
         @media (min-width: 900px) {
             .content-wrapper.payment-page { padding: 28px 32px 48px; }
             .payment-card-body { padding: 28px 36px 32px; }
@@ -327,8 +380,7 @@
             .payment-checkout-aside .payment-amount-block .payment-fee-line { font-size: 2rem; }
             .payment-checkout-main .payment-card-form.is-visible { margin-top: 0; }
             .payment-actions { margin-top: 28px; gap: 12px; }
-            .payment-actions .btn-back,
-            .payment-actions .btn-secondary { flex: 0 1 auto; min-width: 180px; }
+            .payment-actions .btn-back { flex: 0 1 auto; min-width: 180px; }
         }
     </style>
 </head>
@@ -361,8 +413,7 @@
             <a href="skinDisease.html" class="nav-item"><i class="fa fa-stethoscope"></i> Skin Health Analysis</a>
         </nav>
         <nav class="footer-nav">
-            <a href="aboutUs.html" class="nav-item"><i class="fa fa-info-circle"></i> About Us</a>
-            <a href="feedback.html" class="nav-item"><i class="fa fa-comment"></i> Feedback</a>
+            <a href="aboutUs.html" class="nav-item"><i class="fa fa-info-circle"></i> About</a>
         </nav>
         <div class="logout-section">
             <button id="logout-btn" class="logout-btn"><i class="fa fa-sign-out"></i> Logout</button>
@@ -376,7 +427,6 @@
                 <span class="role-badge"><i class="fa fa-id-badge" aria-hidden="true"></i> Pet Owner</span>
             </div>
             <div class="header-right">
-                <button type="button" class="dark-mode-toggle" aria-label="Toggle dark mode"><i class="fa fa-moon-o" aria-hidden="true"></i></button>
                 <button type="button" class="profile-header-btn" aria-label="Profile"><i class="fa fa-user-circle" aria-hidden="true"></i></button>
             </div>
         </header>
@@ -431,7 +481,7 @@
                         <label class="payment-field"><span id="pm-name-label">Cardholder name</span><input type="text" id="pm-name" name="cc-name" autocomplete="cc-name" required placeholder="Name on card"></label>
                         <label class="payment-field"><span id="pm-email-label">Email</span><input type="email" id="pm-email" name="email" autocomplete="email" required placeholder="you@example.com"></label>
                         <div id="payment-card-fields">
-                            <label class="payment-field"><span>Card number</span><input type="text" id="pm-number" name="cc-number" autocomplete="cc-number" inputmode="numeric" required placeholder="1234 5678 9012 3456"></label>
+                            <label class="payment-field"><span>Card number</span><input type="text" id="pm-number" name="cc-number" autocomplete="cc-number" inputmode="numeric" required placeholder="1234 5678 9012 3456" maxlength="23" spellcheck="false"></label>
                             <div class="payment-field-row">
                                 <label class="payment-field payment-expiry-group">
                                     <span>Expiry (MM / YY)</span>
@@ -454,7 +504,6 @@
                     </div>
                     <div class="payment-actions" id="payment-actions-secondary">
                         <a href="appointment.html" class="btn-back"><i class="fa fa-arrow-left" aria-hidden="true"></i> Back to Appointments</a>
-                        <a href="dashboard.html" class="btn-secondary"><i class="fa fa-th-large" aria-hidden="true"></i> Dashboard</a>
                     </div>
                 </div>
             </div>

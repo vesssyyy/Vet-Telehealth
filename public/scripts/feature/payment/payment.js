@@ -68,6 +68,66 @@ function formatPhpCentavos(centavos) {
     return 'PHP ' + (n / 100).toFixed(2);
 }
 
+var CARD_DIGITS_MAX = 19;
+
+function cardDigitsOnly(value) {
+    return String(value || '').replace(/\D/g, '');
+}
+
+/** Groups of four (standard card spacing); PayMongo strips spaces in createCardPaymentMethod. */
+function formatCardNumberDisplay(digits) {
+    var d = cardDigitsOnly(digits).slice(0, CARD_DIGITS_MAX);
+    var parts = [];
+    for (var i = 0; i < d.length; i += 4) {
+        parts.push(d.slice(i, i + 4));
+    }
+    return parts.join(' ');
+}
+
+function applyCardNumberFormatting(input) {
+    if (!input) return;
+    var oldVal = input.value;
+    var selStart = input.selectionStart;
+    var selEnd = input.selectionEnd;
+    var formatted = formatCardNumberDisplay(oldVal);
+    if (formatted === oldVal) return;
+
+    var atEnd = selStart === oldVal.length && selEnd === oldVal.length;
+    var digitsBeforeCaret = oldVal.slice(0, selStart).replace(/\D/g, '').length;
+
+    input.value = formatted;
+
+    if (atEnd) {
+        input.setSelectionRange(formatted.length, formatted.length);
+        return;
+    }
+    var pos = 0;
+    var n = 0;
+    for (; pos < formatted.length && n < digitsBeforeCaret; pos++) {
+        if (/\d/.test(formatted.charAt(pos))) n++;
+    }
+    try {
+        input.setSelectionRange(pos, pos);
+    } catch (e) { /* ignore */ }
+}
+
+function bindCardNumberSpacing(input) {
+    if (!input || input.dataset.cardFormatBound === '1') return;
+    input.dataset.cardFormatBound = '1';
+    input.addEventListener('input', function () {
+        applyCardNumberFormatting(input);
+    });
+    input.addEventListener('paste', function (ev) {
+        ev.preventDefault();
+        var text = (ev.clipboardData && ev.clipboardData.getData('text')) || '';
+        var merged = cardDigitsOnly(input.value.slice(0, input.selectionStart) + text + input.value.slice(input.selectionEnd));
+        input.value = formatCardNumberDisplay(merged);
+        try {
+            input.setSelectionRange(input.value.length, input.value.length);
+        } catch (e) { /* ignore */ }
+    });
+}
+
 function parseCardExpiry() {
     var m = parseInt(String(document.getElementById('pm-exp-month').value).replace(/\D/g, ''), 10);
     var yRaw = String(document.getElementById('pm-exp-year').value).replace(/\D/g, '');
@@ -530,6 +590,11 @@ if (params.get('booking') === '1') {
                             });
                         }
                         updateMethodUi();
+                        var pmNum = document.getElementById('pm-number');
+                        if (pmNum) {
+                            bindCardNumberSpacing(pmNum);
+                            if (pmNum.value) applyCardNumberFormatting(pmNum);
+                        }
                         var expM = document.getElementById('pm-exp-month');
                         var expY = document.getElementById('pm-exp-year');
                         if (expM && expY) {

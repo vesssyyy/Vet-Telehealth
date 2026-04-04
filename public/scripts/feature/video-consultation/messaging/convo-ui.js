@@ -4,7 +4,11 @@
  */
 import { escapeHtml } from '../../../core/app/utils.js';
 import { renderAttachment } from '../../../core/messaging/attachments.js';
-import { initMessagingFileAttachmentDownload } from '../../../core/messaging/messages-ui-core.js';
+import {
+    initMessagingFileAttachmentDownload,
+    initMessagingImageLightbox,
+    wireMessageAttachmentThumbnails,
+} from '../../../core/messaging/messages-ui-core.js';
 
 export function createVideoCallConvoRenderer(options = {}) {
     const {
@@ -47,16 +51,8 @@ export function createVideoCallConvoRenderer(options = {}) {
 
         (messages || []).forEach(appendMessage);
 
-        // Reveal image attachments once loaded
-        convoMessagesList.querySelectorAll('.message-attachment-img').forEach((img) => {
-            const wrap = img.closest('.message-attachment--image');
-            if (!wrap) return;
-            img.loading = 'eager';
-            const reveal = () => wrap.classList.add('is-loaded');
-            img.addEventListener('load', reveal);
-            img.addEventListener('error', reveal);
-            if (img.complete) reveal(); else setTimeout(reveal, 3000);
-        });
+        convoMessagesList.querySelectorAll('.message-attachment-img').forEach((img) => { img.loading = 'eager'; });
+        wireMessageAttachmentThumbnails(convoMessagesList);
 
         if (convoBody) convoBody.scrollTop = convoBody.scrollHeight;
     }
@@ -69,48 +65,11 @@ export function initVideoCallConvoLightbox(options = {}) {
     if (!convoBody) return { closeLightbox: () => {} };
 
     initMessagingFileAttachmentDownload(convoBody);
-
-    convoBody.addEventListener('click', (e) => {
-        const wrap = e.target.closest('.message-attachment--image');
-        if (!wrap) return;
-        const img = wrap.querySelector('.message-attachment-img');
-        if (!img?.src) return;
-        e.preventDefault();
-        const lb = $('messages-image-lightbox');
-        const lbImg = lb?.querySelector('.messages-image-lightbox-img');
-        const lbTab = lb?.querySelector('.messages-image-lightbox-open-tab');
-        if (lb && lbImg) {
-            lbImg.style.opacity = '0';
-            lbImg.onload = () => { requestAnimationFrame(() => { lbImg.style.opacity = '1'; }); };
-            lbImg.src = img.src;
-            lbImg.alt = 'Enlarged image';
-            if (lbTab) lbTab.href = img.src;
-            lb.classList.remove('is-hidden');
-            lb.setAttribute('aria-hidden', 'false');
-            document.body.style.overflow = 'hidden';
-        }
+    const { close } = initMessagingImageLightbox({
+        lightboxEl: $('messages-image-lightbox'),
+        chatBodyEl: convoBody,
     });
 
-    const closeLightbox = () => {
-        const lb = $('messages-image-lightbox');
-        if (!lb) return;
-        lb.classList.add('is-hidden');
-        lb.setAttribute('aria-hidden', 'true');
-        document.body.style.overflow = '';
-        const lbImg = lb.querySelector('.messages-image-lightbox-img');
-        setTimeout(() => { if (lbImg) lbImg.removeAttribute('src'); }, 280);
-    };
-
-    $('messages-image-lightbox')?.querySelector('.messages-image-lightbox-close')?.addEventListener('click', closeLightbox);
-    $('messages-image-lightbox')?.querySelector('.messages-image-lightbox-backdrop')?.addEventListener('click', closeLightbox);
-    document.addEventListener('keydown', (e) => {
-        const lb = $('messages-image-lightbox');
-        if (e.key === 'Escape' && lb && !lb.classList.contains('is-hidden')) {
-            closeLightbox();
-            e.stopImmediatePropagation();
-        }
-    });
-
-    return { closeLightbox };
+    return { closeLightbox: close };
 }
 

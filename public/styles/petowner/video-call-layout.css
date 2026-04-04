@@ -1782,8 +1782,15 @@ body.video-call-fullscreen .video-call-controls .participant-btn-mobile {
 .video-call-convo-panel .message-attachment--image.is-loaded .message-attachment-img { opacity: 1; }
 .video-call-convo-panel .message-attachment--file a { color: inherit; text-decoration: none; }
 .video-call-convo-panel .message-attachment--sending { padding: 8px; border-radius: 8px; background: rgba(0,0,0,0.15); }
+.video-call-convo-panel .message-attachment-video-btn { border-color: rgba(255,255,255,0.2); }
+.video-call-convo-panel .message-attachment-video-frame {
+    width: min(200px, 100%);
+    max-width: min(200px, 72vw);
+    max-height: min(160px, 28vh);
+}
+.video-call-convo-panel .message-attachment-video-thumb { max-height: min(160px, 28vh); }
 
-/* Image lightbox (same as messages page) */
+/* Image / video lightbox (same behavior as messages page) */
 .messages-image-lightbox {
     position: fixed;
     inset: 0;
@@ -1828,16 +1835,22 @@ body.video-call-fullscreen .video-call-controls .participant-btn-mobile {
 .messages-image-lightbox-content {
     position: relative;
     z-index: 1;
-    max-width: 90vw;
+    width: min(100%, calc(100vw - 40px));
+    max-width: min(90vw, calc(100vw - 40px));
     max-height: 90vh;
+    max-height: min(90vh, 90dvh);
+    min-width: 0;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 12px;
 }
 .messages-image-lightbox-img {
     max-width: 100%;
     max-height: 85vh;
+    max-height: min(85vh, 85dvh, calc(100dvh - 96px));
     width: auto;
     height: auto;
     object-fit: contain;
@@ -1845,6 +1858,21 @@ body.video-call-fullscreen .video-call-controls .participant-btn-mobile {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
     transition: opacity 0.3s ease;
 }
+.messages-image-lightbox-img.is-hidden { display: none; }
+.messages-media-lightbox-video {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    height: auto;
+    max-height: min(85vh, 85dvh, calc(100dvh - 96px));
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    background: #000;
+    box-sizing: border-box;
+}
+.messages-media-lightbox-video.is-hidden { display: none; }
 .messages-image-lightbox-open-tab {
     padding: 8px 14px;
     background: rgba(255, 255, 255, 0.2);

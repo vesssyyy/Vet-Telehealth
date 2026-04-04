@@ -106,13 +106,13 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 }
 .role-badge i { font-size: 12px; opacity: 0.8; }
 
-.dark-mode-toggle, .profile-header-btn {
+.profile-header-btn {
     width: 42px; height: 42px; display: flex; align-items: center; justify-content: center;
     background: var(--w-1); border: 1px solid var(--w-15); border-radius: 50%; color: white;
     cursor: pointer; transition: all 0.25s ease;
 }
-.dark-mode-toggle:hover, .profile-header-btn:hover { background: var(--w-2); border-color: var(--w-25); color: white; }
-.dark-mode-toggle i, .profile-header-btn i { font-size: 18px; }
+.profile-header-btn:hover { background: var(--w-2); border-color: var(--w-25); color: white; }
+.profile-header-btn i { font-size: 18px; }
 
 .mobile-menu-toggle {
     display: none; align-items: center; justify-content: center; width: 44px; height: 44px; flex-shrink: 0;
@@ -245,7 +245,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
         opacity: 1;
         transform: scale(1);
     }
-    /* Hamburger: only logo, profile, about us, feedback, logout */
+    /* Hamburger: only logo, profile, about, logout */
     .sidebar .sidebar-nav {
         display: none !important;
     }
@@ -312,14 +312,14 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
     .header-right { gap: 8px; }
     .role-badge { padding: 6px 10px; font-size: 12px; border-radius: 6px; }
     .role-badge i { font-size: 12px; }
-    .dark-mode-toggle, .profile-header-btn {
+    .profile-header-btn {
         width: 40px;
         height: 40px;
         min-width: 40px;
         min-height: 40px;
         border-radius: 10px;
     }
-    .dark-mode-toggle i, .profile-header-btn i { font-size: 17px; }
+    .profile-header-btn i { font-size: 17px; }
     .page-header { padding-top: 16px; margin-bottom: 20px; }
     .page-title { font-size: 22px; }
     .content-wrapper {

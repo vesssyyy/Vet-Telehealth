@@ -17,6 +17,7 @@ import {
     createEmojiPicker,
     initMessagingImageLightbox,
     initMessagingFileAttachmentDownload,
+    wireMessageAttachmentThumbnails,
     createAttachmentPreviewController,
     buildMessageFooterHtml,
 } from './messages-ui-core.js';
@@ -164,13 +165,7 @@ export function createMessaging(config) {
             body.appendChild(row);
         });
 
-        body.querySelectorAll('.message-attachment-img').forEach(img => {
-            const wrap = img.closest('.message-attachment--image');
-            if (!wrap) return;
-            const onLoad = () => wrap.classList.add('is-loaded');
-            img.addEventListener('load', onLoad);
-            if (img.complete) onLoad();
-        });
+        wireMessageAttachmentThumbnails(body);
         if (wasNearBottom) {
             body.scrollTop = body.scrollHeight;
         } else {
