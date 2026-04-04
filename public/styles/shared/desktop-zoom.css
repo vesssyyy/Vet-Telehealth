@@ -24,4 +24,9 @@
         min-height: calc(100dvh / 0.75);
         min-height: calc(100svh / 0.75);
     }
+
+    /* Appointment details modal: max-height uses 90vh — under root zoom that caps too low visually */
+    html .details-modal {
+        max-height: min(calc(var(--vh, 100vh) * 0.9), 100%);
+    }
 }

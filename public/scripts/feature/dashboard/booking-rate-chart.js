@@ -6,6 +6,42 @@
 const DAY_MS = 86400000;
 
 /**
+ * Product of non-1 `zoom` values from `el` up to `<html>` (Chrome/Chromium mis-map canvas hits under CSS zoom).
+ * @param {HTMLElement | null} el
+ * @returns {number}
+ */
+function accumulatedCssZoom(el) {
+    if (typeof document === 'undefined' || !el || !el.getRootNode) return 1;
+    let z = 1;
+    let node = el;
+    const root = el.getRootNode();
+    while (node && node.nodeType === 1 && node !== root) {
+        const style = getComputedStyle(node);
+        const raw = style.zoom;
+        if (raw && raw !== 'normal') {
+            const parsed = parseFloat(raw);
+            if (Number.isFinite(parsed) && parsed > 0) z *= parsed;
+        }
+        node = node.parentElement;
+    }
+    return z;
+}
+
+/** Chart.js: correct pointer x/y when ancestors use CSS `zoom` (e.g. root 0.75 desktop layout). */
+const chartCssZoomFixPlugin = {
+    id: 'telehealthChartCssZoomFix',
+    beforeEvent(chart, args) {
+        const evt = args.event;
+        if (!evt || evt.x == null || evt.y == null) return;
+        const factor = accumulatedCssZoom(chart.canvas);
+        if (factor === 1) return;
+        evt.x /= factor;
+        evt.y /= factor;
+        args.inChartArea = chart.isPointInArea(evt);
+    },
+};
+
+/**
  * @param {'today' | '3d' | '7d' | '30d' | 'month' | 'custom'} period
  * @param {number} customFromMs
  * @param {number} customToMs
@@ -426,6 +462,7 @@ export function createBookingRateChart(root, opts = {}) {
                 type: 'line',
                 data: chartData,
                 options,
+                plugins: [chartCssZoomFixPlugin],
             });
         } else {
             chart.data.labels = labels;
