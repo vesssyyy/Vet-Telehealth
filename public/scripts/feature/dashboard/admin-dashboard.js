@@ -1,6 +1,6 @@
 /** Televet Health — Admin dashboard: list users, reports, disable/enable/delete via Cloud Functions */
 import { app, auth } from '../../core/firebase/firebase-config.js';
-import { escapeHtml } from '../../core/app/utils.js';
+import { escapeHtml, roleIdToDisplayLabel } from '../../core/app/utils.js';
 import { initPasswordToggleFields } from '../../core/app/password-toggle.js';
 import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-functions.js';
 import { appAlertError, appConfirm } from '../../core/ui/app-dialog.js';
@@ -147,7 +147,7 @@ import { appAlertError, appConfirm } from '../../core/ui/app-dialog.js';
                 <td><span class="admin-cell-name">${esc(n)}</span></td>
                 <td><a href="mailto:${esc(u.email || '')}" class="admin-cell-email">${esc(u.email || '—')}</a></td>
                 <td><span class="admin-badge ${u.emailVerified ? 'admin-badge-verified' : 'admin-badge-unverified'}">${esc(emailStatus)}</span></td>
-                <td><span class="admin-badge admin-badge-${esc(roleBadge)}">${esc(u.role || '—')}</span></td>
+                <td><span class="admin-badge admin-badge-${esc(roleBadge)}">${esc(roleIdToDisplayLabel(u.role))}</span></td>
                 <td><span class="admin-cell-lastlogin">${lastLoginHtml}</span></td>
                 <td class="admin-td-actions">
                     <button type="button" class="admin-btn ${u.disabled ? 'admin-btn-enable' : 'admin-btn-disable'}" data-uid="${esc(u.id)}" data-disabled="${!!u.disabled}">
@@ -198,7 +198,7 @@ import { appAlertError, appConfirm } from '../../core/ui/app-dialog.js';
         currentUser = u;
         if (els.modalName) els.modalName.textContent = nameOf(u);
         if (els.modalEmail) els.modalEmail.textContent = u.email || '—';
-        if (els.modalRole) { els.modalRole.textContent = u.role || '—'; els.modalRole.className = 'admin-badge admin-badge-' + (u.role || 'petOwner'); }
+        if (els.modalRole) { els.modalRole.textContent = roleIdToDisplayLabel(u.role); els.modalRole.className = 'admin-badge admin-badge-' + (u.role || 'petOwner'); }
         if (els.modalStatus) {
             els.modalStatus.textContent = u.disabled ? 'Disabled' : 'Active';
             els.modalStatus.className = 'admin-badge ' + (u.disabled ? 'admin-badge-disabled' : 'admin-badge-active');

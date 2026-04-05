@@ -2,7 +2,7 @@
  * Televet Health - Pet Owner Appointment data layer (Firestore, Storage)
  */
 import { auth, db, storage } from '../../../core/firebase/firebase-config.js';
-import { escapeHtml, formatTime12h, withDr } from '../../../core/app/utils.js';
+import { capitalizeFirstLetter, escapeHtml, formatTime12h, withDr } from '../../../core/app/utils.js';
 import {
     APPOINTMENTS_COLLECTION,
     CLINIC_HOURS_PLACEHOLDER,
@@ -80,7 +80,7 @@ function vetDisplayName(data) {
         || [data.firstName, data.lastName].filter(Boolean).join(' ').trim()
         || (data.email || '').split('@')[0]
         || 'Veterinarian';
-    return withDr(name);
+    return withDr(capitalizeFirstLetter(name));
 }
 
 

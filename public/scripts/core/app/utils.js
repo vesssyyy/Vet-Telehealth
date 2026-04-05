@@ -146,6 +146,26 @@ export function formatAppointmentDividerDateTime(dateStr, slotStart) {
 }
 
 /**
+ * Uppercase the first character; leaves the rest unchanged. Empty/whitespace → ''.
+ * @param {string} str
+ */
+export function capitalizeFirstLetter(str) {
+    const s = String(str ?? '').trim();
+    if (!s) return s;
+    return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** Map Firestore role id to a short UI label. */
+export function roleIdToDisplayLabel(role) {
+    if (role == null || role === '') return '—';
+    const r = String(role);
+    if (r === 'petOwner') return 'Pet Owner';
+    if (r === 'vet') return 'Vet';
+    if (r === 'admin') return 'Admin';
+    return r;
+}
+
+/**
  * Prefix a vet's display name with "Dr." if not already present.
  * Handles "Doctor", "DR", existing "Dr.", and avoids double titles after normalize.
  * @param {string} name
@@ -155,6 +175,10 @@ export function withDr(name) {
     if (!n) return 'Dr. Veterinarian';
     n = n.replace(/^doctor\.?\s+/i, '').trim();
     if (!n) return 'Dr. Veterinarian';
-    if (/^dr\.?\s/i.test(n)) return n;
-    return `Dr. ${n}`;
+    if (/^dr\.?\s/i.test(n)) {
+        const rest = n.replace(/^dr\.?\s+/i, '').trim();
+        if (!rest) return 'Dr. Veterinarian';
+        return `Dr. ${capitalizeFirstLetter(rest)}`;
+    }
+    return `Dr. ${capitalizeFirstLetter(n)}`;
 }
