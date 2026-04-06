@@ -2,7 +2,7 @@
  * Televet Health — Pet Manager: CRUD, Firestore sync, dashboard UI
  */
 import { auth, db, storage } from '../../core/firebase/firebase-config.js';
-import { escapeHtml } from '../../core/app/utils.js';
+import { escapeHtml, formatDisplayName } from '../../core/app/utils.js';
 import { openProfilePhotoCrop } from '../../core/app/profile-photo-crop.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js';
 import {
@@ -313,7 +313,7 @@ function openManagePetModal(pet) {
     managePetTarget = pet;
     const titleEl = document.getElementById('manage-pet-title');
     const introEl = document.getElementById('manage-pet-intro');
-    if (titleEl) titleEl.textContent = `Remove ${pet.name || 'this pet'}?`;
+    if (titleEl) titleEl.textContent = `Remove ${pet.name ? formatDisplayName(pet.name) : 'this pet'}?`;
     if (introEl) {
         introEl.textContent = 'You can remove a pet when they have no ongoing or upcoming visits. Completed past appointments do not block removal. Use Edit to change their details.';
     }
@@ -346,7 +346,7 @@ function bindManagePetModal() {
             refreshManagePetDeleteState();
             return;
         }
-        if (!(await appConfirm(`Remove ${pet.name || 'this pet'} from your account? This cannot be undone.`, { confirmText: 'Yes', cancelText: 'No' }))) return;
+        if (!(await appConfirm(`Remove ${pet.name ? formatDisplayName(pet.name) : 'this pet'} from your account? This cannot be undone.`, { confirmText: 'Yes', cancelText: 'No' }))) return;
         delBtn.disabled = true;
         delBtn.textContent = 'Removing…';
         try {
@@ -467,7 +467,7 @@ function renderProfilePetsList(pets) {
         return `<div class="profile-pet-row" data-pet-id="${escapeHtml(p.id)}">
             <div class="profile-pet-row-avatar">${avInner}</div>
             <div class="profile-pet-row-main">
-                <h3 class="profile-pet-row-name">${escapeHtml(p.name || 'Unnamed')}</h3>
+                <h3 class="profile-pet-row-name">${escapeHtml(p.name ? formatDisplayName(p.name) : 'Unnamed')}</h3>
             </div>
             <div class="profile-pet-row-actions">
                 <button type="button" class="btn btn-secondary profile-pet-edit-btn" data-pet-id="${escapeHtml(p.id)}"><i class="fa fa-pencil" aria-hidden="true"></i> Edit</button>
@@ -514,17 +514,17 @@ function renderPetProfile(pets) {
     const fallbackClass = avatarUrl ? '' : ' visible';
     const dropdownItems = [...pets]
         .sort((a, b) => (a.id === currentPetId ? -1 : 0) - (b.id === currentPetId ? -1 : 0))
-        .map((p) => `<button type="button" class="dropdown-item ${p.id === currentPetId ? 'active' : ''}" role="menuitem" data-pet-id="${p.id}">${speciesIcon(p.species, ' dropdown-item-icon')}<span>${escapeHtml(p.name)}</span></button>`)
+        .map((p) => `<button type="button" class="dropdown-item ${p.id === currentPetId ? 'active' : ''}" role="menuitem" data-pet-id="${p.id}">${speciesIcon(p.species, ' dropdown-item-icon')}<span>${escapeHtml(p.name ? formatDisplayName(p.name) : '')}</span></button>`)
         .join('');
     card.innerHTML = `
         <div class="pet-profile-header">
             <div class="pet-profile-left">
                 <div class="pet-avatar-wrap">
-                    <img class="pet-avatar-img" src="${escapeHtml(avatarUrl) || '#'}" alt="${escapeHtml(active.name)}" onerror="this.style.display='none';this.nextElementSibling.classList.add('visible')">
+                    <img class="pet-avatar-img" src="${escapeHtml(avatarUrl) || '#'}" alt="${escapeHtml(active.name ? formatDisplayName(active.name) : '')}" onerror="this.style.display='none';this.nextElementSibling.classList.add('visible')">
                     <span class="pet-avatar-fallback${fallbackClass}" aria-hidden="true">${speciesIcon(active.species)}</span>
                 </div>
                 <div class="pet-info">
-                    <h2 class="pet-name">${escapeHtml(active.name)}</h2>
+                    <h2 class="pet-name">${escapeHtml(active.name ? formatDisplayName(active.name) : '')}</h2>
                     <div class="pet-meta">
                         <span class="pet-meta-item"><i class="fa fa-birthday-cake" aria-hidden="true"></i> ${formatAge(active.age)}</span>
                         <span class="pet-meta-item"><i class="fa fa-balance-scale" aria-hidden="true"></i> ${formatWeight(active.weight)}</span>

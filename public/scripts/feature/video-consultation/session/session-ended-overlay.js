@@ -4,7 +4,7 @@ import {
     updateDoc,
     serverTimestamp,
 } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
-import { escapeHtml } from '../../../core/app/utils.js';
+import { escapeHtml, formatDisplayName } from '../../../core/app/utils.js';
 import { generateConsultationPDF } from '../../../core/pdf/consultation-pdf.js';
 import {
     CONSULTATION_NOTES_FIELDS,
@@ -228,7 +228,8 @@ async function triggerDownloadReport(overlayEl, aptData, startLabel, endLabel, b
         });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `Consultation-Summary-${aptData.petName || 'Pet'}-${new Date().toISOString().slice(0, 10)}.pdf`;
+        const petFile = aptData.petName ? formatDisplayName(String(aptData.petName).trim()) : 'Pet';
+        a.download = `Consultation-Summary-${petFile}-${new Date().toISOString().slice(0, 10)}.pdf`;
         a.click();
         URL.revokeObjectURL(a.href);
     } catch (e) {

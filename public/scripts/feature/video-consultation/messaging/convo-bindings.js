@@ -6,7 +6,7 @@ import {
     serverTimestamp,
     where,
 } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
-import { withDr } from '../../../core/app/utils.js';
+import { formatDisplayName, withDr } from '../../../core/app/utils.js';
 
 /**
  * Find existing conversation for owner/vet/pet or create one if missing.
@@ -43,7 +43,9 @@ export async function resolveVideoCallConversation(options = {}) {
         if (conv) return conv.id;
 
         if (ownerUid && vetUid && ownerUid !== vetUid) {
-            const ownerName = isVet ? (otherParticipantName || 'Pet Owner') : myName;
+            const baseOwner = isVet ? (otherParticipantName || 'Pet Owner') : myName;
+            const ownerTrim = String(baseOwner ?? '').trim();
+            const ownerName = ownerTrim ? formatDisplayName(ownerTrim) : (baseOwner ?? '');
             /** Always store canonical vet title; whoever opens the call first used to skip "Dr." for the vet. */
             const vetName = withDr(isVet ? myName : otherParticipantName);
             const convRef = await addDoc(collection(db, 'conversations'), {
@@ -52,7 +54,10 @@ export async function resolveVideoCallConversation(options = {}) {
                 vetId: vetUid,
                 vetName,
                 petId,
-                petName,
+                petName: (() => {
+                    const p = String(petName || '').trim();
+                    return p ? formatDisplayName(p) : 'Pet';
+                })(),
                 vetSpecialty: '',
                 participants: [ownerUid, vetUid],
                 lastMessage: '',

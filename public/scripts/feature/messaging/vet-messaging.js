@@ -1,5 +1,5 @@
 import { auth, db } from '../../core/firebase/firebase-config.js';
-import { escapeHtml, formatConversationMeta, withDr, timestampToMs } from '../../core/app/utils.js';
+import { escapeHtml, formatConversationMeta, formatDisplayName, withDr, timestampToMs } from '../../core/app/utils.js';
 import { createMessaging } from '../../core/messaging/messages-page-core.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js';
 import {
@@ -7,8 +7,36 @@ import {
     query, where, orderBy, onSnapshot, serverTimestamp,
 } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 import { normalizeId, ownerDisplayName, getCurrentVetDisplayName } from './shared-messaging.js';
+import {
+    wireMessagesProfileModal,
+    buildPeerProfileRows,
+    buildPetProfileRows,
+    getPeerProfileTitle,
+    getPetProfileTitle,
+} from './messages-profile-modal.js';
+import { setHeaderChipAvatar, setPetHeaderChipAvatar } from './messages-chat-header-avatars.js';
 
 const $ = id => document.getElementById(id);
+
+async function fetchUserProfile(uid) {
+    if (!uid) return null;
+    try {
+        const snap = await getDoc(doc(db, 'users', uid));
+        return snap.exists() ? snap.data() : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+async function fetchPetProfile(ownerId, petId) {
+    if (!ownerId || !petId) return null;
+    try {
+        const snap = await getDoc(doc(db, 'users', ownerId, 'pets', petId));
+        return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+    } catch (_) {
+        return null;
+    }
+}
 
 const photoCache = new Map();
 
@@ -49,6 +77,7 @@ export function initVetMessagingPage() {
         peerUnreadCountField:  'unreadCount_owner',
         sentAvatarIcon:        'fa-user-md',
         receivedAvatarIcon:    'fa-user',
+        allowSkinAnalysisShare: true,
         getAppointmentsForConv,
         buildConvItem: (conv, { unreadCount = 0 } = {}) => {
             const badge = unreadCount > 0
@@ -62,9 +91,9 @@ export function initVetMessagingPage() {
             <div class="messages-conv-avatar">${avatarInner}</div>
             <div class="messages-conv-body">
                 <div class="messages-conv-title">
-                    <span class="conv-pet">${escapeHtml(conv.petName)}</span>
+                    <span class="conv-pet">${escapeHtml(conv.petName ? formatDisplayName(conv.petName) : '')}</span>
                     <span class="conv-plus"> + </span>
-                    <span class="conv-owner">${escapeHtml(conv.ownerName || 'Pet Owner')}</span>
+                    <span class="conv-owner">${escapeHtml(conv.ownerName ? formatDisplayName(conv.ownerName) : 'Pet Owner')}</span>
                 </div>
                 <div class="messages-conv-preview">${escapeHtml(conv.lastMessage || 'No messages yet')}</div>
                 <div class="messages-conv-footer">
@@ -76,10 +105,13 @@ export function initVetMessagingPage() {
     });
 
     const {
-        state, setListState, renderChatMessages, renderConversationList, subscribeMessages,
+        state, setListState, renderChatMessages, renderConversationList,
+        prepareThreadPaneForOpen, subscribeMessages,
         showModalError, setTriggerText, openModal, closeModal, initSharedUI,
         onConversationListUpdated, clearListDeliveryScheduling,
     } = shared;
+
+    const profileModal = wireMessagesProfileModal();
 
     async function ensureOwnerNames(convs) {
         const toFetch = convs.filter(c => !c.ownerName && c.ownerId);
@@ -95,24 +127,25 @@ export function initVetMessagingPage() {
     }
 
     function updateChatHeader(conv) {
-        const ownerNameEl = $('messages-chat-owner-name');
-        const ownerSubEl  = $('messages-chat-owner-sub');
-        const petBadgeEl  = $('messages-chat-pet-badge');
-        if (ownerNameEl) ownerNameEl.textContent = conv.ownerName || 'Pet Owner';
-        if (ownerSubEl)  ownerSubEl.textContent  = 'Pet Owner';
-        if (petBadgeEl)  { petBadgeEl.textContent = conv.petName || ''; petBadgeEl.style.display = conv.petName ? '' : 'none'; }
+        const peerNameEl = $('messages-chat-peer-name');
+        const petNameEl  = $('messages-chat-pet-name');
+        if (peerNameEl) peerNameEl.textContent = conv.ownerName ? formatDisplayName(conv.ownerName) : 'Pet Owner';
+        if (petNameEl) petNameEl.textContent = conv.petName ? formatDisplayName(conv.petName) : '';
 
-        const headerImg      = $('messages-chat-owner-img');
-        const headerFallback = $('messages-chat-owner-fallback');
         const peerPhoto = conv._peerPhotoURL || photoCache.get(conv.ownerId) || '';
-        if (peerPhoto && headerImg) {
-            headerImg.src = peerPhoto;
-            headerImg.classList.remove('is-hidden');
-            if (headerFallback) headerFallback.classList.add('is-hidden');
-        } else {
-            if (headerImg) headerImg.classList.add('is-hidden');
-            if (headerFallback) headerFallback.classList.remove('is-hidden');
-        }
+        setHeaderChipAvatar($('messages-chat-peer-img'), $('messages-chat-peer-fallback'), peerPhoto);
+
+        const petImg = $('messages-chat-pet-img');
+        const petFb  = $('messages-chat-pet-fallback');
+        const convId = conv.id;
+        setPetHeaderChipAvatar(
+            petImg,
+            petFb,
+            conv.ownerId,
+            conv.petId,
+            fetchPetProfile,
+            () => state.currentConvId === convId
+        );
     }
 
     async function loadPetOwners() {
@@ -155,7 +188,10 @@ export function initVetMessagingPage() {
                     const pets = await loadPetsForOwner(ownerId);
                     petMenu.innerHTML = pets.length === 0
                         ? '<div class="new-conv-empty">No pets for this owner.</div>'
-                        : pets.map(p => `<button type="button" class="new-conv-item" role="menuitem" data-pet-id="${escapeHtml(p.id)}" data-pet-name="${escapeHtml(p.name || 'Unnamed')}"><i class="fa fa-paw dropdown-item-icon"></i><span>${escapeHtml(p.name || 'Unnamed')}</span></button>`).join('');
+                        : pets.map((p) => {
+                            const pn = p.name ? formatDisplayName(p.name) : 'Unnamed';
+                            return `<button type="button" class="new-conv-item" role="menuitem" data-pet-id="${escapeHtml(p.id)}" data-pet-name="${escapeHtml(pn)}"><i class="fa fa-paw dropdown-item-icon"></i><span>${escapeHtml(pn)}</span></button>`;
+                        }).join('');
                     petMenu.querySelectorAll('.new-conv-item').forEach(pBtn => {
                         pBtn.addEventListener('click', () => {
                             $('new-conv-pet').value = pBtn.dataset.petId;
@@ -190,6 +226,7 @@ export function initVetMessagingPage() {
         if (!conv.ownerName && conv.ownerId) await ensureOwnerNames([conv]);
         updateChatHeader(conv);
         shared.showChat();
+        prepareThreadPaneForOpen();
 
         const myId = auth.currentUser?.uid;
         const [myPhoto, peerPhoto] = await Promise.all([
@@ -313,8 +350,9 @@ export function initVetMessagingPage() {
             let petName = params.get('petName') || 'Pet';
             try {
                 const petSnap = await getDoc(doc(db, 'users', ownerId, 'pets', petId));
-                if (petSnap.exists() && petSnap.data()?.name) petName = petSnap.data().name;
+                if (petSnap.exists() && petSnap.data()?.name) petName = formatDisplayName(String(petSnap.data().name).trim());
             } catch (_) {}
+            petName = petName ? formatDisplayName(String(petName).trim()) : 'Pet';
             const convRef = await addDoc(collection(db, 'conversations'), {
                 ownerId, ownerName, vetId: user.uid, petId,
                 petName, vetName, vetSpecialty: '',
@@ -368,15 +406,16 @@ export function initVetMessagingPage() {
                 return;
             }
 
-            const petTrigger = $('new-conv-pet-trigger')?.querySelector('.new-conv-trigger-text')?.textContent;
+            const petTrigger = ($('new-conv-pet-trigger')?.querySelector('.new-conv-trigger-text')?.textContent || '').trim();
             const initMsg    = ($('new-conv-message')?.value || '').trim();
             const ownerSnap  = await getDoc(doc(db, 'users', ownerId));
             const ownerName  = ownerDisplayName(ownerSnap.exists() ? ownerSnap.data() : {});
             const vetName    = await getCurrentVetDisplayName(withDr);
+            const petNameNew = petTrigger ? formatDisplayName(petTrigger) : 'Pet';
 
             const convRef = await addDoc(collection(db, 'conversations'), {
                 ownerId, ownerName, vetId: user.uid, petId,
-                petName: petTrigger || 'Pet', vetName, vetSpecialty: '',
+                petName: petNameNew, vetName, vetSpecialty: '',
                 participants: [ownerId, user.uid],
                 lastMessage: initMsg || '', lastMessageAt: serverTimestamp(), createdAt: serverTimestamp(),
                 ...(initMsg ? { lastMessageSenderId: user.uid } : {}),
@@ -391,7 +430,7 @@ export function initVetMessagingPage() {
             doCloseModal();
             const newConv = {
                 id: convRef.id, ownerId, ownerName, vetId: user.uid, petId,
-                petName: petTrigger || 'Pet', vetName, vetSpecialty: '',
+                petName: petNameNew, vetName, vetSpecialty: '',
                 participants: [ownerId, user.uid],
                 lastMessage: initMsg || '', lastMessageAt: new Date(), createdAt: new Date(),
                 unreadCount_owner: initMsg ? 1 : 0,
@@ -417,7 +456,21 @@ export function initVetMessagingPage() {
         dropdownIds:  ['new-conv-owner', 'new-conv-pet'],
     });
 
+    $('messages-chat-peer-profile')?.addEventListener('click', async () => {
+        const conv = state.conversations.find(c => c.id === state.currentConvId) || state.currentConvData;
+        if (!conv?.ownerId) return;
+        const data = await fetchUserProfile(conv.ownerId);
+        profileModal.open(getPeerProfileTitle(data || {}), buildPeerProfileRows(data || {}));
+    });
+    $('messages-chat-pet-profile')?.addEventListener('click', async () => {
+        const conv = state.conversations.find(c => c.id === state.currentConvId) || state.currentConvData;
+        if (!conv?.ownerId || !conv?.petId) return;
+        const pet = await fetchPetProfile(conv.ownerId, conv.petId);
+        profileModal.open(getPetProfileTitle(pet, conv.petName), buildPetProfileRows(pet || {}));
+    });
+
     window.__telehealthMessagesTeardown = () => {
+        profileModal.close();
         if (conversationListUnsub) {
             conversationListUnsub();
             conversationListUnsub = null;

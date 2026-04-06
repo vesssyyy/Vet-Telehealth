@@ -20,14 +20,22 @@ import {
     wireMessageAttachmentThumbnails,
     createAttachmentPreviewController,
     buildMessageFooterHtml,
+    renderSkinAnalysisShare,
 } from './messages-ui-core.js';
+import { listSkinAnalyses, skinAnalysisToShareSnapshot, savedAtToMs } from '../../feature/skin-disease/skin-analysis-repository.js';
 import {
     collection, doc, getDoc, addDoc, updateDoc,
     query, orderBy, onSnapshot, serverTimestamp, increment,
+    limitToLast, endBefore, getDocs,
 } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 
 const $ = id => document.getElementById(id);
 const isMobileView = () => window.matchMedia('(max-width: 768px)').matches;
+
+/** Recent page for live listener; older chunks load on upward scroll. */
+const MESSAGES_TAIL_PAGE_SIZE = 48;
+const MESSAGES_OLDER_PAGE_SIZE = 40;
+const MESSAGES_SCROLL_LOAD_THRESHOLD_PX = 100;
 
 /* ─────────────────────────────────────────────────────────────────────────
    Factory
@@ -38,6 +46,7 @@ export function createMessaging(config) {
         incomingDeliveredField,
         selfUnreadCountField, peerUnreadCountField,
         sentAvatarIcon, receivedAvatarIcon, buildConvItem,
+        allowSkinAnalysisShare = false,
     } = config;
 
     /* ── DOM refs ──────────────────────────────────────────────────── */
@@ -85,6 +94,14 @@ export function createMessaging(config) {
         threadDeliveryPrimed:     false,
         listDeliveryFingerprints:   new Map(),
         listDeliveryTimers:         new Map(),
+        pendingSkinAnalysis:        null,
+        messagesById:               new Map(),
+        messagesColRef:             null,
+        oldestDocSnapshot:          null,
+        hasMoreOlder:               false,
+        loadedOlderMessages:        false,
+        loadingOlder:               false,
+        threadScrollHandler:        null,
     };
 
     /* ── List / chat view ──────────────────────────────────────────── */
@@ -121,10 +138,44 @@ export function createMessaging(config) {
     const showChat        = () => setChatView(true);
 
     /* ── Render helpers ────────────────────────────────────────────── */
-    function renderChatMessages(messages, conv) {
+    function setThreadLoading(loading) {
+        const el = $('messages-thread-loading');
+        if (!el) return;
+        el.classList.toggle('is-hidden', !loading);
+        el.setAttribute('aria-hidden', loading ? 'false' : 'true');
+        if (loading) el.setAttribute('aria-busy', 'true');
+        else el.removeAttribute('aria-busy');
+    }
+
+    function setOlderLoadingVisible(visible) {
+        const el = $('messages-thread-older-status');
+        if (!el) return;
+        el.classList.toggle('is-hidden', !visible);
+        el.textContent = visible ? 'Loading earlier messages…' : '';
+    }
+
+    function rebuildSortedMessagesFromMap() {
+        return [...state.messagesById.values()].sort(
+            (a, b) => timestampToMs(a.sentAt) - timestampToMs(b.sentAt)
+        );
+    }
+
+    function detachThreadScroll() {
+        const body = $('messages-chat-body');
+        if (body && state.threadScrollHandler) {
+            body.removeEventListener('scroll', state.threadScrollHandler);
+            state.threadScrollHandler = null;
+        }
+    }
+
+    function renderChatMessages(messages, conv, options = {}) {
+        const { preserveScroll } = options;
         const body = $('messages-chat-body');
         if (!body) return;
-        const wasNearBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 50;
+        const scrollAnchor = preserveScroll
+            ? { scrollHeight: body.scrollHeight, scrollTop: body.scrollTop }
+            : null;
+        const wasNearBottom = !preserveScroll && body.scrollHeight - body.scrollTop - body.clientHeight < 50;
         const distanceFromBottom = body.scrollHeight - body.scrollTop - body.clientHeight;
         state.lastRenderedMessages = messages;
         state.currentConvData      = conv;
@@ -178,6 +229,7 @@ export function createMessaging(config) {
             row.innerHTML = `
                 <div class="message-row-avatar">${avatarInner}</div>
                 <div class="message-bubble message-bubble--${side}" data-message-id="${escapeHtml(msg.id)}">
+                    ${msg.skinAnalysisShare ? renderSkinAnalysisShare(msg.skinAnalysisShare) : ''}
                     ${msg.attachment ? renderAttachment(msg.attachment, isSending) : ''}
                     ${bubbleText ? `<div>${escapeHtml(bubbleText)}</div>` : ''}
                     ${footerHtml}
@@ -187,7 +239,9 @@ export function createMessaging(config) {
         });
 
         wireMessageAttachmentThumbnails(body);
-        if (wasNearBottom) {
+        if (preserveScroll && scrollAnchor) {
+            body.scrollTop = scrollAnchor.scrollTop + (body.scrollHeight - scrollAnchor.scrollHeight);
+        } else if (wasNearBottom) {
             body.scrollTop = body.scrollHeight;
         } else {
             requestAnimationFrame(() => {
@@ -277,9 +331,60 @@ export function createMessaging(config) {
         state.listDeliveryFingerprints.clear();
     }
 
-    function subscribeMessages(conv, myId, markReadFn) {
-        state.peerMessagesFingerprint = null;
-        state.threadDeliveryPrimed = false;
+    async function loadOlderForThread(openedConvId) {
+        if (state.currentConvId !== openedConvId || !state.oldestDocSnapshot || !state.hasMoreOlder || state.loadingOlder) return;
+        if (!state.messagesColRef) return;
+        state.loadingOlder = true;
+        setOlderLoadingVisible(true);
+        try {
+            const olderQ = query(
+                state.messagesColRef,
+                orderBy('sentAt', 'asc'),
+                endBefore(state.oldestDocSnapshot),
+                limitToLast(MESSAGES_OLDER_PAGE_SIZE)
+            );
+            const older = await getDocs(olderQ);
+            if (state.currentConvId !== openedConvId) return;
+            if (older.empty) {
+                state.hasMoreOlder = false;
+            } else {
+                older.forEach(d => state.messagesById.set(d.id, { id: d.id, ...d.data() }));
+                state.oldestDocSnapshot = older.docs[0];
+                state.loadedOlderMessages = true;
+                if (older.docs.length < MESSAGES_OLDER_PAGE_SIZE) state.hasMoreOlder = false;
+                const messages = rebuildSortedMessagesFromMap();
+                state.lastRenderedMessages = messages;
+                const convData = state.currentConvData || { id: openedConvId };
+                renderChatMessages(messages, convData, { preserveScroll: true });
+            }
+        } catch (err) {
+            console.error('Load older messages:', err);
+        } finally {
+            state.loadingOlder = false;
+            if (state.currentConvId === openedConvId) setOlderLoadingVisible(false);
+        }
+    }
+
+    function attachThreadScroll(openedConvId) {
+        detachThreadScroll();
+        const body = $('messages-chat-body');
+        if (!body) return;
+        state.threadScrollHandler = () => {
+            if (state.currentConvId !== openedConvId) return;
+            if (state.loadingOlder || !state.hasMoreOlder || !state.oldestDocSnapshot) return;
+            if (body.scrollTop < MESSAGES_SCROLL_LOAD_THRESHOLD_PX) {
+                void loadOlderForThread(openedConvId);
+            }
+        };
+        body.addEventListener('scroll', state.threadScrollHandler, { passive: true });
+    }
+
+    /**
+     * Unsubscribe prior thread, clear the transcript, show the thread loader.
+     * Call as soon as the chat pane is shown (e.g. before awaiting avatars) so “No messages yet”
+     * and stale bubbles never flash.
+     */
+    function prepareThreadPaneForOpen() {
         if (state.incomingDeliveredTimer) {
             clearTimeout(state.incomingDeliveredTimer);
             state.incomingDeliveredTimer = null;
@@ -288,7 +393,36 @@ export function createMessaging(config) {
             clearTimeout(state.threadMarkReadTimer);
             state.threadMarkReadTimer = null;
         }
-        if (state.conversationDocUnsubscribe) state.conversationDocUnsubscribe();
+        if (state.conversationDocUnsubscribe) {
+            state.conversationDocUnsubscribe();
+            state.conversationDocUnsubscribe = null;
+        }
+        if (state.messagesUnsubscribe) {
+            state.messagesUnsubscribe();
+            state.messagesUnsubscribe = null;
+        }
+        detachThreadScroll();
+        const chatBody = $('messages-chat-body');
+        if (chatBody) chatBody.innerHTML = '';
+        state.messagesById = new Map();
+        state.messagesColRef = null;
+        state.loadedOlderMessages = false;
+        state.oldestDocSnapshot = null;
+        state.hasMoreOlder = false;
+        state.loadingOlder = false;
+        state.lastRenderedMessages = [];
+        setOlderLoadingVisible(false);
+        setThreadLoading(true);
+    }
+
+    function subscribeMessages(conv, myId, markReadFn) {
+        const openedConvId = conv.id;
+        state.peerMessagesFingerprint = null;
+        state.threadDeliveryPrimed = false;
+        prepareThreadPaneForOpen();
+
+        state.messagesColRef = collection(db, 'conversations', conv.id, 'messages');
+
         state.conversationDocUnsubscribe = onSnapshot(
             doc(db, 'conversations', conv.id),
             snap => {
@@ -299,67 +433,63 @@ export function createMessaging(config) {
             err => console.warn('Conversation doc listener:', err)
         );
 
-        if (state.messagesUnsubscribe) state.messagesUnsubscribe();
+        let firstTailSnapshot = true;
+        const tailQuery = query(
+            state.messagesColRef,
+            orderBy('sentAt', 'asc'),
+            limitToLast(MESSAGES_TAIL_PAGE_SIZE)
+        );
         state.messagesUnsubscribe = onSnapshot(
-            query(collection(db, 'conversations', conv.id, 'messages'), orderBy('sentAt', 'asc')),
+            tailQuery,
             snap => {
-                const messages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                if (state.currentConvId !== openedConvId) return;
+                snap.docs.forEach(d => state.messagesById.set(d.id, { id: d.id, ...d.data() }));
+                if (!state.loadedOlderMessages) {
+                    state.oldestDocSnapshot = snap.docs[0] || null;
+                    state.hasMoreOlder = snap.docs.length >= MESSAGES_TAIL_PAGE_SIZE;
+                }
+                const messages = rebuildSortedMessagesFromMap();
                 const hasPeerMessage = Boolean(myId && messages.some(m => m.senderId !== myId));
                 const fp = fingerprintPeerMessages(messages, myId);
                 const peerChanged = fp !== state.peerMessagesFingerprint;
                 state.peerMessagesFingerprint = fp;
 
-                /* Delivery: peer has this thread open and their listener saw peer-authored messages.
-                   Primed path covers first snapshot (fp goes null→ids) so opening the thread always
-                   acks delivery once; peerChanged covers new messages while staying open. */
                 if (incomingDeliveredField && hasPeerMessage && (peerChanged || !state.threadDeliveryPrimed)) {
                     state.threadDeliveryPrimed = true;
                     if (state.incomingDeliveredTimer) clearTimeout(state.incomingDeliveredTimer);
                     state.incomingDeliveredTimer = setTimeout(() => {
                         state.incomingDeliveredTimer = null;
-                        if (state.currentConvId !== conv.id) return;
+                        if (state.currentConvId !== openedConvId) return;
                         updateDoc(doc(db, 'conversations', conv.id), {
                             [incomingDeliveredField]: serverTimestamp(),
                         }).catch(() => {});
                     }, 400);
                 }
 
-                /* Read/unread: debounce after delivery so lastDeliveredAt can commit before lastReadAt
-                   (otherwise UI never shows double-check — read always wins in Firestore ordering). */
                 if (state.threadMarkReadTimer) clearTimeout(state.threadMarkReadTimer);
                 state.threadMarkReadTimer = setTimeout(() => {
                     state.threadMarkReadTimer = null;
-                    if (state.currentConvId !== conv.id) return;
+                    if (state.currentConvId !== openedConvId) return;
                     markReadFn().catch(() => {});
                 }, 900);
 
+                state.lastRenderedMessages = messages;
                 renderChatMessages(messages, state.currentConvData || conv);
+                if (firstTailSnapshot) {
+                    firstTailSnapshot = false;
+                    setThreadLoading(false);
+                    attachThreadScroll(openedConvId);
+                }
             },
-            err => console.error('Messages listener error:', err)
+            err => {
+                console.error('Messages listener error:', err);
+                setThreadLoading(false);
+                attachThreadScroll(openedConvId);
+            }
         );
 
         renderConversationList();
         showChat();
-    }
-
-    /* ── Navigation ────────────────────────────────────────────────── */
-    function goBackToList() {
-        refs.composeInput?.blur();
-        document.body.classList.remove('messages-input-focused');
-        if (state.incomingDeliveredTimer) {
-            clearTimeout(state.incomingDeliveredTimer);
-            state.incomingDeliveredTimer = null;
-        }
-        if (state.threadMarkReadTimer) {
-            clearTimeout(state.threadMarkReadTimer);
-            state.threadMarkReadTimer = null;
-        }
-        state.currentConvId = null;
-        for (const key of ['conversationDocUnsubscribe', 'messagesUnsubscribe']) {
-            if (state[key]) { state[key](); state[key] = null; }
-        }
-        showPlaceholder();
-        renderConversationList();
     }
 
     /* ── Modal helpers ─────────────────────────────────────────────── */
@@ -409,12 +539,63 @@ export function createMessaging(config) {
     let emojiPicker = null;
 
     /* ── Send message ──────────────────────────────────────────────── */
+    function clearPendingSkinAnalysis() {
+        state.pendingSkinAnalysis = null;
+        const prev = $('messages-skin-preview');
+        const nameEl = $('messages-skin-preview-name');
+        if (prev) prev.classList.add('is-hidden');
+        if (nameEl) nameEl.textContent = '';
+    }
+
+    function setPendingSkinAnalysis(snapshot) {
+        attachmentPreview.clear();
+        state.pendingSkinAnalysis = snapshot;
+        const prev = $('messages-skin-preview');
+        const nameEl = $('messages-skin-preview-name');
+        const sn = snapshot?.savedName && String(snapshot.savedName).trim();
+        const cn = snapshot?.conditionName || '';
+        if (nameEl) nameEl.textContent = (sn || cn) ? `Analysis: ${sn || cn}` : 'Skin analysis';
+        prev?.classList.remove('is-hidden');
+    }
+
+    /* ── Navigation ────────────────────────────────────────────────── */
+    function goBackToList() {
+        refs.composeInput?.blur();
+        document.body.classList.remove('messages-input-focused');
+        if (state.incomingDeliveredTimer) {
+            clearTimeout(state.incomingDeliveredTimer);
+            state.incomingDeliveredTimer = null;
+        }
+        if (state.threadMarkReadTimer) {
+            clearTimeout(state.threadMarkReadTimer);
+            state.threadMarkReadTimer = null;
+        }
+        detachThreadScroll();
+        setThreadLoading(false);
+        setOlderLoadingVisible(false);
+        state.messagesById = new Map();
+        state.messagesColRef = null;
+        state.oldestDocSnapshot = null;
+        state.hasMoreOlder = false;
+        state.loadedOlderMessages = false;
+        state.loadingOlder = false;
+        state.currentConvId = null;
+        clearPendingSkinAnalysis();
+        attachmentPreview.clear();
+        for (const key of ['conversationDocUnsubscribe', 'messagesUnsubscribe']) {
+            if (state[key]) { state[key](); state[key] = null; }
+        }
+        showPlaceholder();
+        renderConversationList();
+    }
+
     async function doSendMessage() {
         if (state.isSendingMessage) return;
         const composeEl = getComposeInputEl();
         const text = (composeEl?.value || refs.composeInput?.value || '').trim();
         const fileToUpload = attachmentPreview.getPending();
-        if ((!text && !fileToUpload) || !state.currentConvId || !auth.currentUser) return;
+        const skinSnap = state.pendingSkinAnalysis;
+        if ((!text && !fileToUpload && !skinSnap) || !state.currentConvId || !auth.currentUser) return;
 
         const textSnapshot = text;
         composeEl.value = '';
@@ -429,7 +610,11 @@ export function createMessaging(config) {
             state.isSendingMessage = false;
             if (refs.sendBtn) { refs.sendBtn.disabled = false; refs.sendBtn.removeAttribute('aria-busy'); }
         };
-        const lastPreview  = textSnapshot || (fileToUpload ? `\uD83D\uDCCE ${fileToUpload.name}` : '');
+        const lastPreview = textSnapshot
+            || (skinSnap
+                ? `Skin analysis: ${(skinSnap.savedName && String(skinSnap.savedName).trim()) || skinSnap.conditionName || 'shared'}`
+                : '')
+            || (fileToUpload ? `\uD83D\uDCCE ${fileToUpload.name}` : '');
         const safetyTimer  = setTimeout(resetSending, 15000);
 
         try {
@@ -441,6 +626,7 @@ export function createMessaging(config) {
                 text:     textSnapshot || '',
                 sentAt:   serverTimestamp(),
                 status:   'sending',
+                ...(skinSnap && { skinAnalysisShare: { ...skinSnap } }),
                 ...(attachPlaceholder && { attachment: attachPlaceholder }),
             });
             const convUpdate = {
@@ -456,6 +642,7 @@ export function createMessaging(config) {
             if (conv) { conv.lastMessage = lastPreview; conv.lastMessageAt = new Date(); renderConversationList(); }
 
             attachmentPreview.clear();
+            clearPendingSkinAnalysis();
             /* Do not call focus() here on mobile — it causes keyboard dismiss + reopen. Keep focus on
                the textarea by preventing the send button from taking focus (pointerdown/touchstart). */
 
@@ -514,7 +701,23 @@ export function createMessaging(config) {
         });
         $('messages-list-new-icon')?.addEventListener('click', doOpenModal);
         $('messages-empty-new-icon')?.addEventListener('click', doOpenModal);
-        document.addEventListener('keydown', e => { if (e.key === 'Escape') doCloseModal(); });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const skinOv = $('messages-skin-analysis-overlay');
+                if (skinOv?.classList.contains('is-open')) {
+                    skinOv.classList.remove('is-open');
+                    skinOv.setAttribute('aria-hidden', 'true');
+                    return;
+                }
+                const profOv = $('messages-profile-overlay');
+                if (profOv?.classList.contains('is-open')) {
+                    profOv.classList.remove('is-open');
+                    profOv.setAttribute('aria-hidden', 'true');
+                    return;
+                }
+                doCloseModal();
+            }
+        });
 
         /* Back: always update UI here. Mobile used history.back() so popstate would run, but the SPA
            router handles popstate first with stopImmediatePropagation and navigate() no-ops for same
@@ -688,13 +891,80 @@ export function createMessaging(config) {
             $(`${base}-menu`)?.addEventListener('click', e => e.stopPropagation());
         });
         document.addEventListener('click', () => dropdowns.forEach(dd => dd?.classList.remove('is-open')));
+
+        if (allowSkinAnalysisShare) {
+            refs.attachInput?.addEventListener('change', () => { clearPendingSkinAnalysis(); });
+            $('messages-skin-preview-remove')?.addEventListener('click', clearPendingSkinAnalysis);
+            const skinOverlay = $('messages-skin-analysis-overlay');
+            $('messages-skin-analysis-btn')?.addEventListener('click', async () => {
+                const uid = auth.currentUser?.uid;
+                if (!uid) return;
+                const listEl = $('messages-skin-analysis-list');
+                const emptyEl = $('messages-skin-analysis-empty');
+                if (!skinOverlay || !listEl) return;
+                skinOverlay.classList.add('is-open');
+                skinOverlay.setAttribute('aria-hidden', 'false');
+                listEl.innerHTML = '<li class="messages-skin-analysis-loading">Loading saved analyses…</li>';
+                emptyEl?.classList.add('is-hidden');
+                try {
+                    const rows = await listSkinAnalyses(uid);
+                    listEl.innerHTML = '';
+                    if (!rows.length) {
+                        emptyEl?.classList.remove('is-hidden');
+                        if (emptyEl) {
+                            emptyEl.textContent = 'No saved analyses yet. Save one from Skin Health Analysis first.';
+                        }
+                    } else {
+                        rows.forEach((row) => {
+                            const li = document.createElement('li');
+                            li.className = 'messages-skin-analysis-picker-item';
+                            const ms = savedAtToMs(row.savedAt);
+                            const dateStr = ms
+                                ? new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+                                : '';
+                            const conf = typeof row.confidence === 'number' ? row.confidence : 0;
+                            const imgUrl = row.imageUrl ? escapeHtml(String(row.imageUrl)) : '';
+                            const savedName = (row.savedName && String(row.savedName).trim()) || '';
+                            const condEsc = escapeHtml(String(row.conditionName || '—'));
+                            const titleEsc = escapeHtml(savedName || String(row.conditionName || '—'));
+                            const metaLine = savedName
+                                ? `${condEsc} · ${(conf * 100).toFixed(1)}% · ${escapeHtml(dateStr)}`
+                                : `${(conf * 100).toFixed(1)}% confidence · ${escapeHtml(dateStr)}`;
+                            li.innerHTML = `<button type="button" class="messages-skin-analysis-picker-btn">
+                            ${imgUrl ? `<span class="messages-skin-analysis-picker-thumb-wrap"><img src="${imgUrl}" alt="" width="48" height="48"></span>` : '<span class="messages-skin-analysis-picker-thumb-wrap messages-skin-analysis-picker-thumb-wrap--empty"><i class="fa fa-image" aria-hidden="true"></i></span>'}
+                            <span class="messages-skin-analysis-picker-text"><strong>${titleEsc}</strong><span class="messages-skin-analysis-picker-meta">${metaLine}</span></span>
+                        </button>`;
+                            li.querySelector('.messages-skin-analysis-picker-btn')?.addEventListener('click', () => {
+                                setPendingSkinAnalysis(skinAnalysisToShareSnapshot({ ...row, id: row.id }));
+                                skinOverlay.classList.remove('is-open');
+                                skinOverlay.setAttribute('aria-hidden', 'true');
+                            });
+                            listEl.appendChild(li);
+                        });
+                    }
+                } catch (err) {
+                    console.error('Load skin analyses for messages:', err);
+                    listEl.innerHTML = '<li class="messages-skin-analysis-loading">Could not load analyses.</li>';
+                }
+            });
+            skinOverlay?.querySelector('.messages-skin-analysis-close')?.addEventListener('click', () => {
+                skinOverlay.classList.remove('is-open');
+                skinOverlay.setAttribute('aria-hidden', 'true');
+            });
+            skinOverlay?.addEventListener('click', (e) => {
+                if (e.target === skinOverlay) {
+                    skinOverlay.classList.remove('is-open');
+                    skinOverlay.setAttribute('aria-hidden', 'true');
+                }
+            });
+        }
     }
 
     return {
         refs, state, isMobileView,
         setListState, setPageBootstrap, setChatView, showPlaceholder, showChat,
         renderChatMessages, renderConversationList,
-        subscribeMessages, goBackToList,
+        prepareThreadPaneForOpen, subscribeMessages, goBackToList,
         onConversationListUpdated, clearListDeliveryScheduling,
         showModalError, setTriggerText, openModal, closeModal,
         resizeComposeInput,

@@ -13,7 +13,7 @@ import {
     buildScheduleDonutConicGradient,
     fetchVetScheduleSlotCounts,
 } from '../appointment/vet/schedule-slot-counts.js';
-import { escapeHtml, formatTime12h } from '../../core/app/utils.js';
+import { escapeHtml, formatDisplayName, formatTime12h } from '../../core/app/utils.js';
 import {
     extractTimeRangeFromDisplay,
     formatAppointmentDateNoWeekday,
@@ -505,8 +505,8 @@ function buildUpcomingAppointmentRowsMarkup(rows) {
     return rows
         .map((apt, idx) => {
             const isNext = idx === 0;
-            const ownerName = apt.ownerName || '—';
-            const petName = apt.petName || '—';
+            const ownerName = apt.ownerName ? formatDisplayName(apt.ownerName) : '—';
+            const petName = apt.petName ? formatDisplayName(apt.petName) : '—';
             const apptTitle = (apt.title && String(apt.title).trim()) || '—';
             const initials = initialsFromName(ownerName);
             const ownerPhotoUrl = (apt.ownerPhotoUrl && String(apt.ownerPhotoUrl).trim()) || '';
@@ -743,8 +743,8 @@ function renderCompletedConsultationsModalBody(listEl, rows) {
                 Number.isFinite(vcMs) && vcMs > 0 ? formatCompactDateTime(vcMs) : '—';
             const apptIdAttr = r.id ? escapeHtml(r.id) : '';
             return `<tr data-appt-id="${apptIdAttr}">
-                <td>${escapeHtml(r.ownerName)}</td>
-                <td>${escapeHtml(r.petName)}</td>
+                <td>${escapeHtml(r.ownerName ? formatDisplayName(r.ownerName) : '—')}</td>
+                <td>${escapeHtml(r.petName ? formatDisplayName(r.petName) : '—')}</td>
                 <td>${escapeHtml(title)}</td>
                 <td>${scheduledAt}</td>
                 <td class="dashboard-completed-ended-at">${escapeHtml(endedAtLabel)}</td>
@@ -799,8 +799,8 @@ function renderTodayNewBookingsModalBody(listEl, bookings) {
             const timePart =
                 extractTimeRangeFromDisplay(b.timeDisplay) ?? (b.timeDisplay || '—');
             return `<tr>
-                <td>${escapeHtml(b.ownerName)}</td>
-                <td>${escapeHtml(b.petName)}</td>
+                <td>${escapeHtml(b.ownerName ? formatDisplayName(b.ownerName) : '—')}</td>
+                <td>${escapeHtml(b.petName ? formatDisplayName(b.petName) : '—')}</td>
                 <td>${escapeHtml(title)}</td>
                 <td>${escapeHtml(dateFormatted)} <span class="dashboard-new-bookings-sep" aria-hidden="true">·</span> ${escapeHtml(timePart)}</td>
             </tr>`;
@@ -880,7 +880,7 @@ function renderTransactionsModalBody(bodyEl, rows) {
             const scheduledAt = `${escapeHtml(dateFormatted)} <span class="dashboard-new-bookings-sep" aria-hidden="true">·</span> ${escapeHtml(timePart)}`;
             const bookedAt = escapeHtml(formatCompactDateTime(t.createdMs));
             return `<tr>
-                <td>${escapeHtml(t.ownerName)}</td>
+                <td>${escapeHtml(t.ownerName ? formatDisplayName(t.ownerName) : '—')}</td>
                 <td>${bookedAt}</td>
                 <td>${scheduledAt}</td>
                 <td>${escapeHtml(formatPhpCentavos(t.costCentavos))}</td>

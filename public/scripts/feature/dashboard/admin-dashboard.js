@@ -1,6 +1,6 @@
 /** Televet Health — Admin dashboard: list users, reports, disable/enable/delete via Cloud Functions */
 import { app, auth } from '../../core/firebase/firebase-config.js';
-import { escapeHtml, roleIdToDisplayLabel } from '../../core/app/utils.js';
+import { escapeHtml, formatDisplayName, roleIdToDisplayLabel } from '../../core/app/utils.js';
 import { initPasswordToggleFields } from '../../core/app/password-toggle.js';
 import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-functions.js';
 import { appAlertError, appConfirm } from '../../core/ui/app-dialog.js';
@@ -69,7 +69,7 @@ import { appAlertError, appConfirm } from '../../core/ui/app-dialog.js';
     let currentUser = null;
 
     const esc = escapeHtml;
-    const nameOf = u => (u.displayName || '').trim() || [u.firstName, u.lastName].filter(Boolean).join(' ').trim() || 'User';
+    const nameOf = u => formatDisplayName((u.displayName || '').trim() || [u.firstName, u.lastName].filter(Boolean).join(' ').trim() || 'User');
     const toDate = (ts) => {
         if (!ts) return null;
         if (typeof ts?.toDate === 'function') return ts.toDate();

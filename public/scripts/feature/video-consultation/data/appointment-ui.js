@@ -1,5 +1,5 @@
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
-import { withDr } from '../../../core/app/utils.js';
+import { formatDisplayName, withDr } from '../../../core/app/utils.js';
 import { formatAppointmentDateNoWeekday } from '../../appointment/shared/time.js';
 import { ownerDisplayName, vetDisplayName } from '../../messaging/shared-messaging.js';
 import { buildSharedMediaMarkup } from '../utils/shared-media.js';
@@ -54,7 +54,10 @@ export async function populateVideoCallAppointmentUI(options = {}) {
         $ = (id) => document.getElementById(id),
     } = options;
 
-    const petName = appointmentData.petName || 'Pet';
+    const petName = (() => {
+        const raw = (appointmentData.petName || '').toString().trim();
+        return raw ? formatDisplayName(raw) : 'Pet';
+    })();
     const detailsPetNameEl = $('details-pet-name');
     const petLabelEl = document.getElementById('pet-name-label');
     if (petLabelEl) petLabelEl.textContent = petName;
@@ -247,7 +250,8 @@ export async function populateVideoCallAppointmentUI(options = {}) {
     try {
         const meSnap = await getDoc(doc(db, 'users', user.uid));
         const meData = meSnap.exists() ? meSnap.data() : {};
-        myName = (meData.displayName || user.displayName || '').trim() || myName;
+        const rawMy = (meData.displayName || user.displayName || '').trim();
+        myName = (rawMy ? formatDisplayName(rawMy) : '') || myName;
         myPhotoURL = userProfilePhotoFromDoc(meData) || String(user?.photoURL || '').trim();
     } catch (e) {
         console.warn('Could not load current user for label', e);

@@ -1,4 +1,6 @@
 /** Veterinary consultation summary PDF (jsPDF). */
+import { formatDisplayName } from '../app/utils.js';
+
 const NOTES_LABELS = [
     ['observation', 'Observation'],
     ['assessment', 'Assessment'],
@@ -52,15 +54,24 @@ export async function generateConsultationPDF(data) {
     const notes = data.consultationNotes || {};
     const dateTimeStr = data.consultationDateTime || [apt.dateStr, apt.timeDisplay || (apt.slotStart ? `${apt.slotStart} – ${apt.slotEnd || ''}` : '')].filter(Boolean).join(' | ') || '—';
 
-    const ownerName = orDash(owner.displayName || owner.ownerName || owner.name);
+    const ownerNameRaw = owner.displayName || owner.ownerName || owner.name;
+    const ownerName = ownerNameRaw != null && String(ownerNameRaw).trim() !== ''
+        ? formatDisplayName(String(ownerNameRaw).trim())
+        : '—';
     const ownerAddress = orDash(owner.address);
     const ownerEmail = orDash(owner.email || owner.ownerEmail);
 
-    const vetName = orDash(vet.displayName || vet.vetName || vet.name);
+    const vetNameRaw = vet.displayName || vet.vetName || vet.name;
+    const vetName = vetNameRaw != null && String(vetNameRaw).trim() !== ''
+        ? formatDisplayName(String(vetNameRaw).trim())
+        : '—';
     const clinicName = orDash(vet.clinicName || vet.clinic);
     const clinicEmail = orDash(vet.clinicEmail || vet.email);
 
-    const petName = orDash(pet.name || pet.petName);
+    const petNameRaw = pet.name || pet.petName;
+    const petName = petNameRaw != null && String(petNameRaw).trim() !== ''
+        ? formatDisplayName(String(petNameRaw).trim())
+        : '—';
     const species = orDash(pet.species);
     const breed = orDash(pet.breed);
     const age = orDash(pet.age);

@@ -20,8 +20,13 @@ import { getAppointmentSlotEndDate,
 } from '../video-consultation/utils/appointment-time.js';
 import { downloadConsultationReportForAppointment } from '../consultation/consultation-pdf-download.js';
 import { loadPets, loadVetProfile } from '../appointment/petowner/services.js';
-import { escapeHtml } from '../../core/app/utils.js';
+import { escapeHtml, formatDisplayName } from '../../core/app/utils.js';
 import { getAppointmentSharedMediaKind } from '../../core/app/appointment-media-kind.js';
+import {
+    buildDetailsAttachedSkinAnalysisHtml,
+    wireDetailsAttachedSkinThumbnails,
+} from '../appointment/shared/details-attached-skin-html.js';
+import { enrichAppointmentAttachedSkinFromHistory } from '../skin-disease/skin-analysis-repository.js';
 
 const dateEl = document.getElementById('dashboard-date');
 if (dateEl) {
@@ -313,7 +318,7 @@ function renderPastConsultations() {
     pastRowsEl.innerHTML = '';
 
     past.forEach((apt) => {
-        const vetName = apt.vetName || '—';
+        const vetName = apt.vetName ? formatDisplayName(apt.vetName) : '—';
         const apptTitle = (apt.title && String(apt.title).trim()) || '—';
         const timeLabel = getAppointmentTimeDisplay(apt);
 
@@ -397,7 +402,7 @@ function renderTransactionsModalBody(bodyEl, rows) {
             const scheduledAt = `${escapeHtml(dateFormatted)} <span class="dashboard-new-bookings-sep" aria-hidden="true">·</span> ${escapeHtml(timePart)}`;
             const paidAt = escapeHtml(formatCompactDateTime(t.createdMs));
             return `<tr>
-                <td>${escapeHtml(t.vetName || '—')}</td>
+                <td>${escapeHtml(t.vetName ? formatDisplayName(t.vetName) : '—')}</td>
                 <td>${paidAt}</td>
                 <td>${scheduledAt}</td>
                 <td>${escapeHtml(formatPhpCentavos(t.costCentavos))}</td>
@@ -552,24 +557,45 @@ function closeDetailsModal() {
     document.body.style.overflow = '';
 }
 
-function openDetailsModal(apt) {
+async function openDetailsModal(apt) {
     if (!apt || !detailsOverlay || !detailsModalEl) return;
+
+    let aptUi = apt;
+    try {
+        aptUi = await enrichAppointmentAttachedSkinFromHistory(apt);
+    } catch (_) {
+        aptUi = apt;
+    }
 
     const detailsTitleEl = $('details-title');
     if (detailsTitleEl) {
-        const t = apt.title?.trim();
+        const t = aptUi.title?.trim();
         detailsTitleEl.textContent = t || '-';
         detailsTitleEl.classList.toggle('is-empty', !t);
     }
-    $('details-vet-name').textContent = apt.vetName || '-';
-    $('details-date').textContent = formatAppointmentDate(apt.date || apt.dateStr);
-    $('details-time').textContent = getAppointmentTimeDisplay(apt);
+    $('details-vet-name').textContent = aptUi.vetName ? formatDisplayName(aptUi.vetName) : '-';
+    $('details-date').textContent = formatAppointmentDate(aptUi.date || aptUi.dateStr);
+    $('details-time').textContent = getAppointmentTimeDisplay(aptUi);
     const payRow = $('details-payment');
-    if (payRow) payRow.textContent = apt.paid === true ? 'Paid' : '-';
-    $('details-concern').textContent = apt.reason?.trim() || '-';
-    $('details-appointment-id').textContent = apt.id || '-';
+    if (payRow) payRow.textContent = aptUi.paid === true ? 'Paid' : '-';
+    $('details-concern').textContent = aptUi.reason?.trim() || '-';
+    $('details-appointment-id').textContent = aptUi.id || '-';
 
-    const mediaUrls = Array.isArray(apt.mediaUrls) ? apt.mediaUrls : [];
+    const skinWrap = $('details-attached-skin');
+    const skinInner = $('details-attached-skin-inner');
+    if (skinWrap && skinInner) {
+        const s = aptUi.attachedSkinAnalysis;
+        if (s && s.imageUrl) {
+            skinWrap.classList.remove('is-hidden');
+            skinInner.innerHTML = buildDetailsAttachedSkinAnalysisHtml(s);
+            wireDetailsAttachedSkinThumbnails(skinInner);
+        } else {
+            skinWrap.classList.add('is-hidden');
+            skinInner.innerHTML = '';
+        }
+    }
+
+    const mediaUrls = Array.isArray(aptUi.mediaUrls) ? aptUi.mediaUrls : [];
     const placeholderEl = $('details-shared-images-placeholder');
     const listEl = $('details-shared-images-list');
     if (placeholderEl) placeholderEl.classList.toggle('is-hidden', mediaUrls.length > 0);
@@ -641,7 +667,7 @@ function openDetailsModal(apt) {
     const vetFallback = $('details-vet-avatar-fallback');
     if (vetImg) { vetImg.style.display = 'none'; vetImg.src = ''; vetImg.style.opacity = ''; }
     if (vetFallback) vetFallback.classList.add('visible');
-    loadVetProfile(apt.vetId).then((vet) => {
+    loadVetProfile(aptUi.vetId).then((vet) => {
         if (vet?.photoURL && vetImg) {
             vetImg.style.opacity = '0';
             vetImg.style.transition = 'opacity 0.35s ease';
@@ -660,23 +686,23 @@ function openDetailsModal(apt) {
     if (petImg) { petImg.style.display = 'none'; petImg.src = ''; petImg.style.opacity = ''; }
     if (petFallback) {
         petFallback.classList.add('visible');
-        petFallback.innerHTML = (apt.petSpecies || '').toLowerCase() === 'cat'
+        petFallback.innerHTML = (aptUi.petSpecies || '').toLowerCase() === 'cat'
             ? '<i class="fa-solid fa-cat" aria-hidden="true"></i>'
             : '<i class="fa fa-paw" aria-hidden="true"></i>';
     }
-    if (petAvatarWrap) petAvatarWrap.classList.toggle('details-pet-avatar-wrap--cat', (apt.petSpecies || '').toLowerCase() === 'cat');
-    $('details-pet-name').textContent = apt.petName || '-';
+    if (petAvatarWrap) petAvatarWrap.classList.toggle('details-pet-avatar-wrap--cat', (aptUi.petSpecies || '').toLowerCase() === 'cat');
+    $('details-pet-name').textContent = aptUi.petName ? formatDisplayName(aptUi.petName) : '-';
     $('details-pet-age').textContent = '-';
     $('details-pet-weight').textContent = '-';
-    const initSp = (apt.petSpecies || '').trim();
+    const initSp = (aptUi.petSpecies || '').trim();
     $('details-pet-species').textContent = initSp ? initSp.charAt(0).toUpperCase() + initSp.slice(1).toLowerCase() : '-';
     if (auth.currentUser) {
         loadPets(auth.currentUser.uid).then((pets) => {
-            const pet = pets.find((p) => p.id === apt.petId);
+            const pet = pets.find((p) => p.id === aptUi.petId);
             if (!pet) return;
             $('details-pet-age').textContent = formatPetAge(pet.age);
             $('details-pet-weight').textContent = formatPetWeight(pet.weight);
-            const sp = (pet.species || apt.petSpecies || '').trim();
+            const sp = (pet.species || aptUi.petSpecies || '').trim();
             $('details-pet-species').textContent = sp ? sp.charAt(0).toUpperCase() + sp.slice(1).toLowerCase() : '-';
             if (pet.imageUrl && petImg) {
                 petImg.style.opacity = '0';
@@ -691,7 +717,7 @@ function openDetailsModal(apt) {
         });
     }
 
-    currentDetailsApt = apt;
+    currentDetailsApt = aptUi;
 
     if (detailsDownloadPdfBtn) { detailsDownloadPdfBtn.classList.add('is-hidden'); detailsDownloadPdfBtn.setAttribute('hidden', ''); }
     if (detailsJoinBtn) {
@@ -702,13 +728,13 @@ function openDetailsModal(apt) {
         detailsJoinBtn.innerHTML = '<i class="fa fa-video-camera" aria-hidden="true"></i><span class="details-join-btn-text">Loading...</span>';
         detailsJoinBtn.classList.add('is-past');
     }
-    getDoc(doc(db, 'appointments', apt.id, 'videoCall', 'room')).then((videoSnap) => {
+    getDoc(doc(db, 'appointments', aptUi.id, 'videoCall', 'room')).then((videoSnap) => {
         const videoCall = videoSnap.exists() ? videoSnap.data() : null;
         detailsJoinBtn?.classList.remove('is-loading-video-status');
-        updateDetailsJoinButton(apt, videoCall);
+        updateDetailsJoinButton(aptUi, videoCall);
     }).catch(() => {
         detailsJoinBtn?.classList.remove('is-loading-video-status');
-        updateDetailsJoinButton(apt, null);
+        updateDetailsJoinButton(aptUi, null);
     });
 
     if (detailsJoinCheckTimer) clearInterval(detailsJoinCheckTimer);
@@ -827,6 +853,14 @@ detailsJoinBtn?.addEventListener('click', () => {
         e.preventDefault();
         const kind = btn.dataset.mediaKind || (btn.dataset.isImage === 'true' ? 'image' : 'pdf');
         openLB(btn.dataset.url, kind);
+    });
+    const skinInnerEl = $('details-attached-skin-inner');
+    skinInnerEl?.addEventListener('click', (e) => {
+        const thumbBtn = e.target.closest('.details-attached-skin-img-btn');
+        const url = thumbBtn?.dataset?.skinFullImageUrl || thumbBtn?.querySelector('.details-attached-skin-thumb')?.src;
+        if (!url) return;
+        e.preventDefault();
+        openLB(url, 'image');
     });
 })();
 

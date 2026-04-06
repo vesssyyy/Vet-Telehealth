@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="../../assets/Browser-logo.png">
     <link rel="stylesheet" href="../../styles/shared/desktop-zoom.css">
     <title>Online Consultations - Televet Health</title>
     <link rel="stylesheet" href="../../styles/petowner/sidebar-layout.css">
@@ -155,11 +156,11 @@
                                 <textarea id="booking-reason" name="reason" rows="4" required></textarea>
                             </div>
                             <div class="booking-form-group">
-                                <label class="booking-upload-label">Photos, videos, or documents <span class="booking-label-optional">(optional, max 3)</span></label>
-                                <div class="booking-upload-zone" id="booking-upload-zone" role="button" tabindex="0" aria-label="Add photos, videos, or documents">
+                                <label class="booking-upload-label">Photos, videos, or documents <span class="booking-label-optional">(optional; max 3 total with skin analysis)</span></label>
+                                <div class="booking-upload-zone" id="booking-upload-zone" role="button" tabindex="0" aria-label="Add photos, videos, or documents. Up to three attachments total including skin analysis.">
                                     <div class="booking-upload-zone-inner">
                                         <i class="fa fa-cloud-upload booking-upload-icon" aria-hidden="true"></i>
-                                        <p class="booking-upload-text">Drop or click — up to 3 files</p>
+                                        <p class="booking-upload-text">Drop or click — up to 3 attachments total</p>
                                     </div>
                                 </div>
                                 <input type="file" id="booking-media" name="media" accept="image/*,.pdf,video/*,.mp4,.webm,.mov,.m4v" multiple class="booking-media-input-hidden">
@@ -167,7 +168,16 @@
                                 <div class="booking-add-more-wrap is-hidden" id="booking-add-more-wrap">
                                     <button type="button" class="booking-add-more-btn" id="booking-add-more-btn" aria-label="Add another file"><i class="fa fa-plus" aria-hidden="true"></i> Add more</button>
                                 </div>
-                                <p class="booking-form-hint booking-upload-hint is-hidden" id="booking-upload-hint" role="alert">Maximum 3 files.</p>
+                                <p class="booking-form-hint booking-upload-hint is-hidden" id="booking-upload-hint" role="alert">Maximum 3 attachments (files and skin analysis combined).</p>
+                            </div>
+                            <div class="booking-form-group">
+                                <label>Skin health analysis <span class="booking-label-optional">(optional; counts toward max 3)</span></label>
+                                <p class="booking-form-hint booking-skin-hint">Attach a saved analysis for your vet to review. Uses one of your three attachment slots.</p>
+                                <button type="button" class="booking-skin-attach-btn" id="booking-skin-attach-btn"><i class="fa fa-stethoscope" aria-hidden="true"></i> Attach saved analysis</button>
+                                <div class="booking-skin-attach-preview is-hidden" id="booking-skin-attach-preview">
+                                    <span id="booking-skin-attach-preview-text"></span>
+                                    <button type="button" class="booking-skin-attach-remove" id="booking-skin-attach-remove" aria-label="Remove attached analysis"><i class="fa fa-times" aria-hidden="true"></i></button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -180,6 +190,19 @@
                 </form>
             </div>
         </div>
+
+        <div class="booking-skin-overlay" id="booking-skin-overlay" aria-hidden="true">
+            <div class="booking-skin-modal" role="dialog" aria-modal="true" aria-labelledby="booking-skin-modal-title">
+                <div class="booking-skin-modal-head">
+                    <h2 id="booking-skin-modal-title" class="booking-skin-modal-title">Attach saved analysis</h2>
+                    <button type="button" class="booking-skin-modal-close" id="booking-skin-modal-close" aria-label="Close"><i class="fa fa-times" aria-hidden="true"></i></button>
+                </div>
+                <p class="booking-skin-modal-empty is-hidden" id="booking-skin-modal-empty"></p>
+                <ul class="booking-skin-modal-list" id="booking-skin-modal-list" role="list"></ul>
+            </div>
+        </div>
+
+        <div id="booking-app-toast" class="booking-app-toast is-hidden" role="status" aria-live="polite" aria-hidden="true"></div>
 
         <!-- Appointment Details Modal -->
         <div class="details-modal-overlay" id="details-modal-overlay" aria-hidden="true">
@@ -238,6 +261,10 @@
                             <span class="details-appointment-label"><i class="fa fa-id-badge" aria-hidden="true"></i> Appointment ID:</span>
                             <span class="details-appointment-value details-appointment-value--id" id="details-appointment-id">-</span>
                         </div>
+                    </div>
+                    <div class="details-attached-skin is-hidden" id="details-attached-skin">
+                        <h3 class="details-shared-images-title"><i class="fa fa-stethoscope" aria-hidden="true"></i> Attached skin analysis</h3>
+                        <div class="details-attached-skin-inner" id="details-attached-skin-inner"></div>
                     </div>
                     <div class="details-shared-images">
                         <h3 class="details-shared-images-title"><i class="fa fa-picture-o" aria-hidden="true"></i> Shared Images &amp; Files</h3>

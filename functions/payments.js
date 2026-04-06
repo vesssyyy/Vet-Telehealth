@@ -1,5 +1,7 @@
 'use strict';
 
+const { formatDisplayName } = require('./format-display-name');
+
 function makePayments({
   onCall,
   HttpsError,
@@ -86,11 +88,11 @@ function makePayments({
   async function buildPaymongoConsultationDescription(request, data) {
     const token = request.auth.token || {};
     const ownerEmail = paymongoDescriptionPart(token.email, 120);
-    let ownerName = paymongoDescriptionPart(token.name, 80);
+    let ownerName = paymongoDescriptionPart(formatDisplayName(token.name || ''), 80);
     if (!ownerName && request.auth?.uid) {
       try {
         const rec = await admin.auth().getUser(request.auth.uid);
-        ownerName = paymongoDescriptionPart(rec.displayName, 80);
+        ownerName = paymongoDescriptionPart(formatDisplayName(rec.displayName || ''), 80);
       } catch (_) {
         /* ignore */
       }
@@ -100,10 +102,10 @@ function makePayments({
       : ownerName || ownerEmail || 'Pet owner';
 
     const title = paymongoDescriptionPart(data?.consultationTitle, 120);
-    const vet = paymongoDescriptionPart(data?.vetName, 100);
-    const clinic = paymongoDescriptionPart(data?.clinicName, 80);
+    const vet = paymongoDescriptionPart(formatDisplayName(data?.vetName || ''), 100);
+    const clinic = paymongoDescriptionPart(formatDisplayName(data?.clinicName || ''), 80);
     const vetLine = vet && clinic ? `${vet} · ${clinic}` : vet || clinic || '';
-    const pet = paymongoDescriptionPart(data?.petName, 80);
+    const pet = paymongoDescriptionPart(formatDisplayName(data?.petName || ''), 80);
 
     const parts = [];
     if (title) parts.push(`Title: ${title}`);
@@ -142,11 +144,11 @@ function makePayments({
     const amount = typeof amountRaw === 'number' && Number.isFinite(amountRaw)
       ? Math.floor(amountRaw)
       : 10000;
-    const minAmount = paymentMethod === 'qrph' ? 2000 : 10000;
+    const minAmount = 200; // PHP 2.00 (centavos); raise if your PayMongo account requires a higher floor
     if (amount < minAmount) {
       throw new HttpsError(
         'invalid-argument',
-        `Amount must be at least ${minAmount} (${paymentMethod === 'qrph' ? 'PHP 20.00' : 'PHP 100.00'}).`,
+        `Amount must be at least ${minAmount} centavos (PHP 2.00).`,
       );
     }
     const uid = request.auth.uid;

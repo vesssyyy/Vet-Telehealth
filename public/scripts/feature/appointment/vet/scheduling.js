@@ -19,6 +19,12 @@ import { registerTemplateEvents, createTemplateApi } from './template.js';
 import { registerViewModeEvents, createViewRenderingApi } from './view-mode.js';
 import { registerModalEvents, createEditDayApi, createDetailsApi, createBookingSettingsApi } from './modals.js';
 import { registerBlockDatesEvents, createBlockDatesApi } from './block-dates.js';
+import {
+    DEFAULT_CONSULTATION_PRICE_CENTAVOS_TEST,
+    DEFAULT_CONSULTATION_PRICE_CENTAVOS_LIVE,
+    MIN_CONSULTATION_PRICE_CENTAVOS_LIVE,
+    MIN_CONSULTATION_PRICE_CENTAVOS_TEST,
+} from '../shared/constants.js';
 
 (function () {
     'use strict';
@@ -43,7 +49,11 @@ import { registerBlockDatesEvents, createBlockDatesApi } from './block-dates.js'
     // === State ===
     let selectedDay = 'monday', editingTemplateId = null, cachedTemplates = [], weekSlots = {}, daySlots = [];
     let templateType = 'week', gridViewActive = false, cachedSchedules = null, nextCleanupTimerId = null;
-    let cachedVetSettings = { minAdvanceBookingMinutes: DEFAULT_MIN_ADVANCE_MINUTES };
+    let cachedVetSettings = {
+        minAdvanceBookingMinutes: DEFAULT_MIN_ADVANCE_MINUTES,
+        consultationPriceCentavosTest: DEFAULT_CONSULTATION_PRICE_CENTAVOS_TEST,
+        consultationPriceCentavosLive: DEFAULT_CONSULTATION_PRICE_CENTAVOS_LIVE,
+    };
     let currentTemplateAction = null, schedulesUnsubscribe = null;
     let blockCalendarMonth = null, blockSelectedDates = new Set(), blockPreviouslyBlocked = new Set();
     let editDayDateStr = null, editDaySlots = [];
@@ -144,6 +154,28 @@ import { registerBlockDatesEvents, createBlockDatesApi } from './block-dates.js'
     function getActiveSlotFilter() { return document.querySelector('.schedules-slot-btn.active')?.dataset?.slotFilter || 'all'; }
     function getMinAdvanceMinutes() { return cachedVetSettings?.minAdvanceBookingMinutes ?? DEFAULT_MIN_ADVANCE_MINUTES; }
 
+    function normalizeConsultationPriceTest(raw) {
+        const fallback = DEFAULT_CONSULTATION_PRICE_CENTAVOS_TEST;
+        const n = typeof raw === 'number' && Number.isFinite(raw) ? Math.floor(raw) : fallback;
+        if (n < MIN_CONSULTATION_PRICE_CENTAVOS_TEST) return fallback;
+        return n;
+    }
+
+    function normalizeConsultationPriceLive(raw) {
+        const fallback = DEFAULT_CONSULTATION_PRICE_CENTAVOS_LIVE;
+        const n = typeof raw === 'number' && Number.isFinite(raw) ? Math.floor(raw) : fallback;
+        if (n < MIN_CONSULTATION_PRICE_CENTAVOS_LIVE) return fallback;
+        return n;
+    }
+
+    function getConsultationPriceCentavosTest() {
+        return normalizeConsultationPriceTest(cachedVetSettings?.consultationPriceCentavosTest);
+    }
+
+    function getConsultationPriceCentavosLive() {
+        return normalizeConsultationPriceLive(cachedVetSettings?.consultationPriceCentavosLive);
+    }
+
     /** Compute expiryTime (ms) for a slot: slot start time minus advance booking limit. */
     function computeExpiryTimeMs(dateStr, slotStart, minAdvanceMinutes) {
         const [h, m] = (slotStart || '').split(':').map(Number);
@@ -221,19 +253,46 @@ import { registerBlockDatesEvents, createBlockDatesApi } from './block-dates.js'
             const snap = await getDoc(vetSettingsDoc(user.uid));
             if (snap.exists()) {
                 const data = snap.data();
-                cachedVetSettings = { minAdvanceBookingMinutes: data.minAdvanceBookingMinutes ?? DEFAULT_MIN_ADVANCE_MINUTES };
+                const legacy = data.consultationPriceCentavos;
+                cachedVetSettings = {
+                    minAdvanceBookingMinutes: data.minAdvanceBookingMinutes ?? DEFAULT_MIN_ADVANCE_MINUTES,
+                    consultationPriceCentavosTest: normalizeConsultationPriceTest(
+                        data.consultationPriceCentavosTest ?? legacy,
+                    ),
+                    consultationPriceCentavosLive: normalizeConsultationPriceLive(
+                        data.consultationPriceCentavosLive ?? legacy,
+                    ),
+                };
             }
         } catch (err) {
             console.error('Load vet settings error:', err);
         }
     }
 
-    async function saveVetSettings(minAdvanceMinutes) {
+    /**
+     * @param {object} updates
+     * @param {number} [updates.minAdvanceBookingMinutes]
+     * @param {number} [updates.consultationPriceCentavosTest]
+     * @param {number} [updates.consultationPriceCentavosLive]
+     */
+    async function saveVetSettings(updates) {
         const user = auth.currentUser;
         if (!user) return;
+        const test = normalizeConsultationPriceTest(
+            updates.consultationPriceCentavosTest ?? cachedVetSettings.consultationPriceCentavosTest,
+        );
+        const live = normalizeConsultationPriceLive(
+            updates.consultationPriceCentavosLive ?? cachedVetSettings.consultationPriceCentavosLive,
+        );
+        const next = {
+            minAdvanceBookingMinutes: updates.minAdvanceBookingMinutes ?? cachedVetSettings.minAdvanceBookingMinutes,
+            consultationPriceCentavosTest: test,
+            consultationPriceCentavosLive: live,
+            consultationPriceCentavos: test,
+        };
         try {
-            await setDoc(vetSettingsDoc(user.uid), { minAdvanceBookingMinutes: minAdvanceMinutes }, { merge: true });
-            cachedVetSettings = { minAdvanceBookingMinutes: minAdvanceMinutes };
+            await setDoc(vetSettingsDoc(user.uid), next, { merge: true });
+            cachedVetSettings = { ...cachedVetSettings, ...next };
         } catch (err) {
             console.error('Save vet settings error:', err);
             throw err;
@@ -802,8 +861,13 @@ import { registerBlockDatesEvents, createBlockDatesApi } from './block-dates.js'
 
         const bookingSettingsApi = createBookingSettingsApi({
             $, setModalVisible, onOverlayClick,
-            getMinAdvanceMinutes, formatMinutesForDisplay,
+            getMinAdvanceMinutes,
+            getConsultationPriceCentavosTest,
+            getConsultationPriceCentavosLive,
+            formatMinutesForDisplay,
             MIN_ADVANCE_MIN, MIN_ADVANCE_MAX_MINUTES,
+            MIN_CONSULTATION_PRICE_CENTAVOS_LIVE,
+            MIN_CONSULTATION_PRICE_CENTAVOS_TEST,
             saveVetSettings, invalidateSchedulesCache, recalcExpiryForFutureSlots,
             scheduleNextExpiryRerender, getCachedSchedules: () => cachedSchedules,
             getGridViewActive: () => gridViewActive,
@@ -811,7 +875,9 @@ import { registerBlockDatesEvents, createBlockDatesApi } from './block-dates.js'
             showToast
         });
         const updateMinAdvanceInputs = bookingSettingsApi.updateMinAdvanceInputs;
+        const updateConsultationPriceInputs = bookingSettingsApi.updateConsultationPriceInputs;
         const updateCurrentAdvanceDisplay = bookingSettingsApi.updateCurrentAdvanceDisplay;
+        const updateCurrentConsultationFeeDisplay = bookingSettingsApi.updateCurrentConsultationFeeDisplay;
         const openBookingSettingsModal = bookingSettingsApi.openBookingSettingsModal;
         const closeBookingSettingsModal = bookingSettingsApi.closeBookingSettingsModal;
         bookingSettingsApi.bindBookingSettingsEvents();
@@ -888,7 +954,9 @@ import { registerBlockDatesEvents, createBlockDatesApi } from './block-dates.js'
         async function initAppointments() {
             await loadVetSettings();
             updateMinAdvanceInputs();
+            updateConsultationPriceInputs();
             updateCurrentAdvanceDisplay();
+            updateCurrentConsultationFeeDisplay();
             loadTemplates();
             await ensureSchedulesLoaded();
             await markExpiredSlotsInFirebase();

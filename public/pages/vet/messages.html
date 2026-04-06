@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="../../assets/Browser-logo.png">
     <link rel="stylesheet" href="../../styles/shared/desktop-zoom.css">
     <title>Messages - Televet Health (Vet)</title>
     <link rel="stylesheet" href="../../styles/vet/sidebar-layout.css">
@@ -137,20 +138,36 @@
                 <div class="messages-chat-active is-hidden" id="messages-chat-active">
                     <header class="messages-chat-header">
                         <button type="button" class="messages-chat-back" id="messages-chat-back" aria-label="Back to list"><i class="fa fa-arrow-left" aria-hidden="true"></i></button>
-                        <div class="messages-chat-header-info">
-                            <div class="messages-chat-avatar">
-                                <img id="messages-chat-owner-img" class="messages-chat-avatar-img is-hidden" alt="" src="">
-                                <span class="messages-chat-avatar-fallback" id="messages-chat-owner-fallback"><i class="fa fa-user" aria-hidden="true"></i></span>
-                            </div>
-                            <div class="messages-chat-header-text">
-                                <span class="messages-chat-owner-name" id="messages-chat-owner-name"></span>
-                                <span class="messages-chat-owner-sub" id="messages-chat-owner-sub"></span>
-                                <span class="messages-chat-pet-badge" id="messages-chat-pet-badge"></span>
-                            </div>
+                        <div class="messages-chat-header-profiles">
+                            <button type="button" class="messages-chat-profile-pill" id="messages-chat-peer-profile" aria-label="View pet owner profile">
+                                <span class="messages-chat-profile-avatar">
+                                    <img id="messages-chat-peer-img" class="messages-chat-avatar-img is-hidden" alt="" src="" loading="eager" fetchpriority="high" decoding="async">
+                                    <span class="messages-chat-avatar-fallback" id="messages-chat-peer-fallback"><i class="fa fa-user" aria-hidden="true"></i></span>
+                                </span>
+                                <span class="messages-chat-profile-name messages-chat-profile-name--peer" id="messages-chat-peer-name"></span>
+                            </button>
+                            <button type="button" class="messages-chat-profile-pill messages-chat-profile-pill--pet" id="messages-chat-pet-profile" aria-label="View pet profile">
+                                <span class="messages-chat-profile-avatar messages-chat-profile-avatar--pet">
+                                    <img id="messages-chat-pet-img" class="messages-chat-avatar-img is-hidden" alt="" src="" loading="eager" fetchpriority="high" decoding="async">
+                                    <span class="messages-chat-avatar-fallback" id="messages-chat-pet-fallback"><i class="fa fa-paw" aria-hidden="true"></i></span>
+                                </span>
+                                <span class="messages-chat-profile-name messages-chat-profile-name--pet" id="messages-chat-pet-name"></span>
+                            </button>
                         </div>
                     </header>
-                    <div class="messages-chat-body" id="messages-chat-body" role="log" aria-live="polite"></div>
+                    <div class="messages-chat-messages-stack">
+                        <div class="messages-thread-loading is-hidden" id="messages-thread-loading" aria-hidden="true">
+                            <div class="messages-loading-spinner" aria-hidden="true"></div>
+                            <p class="messages-thread-loading-text">Loading conversation…</p>
+                        </div>
+                        <div class="messages-thread-older-status is-hidden" id="messages-thread-older-status" aria-live="polite"></div>
+                        <div class="messages-chat-body" id="messages-chat-body" role="log" aria-live="polite"></div>
+                    </div>
                     <div class="messages-chat-compose">
+                        <div class="messages-compose-skin-preview is-hidden" id="messages-skin-preview">
+                            <span class="messages-skin-preview-name" id="messages-skin-preview-name"></span>
+                            <button type="button" class="messages-skin-preview-remove" id="messages-skin-preview-remove" aria-label="Remove skin analysis"><i class="fa fa-times"></i></button>
+                        </div>
                         <div class="messages-compose-attachment-preview is-hidden" id="messages-attach-preview">
                             <span class="messages-attach-preview-name" id="messages-attach-preview-name"></span>
                             <button type="button" class="messages-attach-preview-remove" id="messages-attach-preview-remove" aria-label="Remove attachment"><i class="fa fa-times"></i></button>
@@ -159,6 +176,7 @@
                             <div class="messages-compose-input-wrap">
                                 <input type="file" id="messages-attach-input" class="messages-attach-input" accept="image/*,video/*,.mp4,.webm,.mov,.m4v,.ogv,.pdf,.doc,.docx" hidden aria-label="Attach file">
                                 <div class="messages-compose-icons">
+                                    <button type="button" class="messages-compose-icon-btn" id="messages-skin-analysis-btn" aria-label="Attach saved skin analysis" title="Attach saved skin analysis"><i class="fa fa-stethoscope" aria-hidden="true"></i></button>
                                     <button type="button" class="messages-compose-icon-btn" id="messages-attach-btn" aria-label="Attach file"><i class="fa fa-paperclip" aria-hidden="true"></i></button>
                                     <button type="button" class="messages-compose-icon-btn" id="messages-emoji-btn" aria-label="Insert emoji" aria-haspopup="true" aria-expanded="false"><i class="fa fa-smile-o" aria-hidden="true"></i></button>
                                 </div>
@@ -216,6 +234,28 @@
                 <button type="submit" class="btn btn-primary" id="new-conversation-submit">Start Chat</button>
             </div>
         </form>
+    </div>
+
+    <div class="messages-profile-overlay" id="messages-profile-overlay" aria-hidden="true">
+        <div class="messages-profile-modal" role="dialog" aria-modal="true" aria-labelledby="messages-profile-title">
+            <div class="messages-profile-modal-head">
+                <h2 id="messages-profile-title" class="messages-profile-title">Profile</h2>
+                <button type="button" class="messages-profile-close" id="messages-profile-close" aria-label="Close"><i class="fa fa-times" aria-hidden="true"></i></button>
+            </div>
+            <div class="messages-profile-body" id="messages-profile-body"></div>
+        </div>
+    </div>
+
+    <div class="messages-skin-analysis-overlay" id="messages-skin-analysis-overlay" aria-hidden="true">
+        <div class="messages-skin-analysis-modal" role="dialog" aria-modal="true" aria-labelledby="messages-skin-analysis-title">
+            <div class="messages-skin-analysis-modal-head">
+                <h2 id="messages-skin-analysis-title" class="messages-skin-analysis-title">Attach saved analysis</h2>
+                <button type="button" class="messages-skin-analysis-close" aria-label="Close"><i class="fa fa-times" aria-hidden="true"></i></button>
+            </div>
+            <p class="messages-skin-analysis-hint">Choose a record you saved from Skin Health Analysis.</p>
+            <p class="messages-skin-analysis-empty is-hidden" id="messages-skin-analysis-empty"></p>
+            <ul class="messages-skin-analysis-list" id="messages-skin-analysis-list" role="list"></ul>
+        </div>
     </div>
 
     <div id="messages-image-lightbox" class="messages-image-lightbox is-hidden" role="dialog" aria-modal="true" aria-label="Media viewer">

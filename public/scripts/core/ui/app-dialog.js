@@ -172,8 +172,45 @@ function ensureRoot() {
 }
 
 let escapeHandler = null;
+/** @type {HTMLElement | null} */
+let savedFocusBeforeDialog = null;
+
+function captureFocusBeforeDialog() {
+    const el = document.activeElement;
+    savedFocusBeforeDialog = el instanceof HTMLElement ? el : null;
+}
+
+/**
+ * Move focus out of `root` before aria-hidden, or screen readers see a focused but "hidden" subtree.
+ */
+function releaseDialogFocus(root) {
+    const toRestore = savedFocusBeforeDialog;
+    savedFocusBeforeDialog = null;
+    if (toRestore && document.contains(toRestore) && typeof toRestore.focus === 'function') {
+        try {
+            toRestore.focus({ preventScroll: true });
+        } catch {
+            try {
+                toRestore.focus();
+            } catch {
+                /* ignore */
+            }
+        }
+    }
+    if (root.contains(document.activeElement)) {
+        const hadTabIndex = document.body.getAttribute('tabindex');
+        document.body.setAttribute('tabindex', '-1');
+        try {
+            document.body.focus({ preventScroll: true });
+        } catch {
+            /* ignore */
+        }
+        if (hadTabIndex === null) document.body.removeAttribute('tabindex');
+    }
+}
 
 function hideRoot(root) {
+    releaseDialogFocus(root);
     root.classList.add('is-hidden');
     root.setAttribute('aria-hidden', 'true');
     if (escapeHandler) {
@@ -226,6 +263,7 @@ export function appAlert(message, options = {}) {
         };
         document.addEventListener('keydown', escapeHandler);
 
+        captureFocusBeforeDialog();
         root.classList.remove('is-hidden');
         root.setAttribute('aria-hidden', 'false');
         requestAnimationFrame(() => okBtn.focus());
@@ -290,6 +328,7 @@ export function appConfirm(message, options = {}) {
         };
         document.addEventListener('keydown', escapeHandler);
 
+        captureFocusBeforeDialog();
         root.classList.remove('is-hidden');
         root.setAttribute('aria-hidden', 'false');
         requestAnimationFrame(() => okBtn.focus());

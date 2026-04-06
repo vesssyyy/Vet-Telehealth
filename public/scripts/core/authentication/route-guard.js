@@ -5,6 +5,7 @@ import { auth, db } from '../firebase/firebase-config.js';
 import { onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js';
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 import { attachLogoutButton } from './logout.js';
+import { formatDisplayName } from '../app/utils.js';
 
 (function () {
     'use strict';
@@ -210,7 +211,10 @@ import { attachLogoutButton } from './logout.js';
         const nameEl = document.getElementById('sidebar-name');
         const emailEl = document.getElementById('sidebar-email');
         const avatarEl = document.getElementById('sidebar-avatar');
-        if (nameEl) nameEl.textContent = snap.data()?.displayName || user.displayName || 'Admin';
+        if (nameEl) {
+            const raw = (snap.data()?.displayName || user.displayName || 'Admin').toString().trim();
+            nameEl.textContent = formatDisplayName(raw) || 'Admin';
+        }
         if (emailEl) emailEl.textContent = user.email || '—';
         if (avatarEl) avatarEl.textContent = (snap.data()?.displayName || user.email || 'A').toString().trim().charAt(0).toUpperCase();
     });

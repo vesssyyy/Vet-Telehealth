@@ -8,6 +8,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
 import { initPasswordToggleFields } from '../app/password-toggle.js';
+import { formatDisplayName } from '../app/utils.js';
 import { appAlert, appAlertError } from '../ui/app-dialog.js';
 
 (function () {
@@ -68,8 +69,17 @@ import { appAlert, appAlertError } from '../ui/app-dialog.js';
     };
 
     const createUserDoc = async (uid, { email, firstName, lastName, displayName, emailVerified, photoURL = null }) => {
+        const fn = formatDisplayName(String(firstName || '').trim());
+        const ln = formatDisplayName(String(lastName || '').trim());
+        const rawDn = (displayName != null && String(displayName).trim())
+            ? String(displayName).trim()
+            : `${fn} ${ln}`.trim();
+        const dn = formatDisplayName(rawDn) || rawDn;
         await setDoc(doc(db, 'users', uid), {
-            email, firstName, lastName, displayName: displayName || `${firstName} ${lastName}`,
+            email,
+            firstName: fn,
+            lastName: ln,
+            displayName: dn,
             role: 'petOwner', createdAt: serverTimestamp(), emailVerified, photoURL
         });
     };
@@ -166,7 +176,12 @@ import { appAlert, appAlertError } from '../ui/app-dialog.js';
 
         await withButtonState($('btn-create-account'), 'Creating Account...', async () => {
             sessionStorage.setItem('telehealthSignupPending', 'true');
-            storePendingProfile({ email, firstName: fname, lastName: lname, displayName: `${fname} ${lname}`.trim() });
+            storePendingProfile({
+                email,
+                firstName: fname,
+                lastName: lname,
+                displayName: formatDisplayName(`${fname} ${lname}`.trim()),
+            });
             try {
                 const { user } = await createUserWithEmailAndPassword(auth, email, pass);
                 await sendEmailVerification(user, { url: `${window.location.origin}${window.location.pathname}?verified=true` });
@@ -193,9 +208,13 @@ import { appAlert, appAlertError } from '../ui/app-dialog.js';
                 const userDoc = await getDoc(doc(db, 'users', user.uid));
                 if (!userDoc.exists()) {
                     const [firstName = '', ...rest] = (user.displayName || '').split(' ');
+                    const lastName = rest.join(' ');
                     await createUserDoc(user.uid, {
-                        email: user.email, firstName, lastName: rest.join(' '),
-                        displayName: user.displayName || user.email, emailVerified: user.emailVerified, photoURL: user.photoURL
+                        email: user.email,
+                        firstName: formatDisplayName(firstName),
+                        lastName: formatDisplayName(lastName),
+                        displayName: formatDisplayName((user.displayName || user.email || '').toString().trim()) || user.email,
+                        emailVerified: user.emailVerified, photoURL: user.photoURL
                     });
                 }
                 isGoogleSignInInProgress = false;

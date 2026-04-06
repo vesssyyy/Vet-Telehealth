@@ -1,5 +1,5 @@
 import { auth, db } from '../../core/firebase/firebase-config.js';
-import { capitalizeFirstLetter } from '../../core/app/utils.js';
+import { formatDisplayName } from '../../core/app/utils.js';
 import {
     collection, doc, getDoc, getDocs, addDoc,
     query, where, serverTimestamp,
@@ -14,7 +14,7 @@ export function ownerDisplayName(data) {
         || [data?.firstName, data?.lastName].filter(Boolean).join(' ').trim()
         || (data?.email || '').split('@')[0]
         || 'Pet Owner';
-    return capitalizeFirstLetter(raw);
+    return formatDisplayName(raw);
 }
 
 export function vetDisplayName(data, withDr) {
@@ -22,7 +22,7 @@ export function vetDisplayName(data, withDr) {
         || [data?.firstName, data?.lastName].filter(Boolean).join(' ').trim()
         || (data?.email || '').split('@')[0]
         || 'Veterinarian';
-    return withDr(capitalizeFirstLetter(inner));
+    return withDr(inner);
 }
 
 export async function getCurrentOwnerDisplayName() {

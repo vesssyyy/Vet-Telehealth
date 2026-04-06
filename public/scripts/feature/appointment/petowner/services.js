@@ -2,17 +2,22 @@
  * Televet Health - Pet Owner Appointment data layer (Firestore, Storage)
  */
 import { auth, db, storage } from '../../../core/firebase/firebase-config.js';
-import { capitalizeFirstLetter, escapeHtml, formatTime12h, withDr } from '../../../core/app/utils.js';
+import { escapeHtml, formatDisplayName, formatTime12h, withDr } from '../../../core/app/utils.js';
 import {
     APPOINTMENTS_COLLECTION,
     CLINIC_HOURS_PLACEHOLDER,
     DEFAULT_MIN_ADVANCE_MINUTES,
     DEFAULT_SLOT_DURATION_MINUTES,
+    DEFAULT_CONSULTATION_PRICE_CENTAVOS_TEST,
+    DEFAULT_CONSULTATION_PRICE_CENTAVOS_LIVE,
+    MIN_CONSULTATION_PRICE_CENTAVOS_LIVE,
+    MIN_CONSULTATION_PRICE_CENTAVOS_TEST,
 } from '../shared/constants.js';
 import {
     getTodayDateString,
     addMinutesToTime,
 } from '../shared/time.js';
+import { skinAnalysisSavedAtToMs } from '../../skin-disease/skin-analysis-repository.js';
 import {
     isSlotExpired,
     isSlotPastCutoff,
@@ -80,7 +85,7 @@ function vetDisplayName(data) {
         || [data.firstName, data.lastName].filter(Boolean).join(' ').trim()
         || (data.email || '').split('@')[0]
         || 'Veterinarian';
-    return withDr(capitalizeFirstLetter(name));
+    return withDr(name);
 }
 
 
@@ -196,19 +201,47 @@ export async function loadVets() {
     }
 }
 
-/** Load vet's scheduling settings (min advance booking) */
+function normalizeConsultationPriceTest(raw) {
+    const fallback = DEFAULT_CONSULTATION_PRICE_CENTAVOS_TEST;
+    const n = typeof raw === 'number' && Number.isFinite(raw) ? Math.floor(raw) : fallback;
+    if (n < MIN_CONSULTATION_PRICE_CENTAVOS_TEST) return fallback;
+    return n;
+}
+
+function normalizeConsultationPriceLive(raw) {
+    const fallback = DEFAULT_CONSULTATION_PRICE_CENTAVOS_LIVE;
+    const n = typeof raw === 'number' && Number.isFinite(raw) ? Math.floor(raw) : fallback;
+    if (n < MIN_CONSULTATION_PRICE_CENTAVOS_LIVE) return fallback;
+    return n;
+}
+
+/** Load vet's scheduling settings (min advance, test vs live consultation fees). */
 export async function loadVetSettings(vetId) {
-    if (!vetId) return { minAdvanceBookingMinutes: DEFAULT_MIN_ADVANCE_MINUTES };
+    const defaults = {
+        minAdvanceBookingMinutes: DEFAULT_MIN_ADVANCE_MINUTES,
+        consultationPriceCentavosTest: DEFAULT_CONSULTATION_PRICE_CENTAVOS_TEST,
+        consultationPriceCentavosLive: DEFAULT_CONSULTATION_PRICE_CENTAVOS_LIVE,
+    };
+    if (!vetId) return defaults;
     try {
         const snap = await getDoc(vetSettingsDoc(vetId));
         if (snap.exists()) {
             const data = snap.data();
-            return { minAdvanceBookingMinutes: data.minAdvanceBookingMinutes ?? DEFAULT_MIN_ADVANCE_MINUTES };
+            const legacy = data.consultationPriceCentavos;
+            return {
+                minAdvanceBookingMinutes: data.minAdvanceBookingMinutes ?? DEFAULT_MIN_ADVANCE_MINUTES,
+                consultationPriceCentavosTest: normalizeConsultationPriceTest(
+                    data.consultationPriceCentavosTest ?? legacy,
+                ),
+                consultationPriceCentavosLive: normalizeConsultationPriceLive(
+                    data.consultationPriceCentavosLive ?? legacy,
+                ),
+            };
         }
     } catch (err) {
         console.warn('Load vet settings error:', err);
     }
-    return { minAdvanceBookingMinutes: DEFAULT_MIN_ADVANCE_MINUTES };
+    return defaults;
 }
 
 /** Load vet's schedules from Firestore */
@@ -314,12 +347,34 @@ async function uploadMediaFiles(appointmentId, ownerId, files) {
     return urls;
 }
 
+function normalizeAttachedSkinAnalysis(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const imageUrl = String(raw.imageUrl || '').trim();
+    if (!imageUrl) return null;
+    const conf = typeof raw.confidence === 'number' && !Number.isNaN(raw.confidence) ? raw.confidence : 0;
+    const savedAtMs = skinAnalysisSavedAtToMs(raw);
+    return {
+        imageUrl,
+        conditionName: String(raw.conditionName || '').slice(0, 200),
+        savedName: String(raw.savedName || '').trim().slice(0, 120),
+        confidence: Math.max(0, Math.min(1, conf)),
+        notes: String(raw.notes || '').trim().slice(0, 500),
+        savedRecordId: String(raw.savedRecordId || '').slice(0, 128),
+        apiLabel: String(raw.apiLabel || '').slice(0, 100),
+        petType: String(raw.petType || '').slice(0, 20),
+        ...(savedAtMs != null
+            ? { savedAtMs, savedAtIso: new Date(savedAtMs).toISOString() }
+            : {}),
+    };
+}
+
 /** Create appointment in Firestore; optionally upload media and add URLs. If slotStart is provided, validates slot is still available and atomically marks it as booked. Prevents booking when vet has deleted/blocked the date. */
 export async function createAppointment(data) {
     const user = auth.currentUser;
     if (!user) throw new Error('You must be signed in to book an appointment.');
 
     const { title, petId, petName, petSpecies, vetId, vetName, clinicName, reason, dateStr, timeDisplay, mediaFiles, slotStart, slotEnd } = data;
+    const attachedSkinAnalysis = normalizeAttachedSkinAnalysis(data.attachedSkinAnalysis);
     if (!petId || !petName || !vetId || !vetName || !reason?.trim()) {
         throw new Error('Please provide pet, vet, and concern.');
     }
@@ -332,13 +387,13 @@ export async function createAppointment(data) {
     const appointmentData = {
         ownerId: user.uid,
         ownerEmail: user.email || '',
-        ownerName: (user.displayName || '').trim() || 'Pet Owner',
+        ownerName: formatDisplayName((user.displayName || '').trim()) || 'Pet Owner',
         title: (title && String(title).trim()) || null,
         petId,
-        petName: petName.trim(),
+        petName: formatDisplayName(petName.trim()),
         petSpecies: (petSpecies || '').trim() || null,
         vetId,
-        vetName: vetName.trim(),
+        vetName: formatDisplayName(vetName.trim()),
         clinicName: (clinicName || '').trim(),
         date: dateStr || getTodayDateString(),
         dateStr: dateStr || getTodayDateString(),
@@ -354,6 +409,7 @@ export async function createAppointment(data) {
         paymentIntentId: data?.paymentIntentId || null,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
+        ...(attachedSkinAnalysis ? { attachedSkinAnalysis } : {}),
     };
 
     const SLOT_UNAVAILABLE_MSG = "I'm sorry, this slot is no longer available. It's either deleted or already booked.";
@@ -404,9 +460,9 @@ export async function createAppointment(data) {
                     bookedBy: user.uid,
                     appointmentId: aptRef.id,
                     ownerId: user.uid,
-                    ownerName: user.displayName || '',
+                    ownerName: formatDisplayName((user.displayName || '').trim()),
                     petId,
-                    petName: petName.trim(),
+                    petName: formatDisplayName(petName.trim()),
                     petSpecies: (petSpecies || '').trim() || '',
                     vetId,
                     reason: reason.trim(),
@@ -474,10 +530,32 @@ export async function markAppointmentPaid(appointmentId) {
     await updateDoc(aptRef, patch);
 }
 
+/**
+ * Normalize Firestore createdAt (Timestamp, plain {seconds}, Date, or ms) for UI + sorting.
+ * @param {unknown} c
+ */
+function appointmentCreatedAtFieldToMs(c) {
+    if (c == null) return 0;
+    if (typeof c === 'object' && typeof c.toMillis === 'function') {
+        const ms = c.toMillis();
+        return Number.isFinite(ms) ? ms : 0;
+    }
+    if (c instanceof Date && Number.isFinite(c.getTime())) return c.getTime();
+    if (typeof c === 'number' && Number.isFinite(c)) return c;
+    if (typeof c === 'object' && c !== null) {
+        const sec = c.seconds ?? c._seconds;
+        if (sec != null && Number.isFinite(Number(sec))) {
+            const ns = Number(c.nanoseconds ?? c._nanoseconds ?? 0);
+            return Number(sec) * 1000 + Math.floor(ns / 1e6);
+        }
+    }
+    return 0;
+}
+
 function mapAppointmentSnapshotDocs(docs) {
     const appointments = docs.map((d) => {
         const data = d.data();
-        const createdAt = data.createdAt?.toMillis?.() ?? data.createdAt?.getTime?.() ?? 0;
+        const createdAt = appointmentCreatedAtFieldToMs(data.createdAt);
         return { id: d.id, ...data, createdAt };
     });
     appointments.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));

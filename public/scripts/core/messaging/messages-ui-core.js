@@ -154,9 +154,50 @@ export function createEmojiPicker({ emojiBtn, input, resizeInput }) {
     return { toggle, close, getOrCreateElement: () => pickerEl };
 }
 
+/**
+ * Structured skin analysis share (pet owner → vet).
+ * @param {Record<string, unknown>} share
+ */
+export function renderSkinAnalysisShare(share) {
+    if (!share || typeof share !== 'object') return '';
+    const url = escapeHtml(String(share.imageUrl || ''));
+    const savedNameRaw = String(share.savedName || '').trim();
+    const condition = escapeHtml(String(share.conditionName || 'Skin analysis'));
+    const titleLine = savedNameRaw
+        ? `<strong class="message-skin-analysis-saved-name">${escapeHtml(savedNameRaw)}</strong><span class="message-skin-analysis-condition-sub">Suggested match: ${condition}</span>`
+        : `<strong class="message-skin-analysis-condition">${condition}</strong>`;
+    const conf = typeof share.confidence === 'number' && !Number.isNaN(share.confidence) ? share.confidence : 0;
+    const notesRaw = String(share.notes || '').trim();
+    const pet = String(share.petType || '').trim();
+    const petLine = pet
+        ? `<span class="message-skin-analysis-pet">${escapeHtml(pet === 'dog' ? 'Dog' : pet === 'cat' ? 'Cat' : pet)}</span>`
+        : '';
+    const notesHtml = notesRaw
+        ? `<p class="message-skin-analysis-notes">${escapeHtml(notesRaw)}</p>`
+        : '';
+    return `<div class="message-skin-analysis-card" role="group" aria-label="Shared skin analysis">
+        <div class="message-skin-analysis-header"><i class="fa fa-stethoscope" aria-hidden="true"></i><span>Skin analysis</span></div>
+        ${url ? `<button type="button" class="message-skin-analysis-img-btn" aria-label="View image larger"><img src="${url}" alt="" class="message-skin-analysis-img" loading="lazy" width="120" height="120"></button>` : ''}
+        <div class="message-skin-analysis-body">
+            ${titleLine}
+            <span class="message-skin-analysis-conf">${(conf * 100).toFixed(1)}% confidence</span>
+            ${petLine}
+            ${notesHtml}
+        </div>
+    </div>`;
+}
+
 /** After injecting message HTML, wire image/video thumbs (placeholders hide when ready). */
 export function wireMessageAttachmentThumbnails(rootEl) {
     if (!rootEl) return;
+    rootEl.querySelectorAll('.message-skin-analysis-img').forEach((img) => {
+        const wrap = img.closest('.message-skin-analysis-card');
+        if (!wrap) return;
+        const reveal = () => wrap.classList.add('message-skin-analysis--loaded');
+        img.addEventListener('load', reveal);
+        img.addEventListener('error', reveal);
+        if (img.complete) reveal();
+    });
     rootEl.querySelectorAll('.message-attachment-img').forEach((img) => {
         const wrap = img.closest('.message-attachment--image');
         if (!wrap) return;
@@ -268,6 +309,16 @@ export function initMessagingImageLightbox({ lightboxEl, chatBodyEl }) {
             e.preventDefault();
             e.stopPropagation();
             openVideo(videoBtn.dataset.videoUrl);
+            return;
+        }
+        const skinCard = e.target.closest('.message-skin-analysis-card');
+        if (skinCard) {
+            const img = skinCard.querySelector('.message-skin-analysis-img');
+            if (img?.src) {
+                e.preventDefault();
+                e.stopPropagation();
+                openImage(img.src);
+            }
             return;
         }
         const wrap = e.target.closest('.message-attachment--image');

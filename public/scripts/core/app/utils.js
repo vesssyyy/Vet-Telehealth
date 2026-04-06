@@ -155,6 +155,17 @@ export function capitalizeFirstLetter(str) {
     return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+/**
+ * Capitalize the first letter of each whitespace-separated word (person/pet display names).
+ * Empty/whitespace → ''.
+ * @param {string} str
+ */
+export function formatDisplayName(str) {
+    const s = String(str ?? '').trim();
+    if (!s) return s;
+    return s.split(/\s+/).map((word) => (word ? word.charAt(0).toUpperCase() + word.slice(1) : '')).join(' ');
+}
+
 /** Map Firestore role id to a short UI label. */
 export function roleIdToDisplayLabel(role) {
     if (role == null || role === '') return '—';
@@ -178,7 +189,7 @@ export function withDr(name) {
     if (/^dr\.?\s/i.test(n)) {
         const rest = n.replace(/^dr\.?\s+/i, '').trim();
         if (!rest) return 'Dr. Veterinarian';
-        return `Dr. ${capitalizeFirstLetter(rest)}`;
+        return `Dr. ${formatDisplayName(rest)}`;
     }
-    return `Dr. ${capitalizeFirstLetter(n)}`;
+    return `Dr. ${formatDisplayName(n)}`;
 }

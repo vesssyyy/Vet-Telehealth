@@ -5,6 +5,7 @@ import {
     loadPets,
     loadVets,
     loadVetProfile,
+    loadVetSettings,
     subscribeAppointments,
     getVetOption,
     getAvailableDatesAndSlots,
@@ -19,7 +20,7 @@ import {
 import { CLINIC_HOURS_PLACEHOLDER } from '../shared/constants.js';
 import { auth, db } from '../../../core/firebase/firebase-config.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js';
-import { escapeHtml, formatTime12h } from '../../../core/app/utils.js';
+import { escapeHtml, formatDisplayName, formatTime12h } from '../../../core/app/utils.js';
 import { getAppointmentSharedMediaKind } from '../../../core/app/appointment-media-kind.js';
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 import {
@@ -29,6 +30,15 @@ import {
     isVideoJoinClosed,
 } from '../../video-consultation/utils/appointment-time.js';
 import { downloadConsultationReportForAppointment } from '../../consultation/consultation-pdf-download.js';
+import {
+    listSkinAnalyses,
+    skinAnalysisToShareSnapshot,
+    savedAtToMs,
+    enrichAppointmentAttachedSkinFromHistory,
+    skinAnalysisSavedAtToMs,
+    SKIN_ANALYSES_COLLECTION,
+} from '../../skin-disease/skin-analysis-repository.js';
+import { buildDetailsAttachedSkinAnalysisHtml, wireDetailsAttachedSkinThumbnails } from '../shared/details-attached-skin-html.js';
 
 function speciesIcon(species, extraClass = '') {
     const isCat = (species || '').toLowerCase() === 'cat';
@@ -46,10 +56,12 @@ export function populatePetSelect(containerEl, pets) {
     if (!menu || !trigger || !triggerText || !hiddenInput) return;
 
     const list = Array.isArray(pets) ? pets : [];
-    const items = list.map(
-        (p) =>
-            `<button type="button" class="dropdown-item booking-pet-item" role="menuitem" data-pet-id="${escapeHtml(p.id)}" data-pet-name="${escapeHtml(p.name || 'Unnamed pet')}" data-species="${escapeHtml((p.species || '').toLowerCase())}">${speciesIcon(p.species, 'dropdown-item-icon')}<span>${escapeHtml(p.name || 'Unnamed pet')}</span></button>`
-    ).join('');
+    const items = list
+        .map((p) => {
+            const pn = p.name ? formatDisplayName(p.name) : 'Unnamed pet';
+            return `<button type="button" class="dropdown-item booking-pet-item" role="menuitem" data-pet-id="${escapeHtml(p.id)}" data-pet-name="${escapeHtml(pn)}" data-species="${escapeHtml((p.species || '').toLowerCase())}">${speciesIcon(p.species, 'dropdown-item-icon')}<span>${escapeHtml(pn)}</span></button>`;
+        })
+        .join('');
 
     menu.innerHTML = items;
 
@@ -67,7 +79,7 @@ export function populatePetSelect(containerEl, pets) {
     };
 
     if (list.length === 1) {
-        selectPet(list[0].id, list[0].name || 'Unnamed pet', (list[0].species || '').toLowerCase());
+        selectPet(list[0].id, list[0].name ? formatDisplayName(list[0].name) : 'Unnamed pet', (list[0].species || '').toLowerCase());
     } else if (list.length === 0) {
         triggerText.textContent = 'Select Pet';
         hiddenInput.value = '';
@@ -116,10 +128,12 @@ export function populateVetSelect(containerEl, vets) {
         return;
     }
 
-    const items = list.map(
-        (v) =>
-            `<button type="button" class="dropdown-item booking-vet-item" role="menuitem" data-vet-id="${escapeHtml(v.id)}" data-vet-name="${escapeHtml(v.name)}" data-clinic="${escapeHtml(v.clinic || '')}"><i class="fa fa-stethoscope dropdown-item-icon" aria-hidden="true"></i><span>${escapeHtml(v.name)}${v.clinic ? ' - ' + escapeHtml(v.clinic) : ''}</span></button>`
-    ).join('');
+    const items = list
+        .map((v) => {
+            const vn = formatDisplayName(v.name || '');
+            return `<button type="button" class="dropdown-item booking-vet-item" role="menuitem" data-vet-id="${escapeHtml(v.id)}" data-vet-name="${escapeHtml(vn)}" data-clinic="${escapeHtml(v.clinic || '')}"><i class="fa fa-stethoscope dropdown-item-icon" aria-hidden="true"></i><span>${escapeHtml(vn)}${v.clinic ? ' - ' + escapeHtml(v.clinic) : ''}</span></button>`;
+        })
+        .join('');
 
     menu.innerHTML = items;
 
@@ -138,7 +152,7 @@ export function populateVetSelect(containerEl, vets) {
     };
 
     if (list.length === 1) {
-        selectVet(list[0].id, list[0].name, list[0].clinic || '');
+        selectVet(list[0].id, formatDisplayName(list[0].name || ''), list[0].clinic || '');
     } else if (list.length === 0) {
         triggerText.textContent = 'Select Vet';
         hiddenInput.value = '';
@@ -177,8 +191,11 @@ function renderAppointmentCard(apt, isHistory = false) {
         : '<span class="appointment-card-chip appointment-card-chip--upcoming">upcoming</span>';
     const variantClass = isHistory ? 'appointment-card--completed' : 'appointment-card--upcoming';
     const title = escapeHtml(apt.title?.trim() || 'Consultation');
-    const pet = escapeHtml(apt.petName || 'Pet');
-    const vetLine = [apt.vetName, apt.clinicName].filter(Boolean).map((s) => escapeHtml(s)).join(' · ');
+    const pet = escapeHtml(apt.petName ? formatDisplayName(apt.petName) : 'Pet');
+    const vetLine = [apt.vetName, apt.clinicName]
+        .filter(Boolean)
+        .map((s) => escapeHtml(formatDisplayName(String(s))))
+        .join(' · ');
     return `
         <article class="appointment-card ${variantClass}" data-appointment-id="${escapeHtml(apt.id)}">
             <div class="appointment-card-pet">
@@ -382,7 +399,20 @@ const fileListEl = $('booking-file-list');
 const uploadHint = $('booking-upload-hint');
 
 const MIN_MEDIA_FILES = 0;
-const MAX_MEDIA_FILES = 3;
+/** Files + optional skin analysis share one combined limit */
+const MAX_BOOKING_ATTACHMENTS = 3;
+
+function bookingSkinSlotUsed() {
+    return bookingAttachedSkinSnapshot ? 1 : 0;
+}
+
+function maxBookingMediaFilesAllowed() {
+    return MAX_BOOKING_ATTACHMENTS - bookingSkinSlotUsed();
+}
+
+function totalBookingAttachments() {
+    return bookingMediaFiles.length + bookingSkinSlotUsed();
+}
 /** Images, PDFs, and common video formats for vet review in appointment details. */
 function isAllowedBookingMediaFile(f) {
     if (!f) return false;
@@ -399,6 +429,7 @@ const BOOKING_MEDIA_STORE = 'files';
 let cachedAvailability = { dates: [], slotsByDate: {} };
 /** Persisted list so "Add more" stacks files instead of replacing. */
 let bookingMediaFiles = [];
+let bookingAttachedSkinSnapshot = null;
 let ignoreFileInputChange = false;
 
 function syncFileInputFromBookingMedia() {
@@ -410,16 +441,50 @@ function syncFileInputFromBookingMedia() {
     ignoreFileInputChange = false;
 }
 
+function showBookingAppToast(message) {
+    const el = $('booking-app-toast');
+    if (!el) return;
+    el.textContent = message;
+    el.classList.remove('is-hidden');
+    el.setAttribute('aria-hidden', 'false');
+    clearTimeout(showBookingAppToast._timer);
+    showBookingAppToast._timer = setTimeout(() => {
+        el.classList.add('is-hidden');
+        el.setAttribute('aria-hidden', 'true');
+    }, 3000);
+}
+
+function clearBookingSkinAttachment() {
+    bookingAttachedSkinSnapshot = null;
+    const prev = $('booking-skin-attach-preview');
+    const txt = $('booking-skin-attach-preview-text');
+    if (prev) prev.classList.add('is-hidden');
+    if (txt) txt.textContent = '';
+    updateFileList();
+}
+
+function renderDetailsAttachedSkin(apt) {
+    const wrap = $('details-attached-skin');
+    const inner = $('details-attached-skin-inner');
+    if (!wrap || !inner) return;
+    const s = apt.attachedSkinAnalysis;
+    if (s && s.imageUrl) {
+        wrap.classList.remove('is-hidden');
+        inner.innerHTML = buildDetailsAttachedSkinAnalysisHtml(s);
+        wireDetailsAttachedSkinThumbnails(inner);
+    } else {
+        wrap.classList.add('is-hidden');
+        inner.innerHTML = '';
+    }
+}
+
 function openModal() {
     if (!overlay || !modal) return;
     clearFieldErrors();
     showFormError('');
     bookingMediaFiles = [];
     syncFileInputFromBookingMedia();
-    if (fileListEl) { fileListEl.classList.add('is-hidden'); fileListEl.innerHTML = ''; }
-    if (uploadZone) uploadZone.classList.remove('booking-upload-zone--has-files');
-    const addMoreWrap = $('booking-add-more-wrap');
-    if (addMoreWrap) addMoreWrap.classList.add('is-hidden');
+    clearBookingSkinAttachment();
     overlay.classList.add('is-open');
     overlay.setAttribute('aria-hidden', 'false');
     modal.focus();
@@ -461,6 +526,7 @@ function validateAndHighlightFields() {
     const dateVal = dateEl?.value;
     const timeVal = timeEl?.value;
     const fileCount = fileInput?.files?.length ?? 0;
+    const attachmentTotal = fileCount + bookingSkinSlotUsed();
     let hasError = false;
     if (!petVal || !petNameVal) { setFieldError($('booking-pet-dropdown')); hasError = true; }
     if (!vetVal || !vetNameVal) { setFieldError($('booking-vet-dropdown')); hasError = true; }
@@ -471,9 +537,12 @@ function validateAndHighlightFields() {
         if (!timeVal) setFieldError(timeEl);
         hasError = true;
     }
-    if (fileCount > MAX_MEDIA_FILES) {
+    if (attachmentTotal > MAX_BOOKING_ATTACHMENTS) {
         setFieldError(uploadZone);
-        if (uploadHint) { uploadHint.textContent = `Maximum ${MAX_MEDIA_FILES} files. Remove ${fileCount - MAX_MEDIA_FILES} file(s).`; uploadHint.classList.remove('is-hidden'); }
+        if (uploadHint) {
+            uploadHint.textContent = `Maximum ${MAX_BOOKING_ATTACHMENTS} attachments (files and skin analysis combined). Remove ${attachmentTotal - MAX_BOOKING_ATTACHMENTS} attachment(s).`;
+            uploadHint.classList.remove('is-hidden');
+        }
         hasError = true;
     } else if (uploadHint) uploadHint.classList.add('is-hidden');
     return !hasError;
@@ -532,8 +601,7 @@ function onDateChange() {
 
 function updateConfirmButtonState() {
     const petCount = window._bookingPetsCount ?? 0;
-    const fileCount = fileInput?.files?.length ?? 0;
-    if (confirmBtn) confirmBtn.disabled = petCount === 0 || fileCount > MAX_MEDIA_FILES;
+    if (confirmBtn) confirmBtn.disabled = petCount === 0 || totalBookingAttachments() > MAX_BOOKING_ATTACHMENTS;
 }
 
 function resetBookingFormState() {
@@ -547,7 +615,7 @@ function resetBookingFormState() {
     cachedAvailability = { dates: [], slotsByDate: {} };
     bookingMediaFiles = [];
     syncFileInputFromBookingMedia();
-    updateFileList();
+    clearBookingSkinAttachment();
     updateConfirmButtonState();
 }
 
@@ -558,9 +626,10 @@ function updateFileList() {
     fileListEl.innerHTML = '';
     fileListEl.classList.toggle('has-files', files.length > 0);
     fileListEl.classList.toggle('is-hidden', files.length === 0);
+    const maxFiles = maxBookingMediaFilesAllowed();
     if (uploadHint) {
-        if (files.length > MAX_MEDIA_FILES) {
-            uploadHint.textContent = `Maximum ${MAX_MEDIA_FILES} files.`;
+        if (files.length > maxFiles || totalBookingAttachments() > MAX_BOOKING_ATTACHMENTS) {
+            uploadHint.textContent = `Maximum ${MAX_BOOKING_ATTACHMENTS} attachments (files and skin analysis combined).`;
             uploadHint.classList.remove('is-hidden');
         } else {
             uploadHint.classList.add('is-hidden');
@@ -584,7 +653,7 @@ function updateFileList() {
     });
     const addMoreWrap = $('booking-add-more-wrap');
     if (addMoreWrap) {
-        addMoreWrap.classList.toggle('is-hidden', files.length === 0 || files.length >= MAX_MEDIA_FILES);
+        addMoreWrap.classList.toggle('is-hidden', files.length === 0 || files.length >= maxFiles);
     }
     if (uploadZone) {
         uploadZone.classList.toggle('booking-upload-zone--has-files', files.length > 0);
@@ -718,7 +787,7 @@ if (uploadZone && fileInput) {
                 const f = e.dataTransfer.files[i];
                 if (isAllowedBookingMediaFile(f)) bookingMediaFiles.push(f);
             }
-            bookingMediaFiles = bookingMediaFiles.slice(0, MAX_MEDIA_FILES);
+            bookingMediaFiles = bookingMediaFiles.slice(0, maxBookingMediaFilesAllowed());
             syncFileInputFromBookingMedia();
             updateFileList();
         }
@@ -728,7 +797,7 @@ if (fileInput) {
     fileInput.addEventListener('change', () => {
         if (ignoreFileInputChange) return;
         const newFiles = Array.from(fileInput.files || []).filter(isAllowedBookingMediaFile);
-        bookingMediaFiles = bookingMediaFiles.concat(newFiles).slice(0, MAX_MEDIA_FILES);
+        bookingMediaFiles = bookingMediaFiles.concat(newFiles).slice(0, maxBookingMediaFilesAllowed());
         syncFileInputFromBookingMedia();
         updateFileList();
     });
@@ -794,7 +863,7 @@ function formatPetWeight(weight) {
     const n = Number(weight);
     return isNaN(n) ? String(weight) : n + ' kg';
 }
-document.addEventListener('click', (e) => {
+document.addEventListener('click', async (e) => {
     const btn = e.target?.closest?.('.appointment-view-btn');
     if (!btn?.dataset.id) return;
     e.preventDefault();
@@ -802,10 +871,12 @@ document.addEventListener('click', (e) => {
     const appointments = window._appointmentsCache || [];
     const apt = appointments.find((a) => a.id === aptId);
     if (!apt) return;
+    const aptSkin = await enrichAppointmentAttachedSkinFromHistory(apt);
+    renderDetailsAttachedSkin(aptSkin);
     const titleEl = $('details-title');
     titleEl.textContent = (apt.title?.trim()) ? apt.title.trim() : '-';
     titleEl.classList.toggle('is-empty', !apt.title?.trim());
-    $('details-vet-name').textContent = apt.vetName || '-';
+    $('details-vet-name').textContent = apt.vetName ? formatDisplayName(apt.vetName) : '-';
     $('details-date').textContent = formatAppointmentDate(apt.date || apt.dateStr);
     $('details-time').textContent = getAppointmentTimeDisplay(apt);
     const payRow = $('details-payment');
@@ -881,7 +952,7 @@ document.addEventListener('click', (e) => {
     }
     const vetImg = $('details-vet-img');
     const vetFallback = $('details-vet-avatar-fallback');
-    if (vetImg) { vetImg.style.display = 'none'; vetImg.src = ''; vetImg.alt = apt.vetName || 'Vet'; }
+    if (vetImg) { vetImg.style.display = 'none'; vetImg.src = ''; vetImg.alt = apt.vetName ? formatDisplayName(apt.vetName) : 'Vet'; }
     if (vetFallback) vetFallback.classList.add('visible');
     loadVetProfile(apt.vetId).then((vet) => {
         if (vet?.photoURL && vetImg) {
@@ -898,13 +969,13 @@ document.addEventListener('click', (e) => {
     const petImg = $('details-pet-img');
     const petFallback = $('details-pet-avatar-fallback');
     const petAvatarWrap = $('details-pet-avatar-wrap');
-    if (petImg) { petImg.style.display = 'none'; petImg.src = ''; petImg.alt = apt.petName || 'Pet'; }
+    if (petImg) { petImg.style.display = 'none'; petImg.src = ''; petImg.alt = apt.petName ? formatDisplayName(apt.petName) : 'Pet'; }
     if (petFallback) {
         petFallback.classList.add('visible');
         petFallback.innerHTML = (apt.petSpecies || '').toLowerCase() === 'cat' ? '<i class="fa-solid fa-cat" aria-hidden="true"></i>' : '<i class="fa fa-paw" aria-hidden="true"></i>';
     }
     if (petAvatarWrap) petAvatarWrap.classList.toggle('details-pet-avatar-wrap--cat', (apt.petSpecies || '').toLowerCase() === 'cat');
-    $('details-pet-name').textContent = apt.petName || '-';
+    $('details-pet-name').textContent = apt.petName ? formatDisplayName(apt.petName) : '-';
     $('details-pet-age').textContent = '-';
     $('details-pet-weight').textContent = '-';
     const initSp = (apt.petSpecies || '').trim();
@@ -1076,6 +1147,14 @@ function initDetailsMediaLightbox() {
         const kind = btn.dataset.mediaKind || (btn.dataset.isImage === 'true' ? 'image' : 'pdf');
         openLB(btn.dataset.url, kind);
     });
+    const skinInner = $('details-attached-skin-inner');
+    skinInner?.addEventListener('click', (e) => {
+        const thumbBtn = e.target.closest('.details-attached-skin-img-btn');
+        const url = thumbBtn?.dataset?.skinFullImageUrl || thumbBtn?.querySelector('.details-attached-skin-thumb')?.src;
+        if (!url) return;
+        e.preventDefault();
+        openLB(url, 'image');
+    });
 }
 initDetailsMediaLightbox();
 
@@ -1216,6 +1295,7 @@ form?.addEventListener('submit', async (e) => {
             }
         }
         if (confirmBtn) confirmBtn.querySelector('.booking-confirm-text').textContent = 'Booking consultation...';
+        const vetFeeSettings = await loadVetSettings(vetId);
         const booking = {
             title,
             petId,
@@ -1229,7 +1309,11 @@ form?.addEventListener('submit', async (e) => {
             timeDisplay,
             slotStart: timeVal || null,
             slotEnd: slotEnd || null,
+            amountCentavosTest: vetFeeSettings.consultationPriceCentavosTest,
+            amountCentavosLive: vetFeeSettings.consultationPriceCentavosLive,
+            amountCentavos: vetFeeSettings.consultationPriceCentavosTest,
             mediaKey: mediaKey || undefined,
+            ...(bookingAttachedSkinSnapshot ? { attachedSkinAnalysis: bookingAttachedSkinSnapshot } : {}),
         };
         sessionStorage.setItem('televet_booking', JSON.stringify(booking));
         closeModal();
@@ -1245,3 +1329,96 @@ form?.addEventListener('submit', async (e) => {
         }
     }
 });
+
+(function initBookingSkinAttachUi() {
+    $('booking-skin-attach-remove')?.addEventListener('click', () => {
+        clearBookingSkinAttachment();
+        showBookingAppToast('Attachment removed.');
+    });
+    const skinOv = $('booking-skin-overlay');
+    $('booking-skin-attach-btn')?.addEventListener('click', async () => {
+        const user = auth.currentUser;
+        if (!user) return;
+        const listEl = $('booking-skin-modal-list');
+        const emptyEl = $('booking-skin-modal-empty');
+        if (!skinOv || !listEl) return;
+        skinOv.classList.add('is-open');
+        skinOv.setAttribute('aria-hidden', 'false');
+        listEl.innerHTML = '<li class="booking-skin-loading">Loading…</li>';
+        emptyEl?.classList.add('is-hidden');
+        try {
+            const rows = await listSkinAnalyses(user.uid);
+            listEl.innerHTML = '';
+            if (!rows.length) {
+                emptyEl?.classList.remove('is-hidden');
+                if (emptyEl) emptyEl.textContent = 'No saved analyses yet. Save one from Skin Health Analysis first.';
+            } else {
+                rows.forEach((row) => {
+                    const li = document.createElement('li');
+                    li.className = 'booking-skin-picker-item';
+                    const ms = savedAtToMs(row.savedAt);
+                    const dateStr = ms
+                        ? new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+                        : '';
+                    const conf = typeof row.confidence === 'number' ? row.confidence : 0;
+                    const imgUrl = row.imageUrl ? escapeHtml(String(row.imageUrl)) : '';
+                    const savedName = (row.savedName && String(row.savedName).trim()) || '';
+                    const condEsc = escapeHtml(String(row.conditionName || '—'));
+                    const titleEsc = escapeHtml(savedName || String(row.conditionName || '—'));
+                    const metaLine = savedName
+                        ? `${condEsc} · ${(conf * 100).toFixed(1)}% · ${escapeHtml(dateStr)}`
+                        : `${(conf * 100).toFixed(1)}% · ${escapeHtml(dateStr)}`;
+                    li.innerHTML = `<button type="button" class="booking-skin-picker-btn">
+                            ${imgUrl ? `<span class="booking-skin-picker-thumb-wrap"><img src="${imgUrl}" alt="" width="48" height="48"></span>` : '<span class="booking-skin-picker-thumb-wrap"><i class="fa fa-image" aria-hidden="true"></i></span>'}
+                            <span class="booking-skin-picker-text"><strong>${titleEsc}</strong><span class="booking-skin-picker-meta">${metaLine}</span></span>
+                        </button>`;
+                    li.querySelector('.booking-skin-picker-btn')?.addEventListener('click', async () => {
+                        if (bookingMediaFiles.length >= MAX_BOOKING_ATTACHMENTS) {
+                            showBookingAppToast(`Maximum ${MAX_BOOKING_ATTACHMENTS} attachments. Remove a file to attach skin analysis.`);
+                            return;
+                        }
+                        let rec = { ...row, id: row.id };
+                        let snap = skinAnalysisToShareSnapshot(rec);
+                        if (skinAnalysisSavedAtToMs(snap) == null && row.id) {
+                            try {
+                                const docSnap = await getDoc(doc(db, 'users', user.uid, SKIN_ANALYSES_COLLECTION, row.id));
+                                if (docSnap.exists()) {
+                                    rec = { id: row.id, ...docSnap.data() };
+                                    snap = skinAnalysisToShareSnapshot(rec);
+                                }
+                            } catch (_) {
+                                /* use list row snapshot */
+                            }
+                        }
+                        bookingAttachedSkinSnapshot = snap;
+                        const prev = $('booking-skin-attach-preview');
+                        const txt = $('booking-skin-attach-preview-text');
+                        const previewLabel = (snap.savedName && String(snap.savedName).trim()) || snap.conditionName || 'Analysis';
+                        if (txt) txt.textContent = String(previewLabel);
+                        prev?.classList.remove('is-hidden');
+                        skinOv.classList.remove('is-open');
+                        skinOv.setAttribute('aria-hidden', 'true');
+                        updateFileList();
+                        showBookingAppToast('Analysis attached to this booking.');
+                    });
+                    listEl.appendChild(li);
+                });
+            }
+        } catch (err) {
+            console.error('Booking skin list:', err);
+            listEl.innerHTML = '<li class="booking-skin-loading">Could not load analyses.</li>';
+        }
+    });
+    const closeSkin = () => {
+        skinOv?.classList.remove('is-open');
+        skinOv?.setAttribute('aria-hidden', 'true');
+    };
+    $('booking-skin-modal-close')?.addEventListener('click', closeSkin);
+    skinOv?.addEventListener('click', (e) => {
+        if (e.target === skinOv) closeSkin();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        if (skinOv?.classList.contains('is-open')) closeSkin();
+    });
+})();

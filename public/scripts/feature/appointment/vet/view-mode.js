@@ -1,4 +1,5 @@
 import { appConfirm } from '../../../core/ui/app-dialog.js';
+import { formatDisplayName } from '../../../core/app/utils.js';
 
 export function registerViewModeEvents(ctx) {
     const {
@@ -147,8 +148,10 @@ export function createViewRenderingApi(ctx) {
             if (hasAppointment) {
                 const aptId = (s.appointmentId || '').trim();
                 const timeRange = `${escapeHtml(formatTime12h(s.start))} – ${escapeHtml(formatTime12h(s.end))}`;
-                const ownerName = escapeHtml((s.ownerName || s.owner || '').slice(0, 80));
-                const petName = escapeHtml((s.petName || s.pet || '').slice(0, 80));
+                const oRaw = (s.ownerName || s.owner || '').trim().slice(0, 80);
+                const pRaw = (s.petName || s.pet || '').trim().slice(0, 80);
+                const ownerName = escapeHtml(oRaw ? formatDisplayName(oRaw) : '');
+                const petName = escapeHtml(pRaw ? formatDisplayName(pRaw) : '');
                 const reason = escapeHtml((s.reason || '').slice(0, 400));
                 const ownerId = escapeHtml(String(s.ownerId || ''));
                 const petId = escapeHtml(String(s.petId || ''));
@@ -332,8 +335,10 @@ export function createViewRenderingApi(ctx) {
             const top = minsToPxWithinHour(minsIntoHour);
             const durationPx = timeToDurationPx(slot.start, slot.end);
             const height = Math.max(minsToPxWithinHour(30), durationPx);
-            const ownerName = slot.ownerName || slot.owner || 'Owner Name';
-            const petName = slot.petName || slot.pet || 'Pet Name';
+            const oSrc = String(slot.ownerName || slot.owner || '').trim();
+            const pSrc = String(slot.petName || slot.pet || '').trim();
+            const ownerName = oSrc ? formatDisplayName(oSrc) : 'Owner Name';
+            const petName = pSrc ? formatDisplayName(pSrc) : 'Pet Name';
             const isPlaceholder = !slot.ownerName && !slot.owner && !slot.petName && !slot.pet;
 
             const cell = gridEl.querySelector(`.slot-cell[data-day="${dayIdx}"][data-hour="${hourRow}"]`);
@@ -353,8 +358,8 @@ export function createViewRenderingApi(ctx) {
                 eventEl.dataset.ownerId = slot.ownerId || '';
                 eventEl.dataset.petId = slot.petId || '';
                 eventEl.dataset.vetId = slot.vetId || auth.currentUser?.uid || '';
-                eventEl.dataset.ownerName = (slot.ownerName || slot.owner || '').slice(0, 80);
-                eventEl.dataset.petName = (slot.petName || slot.pet || '').slice(0, 80);
+                eventEl.dataset.ownerName = (oSrc ? formatDisplayName(oSrc) : '').slice(0, 80);
+                eventEl.dataset.petName = (pSrc ? formatDisplayName(pSrc) : '').slice(0, 80);
                 eventEl.dataset.reason = (slot.reason || '').slice(0, 400);
                 eventEl.dataset.timeStart = slot.start || '';
                 eventEl.dataset.timeEnd = slot.end || '';

@@ -1,5 +1,8 @@
 import { appAlertError, appConfirm } from '../../../core/ui/app-dialog.js';
 import { getAppointmentSharedMediaKind } from '../../../core/app/appointment-media-kind.js';
+import { escapeHtml, formatDisplayName } from '../../../core/app/utils.js';
+import { buildDetailsAttachedSkinAnalysisHtml, wireDetailsAttachedSkinThumbnails } from '../shared/details-attached-skin-html.js';
+import { enrichAppointmentAttachedSkinFromHistory } from '../../skin-disease/skin-analysis-repository.js';
 
 export function registerModalEvents(ctx) {
     const {
@@ -117,6 +120,14 @@ export function registerModalEvents(ctx) {
             e.preventDefault();
             const kind = btn.dataset.mediaKind || (btn.dataset.isImage === 'true' ? 'image' : 'pdf');
             openLB(btn.dataset.url, kind);
+        });
+        const skinInner = $('details-attached-skin-inner');
+        skinInner?.addEventListener('click', (e) => {
+            const thumbBtn = e.target.closest('.details-attached-skin-img-btn');
+            const url = thumbBtn?.dataset?.skinFullImageUrl || thumbBtn?.querySelector('.details-attached-skin-thumb')?.src;
+            if (!url) return;
+            e.preventDefault();
+            openLB(url, 'image');
         });
     })();
 
@@ -354,8 +365,14 @@ export function createDetailsApi(ctx) {
             titleEl.textContent = (apt.title && apt.title.trim()) ? apt.title.trim() : '—';
             titleEl.classList.toggle('is-empty', !(apt.title && apt.title.trim()));
         }
-        if (ownerNameEl) ownerNameEl.textContent = apt.ownerName || apt.owner || '—';
-        if (ownerImg) { ownerImg.style.display = 'none'; ownerImg.src = ''; ownerImg.style.opacity = ''; ownerImg.alt = apt.ownerName || 'Owner'; }
+        const ownerDisplay = (apt.ownerName || apt.owner || '').toString().trim();
+        if (ownerNameEl) ownerNameEl.textContent = ownerDisplay ? formatDisplayName(ownerDisplay) : '—';
+        if (ownerImg) {
+            ownerImg.style.display = 'none';
+            ownerImg.src = '';
+            ownerImg.style.opacity = '';
+            ownerImg.alt = ownerDisplay ? formatDisplayName(ownerDisplay) : 'Owner';
+        }
         if (ownerFallback) ownerFallback.classList.add('visible');
         if (apt.ownerId) {
             getDoc(doc(db, 'users', apt.ownerId)).then((ownerSnap) => {
@@ -373,7 +390,8 @@ export function createDetailsApi(ctx) {
         }
 
         const sp = (apt.petSpecies || '').trim();
-        const petName = apt.petName || '—';
+        const petNameRaw = (apt.petName || '').toString().trim();
+        const petName = petNameRaw ? formatDisplayName(petNameRaw) : '—';
         const speciesDisplay = sp ? sp.charAt(0).toUpperCase() + sp.slice(1).toLowerCase() : '—';
         if (petNameEl) petNameEl.textContent = petName;
         if (petSpeciesEl) petSpeciesEl.textContent = speciesDisplay;
@@ -428,6 +446,20 @@ export function createDetailsApi(ctx) {
         }
         if (concernEl) concernEl.textContent = (apt.reason && apt.reason.trim()) ? apt.reason.trim() : '—';
         if (idEl) idEl.textContent = apt.id || '—';
+
+        const skinWrap = $('details-attached-skin');
+        const skinInner = $('details-attached-skin-inner');
+        if (skinWrap && skinInner) {
+            const s = apt.attachedSkinAnalysis;
+            if (s && s.imageUrl) {
+                skinWrap.classList.remove('is-hidden');
+                skinInner.innerHTML = buildDetailsAttachedSkinAnalysisHtml(s);
+                wireDetailsAttachedSkinThumbnails(skinInner);
+            } else {
+                skinWrap.classList.add('is-hidden');
+                skinInner.innerHTML = '';
+            }
+        }
 
         const placeholderEl = $('details-shared-images-placeholder');
         const listEl = $('details-shared-images-list');
@@ -558,7 +590,7 @@ export function createDetailsApi(ctx) {
                     try {
                         const resolved = await resolveAppointmentFromSlotData(slotDataFromRow);
                         if (resolved) {
-                            fillDetailsModalFromApt(resolved);
+                            fillDetailsModalFromApt(await enrichAppointmentAttachedSkinFromHistory(resolved));
                             setDetailsModalVisible(true);
                             return;
                         }
@@ -582,7 +614,7 @@ export function createDetailsApi(ctx) {
                         try {
                             const resolved = await resolveAppointmentFromSlotData(slotDataFromRow);
                             if (resolved) {
-                                fillDetailsModalFromApt(resolved);
+                                fillDetailsModalFromApt(await enrichAppointmentAttachedSkinFromHistory(resolved));
                                 setDetailsModalVisible(true);
                                 return;
                             }
@@ -598,7 +630,7 @@ export function createDetailsApi(ctx) {
                 return;
             }
             const apt = { id: snap.id, ...snap.data() };
-            fillDetailsModalFromApt(apt);
+            fillDetailsModalFromApt(await enrichAppointmentAttachedSkinFromHistory(apt));
             setDetailsModalVisible(true);
         } catch (err) {
             console.error('Load appointment error:', err);
@@ -625,13 +657,23 @@ export function createDetailsApi(ctx) {
 export function createBookingSettingsApi(ctx) {
     const {
         $, setModalVisible, onOverlayClick,
-        getMinAdvanceMinutes, formatMinutesForDisplay,
+        getMinAdvanceMinutes,
+        getConsultationPriceCentavosTest,
+        getConsultationPriceCentavosLive,
+        formatMinutesForDisplay,
         MIN_ADVANCE_MIN, MIN_ADVANCE_MAX_MINUTES,
+        MIN_CONSULTATION_PRICE_CENTAVOS_LIVE,
+        MIN_CONSULTATION_PRICE_CENTAVOS_TEST,
         saveVetSettings, invalidateSchedulesCache, recalcExpiryForFutureSlots,
         scheduleNextExpiryRerender, getCachedSchedules,
         getGridViewActive, loadWeeklyScheduleView, loadSchedulesView, loadBlockedDatesView,
         showToast
     } = ctx;
+
+    function formatPhpFromCentavos(centavos) {
+        const n = Math.floor(Number(centavos) || 0);
+        return `PHP ${(n / 100).toFixed(2)}`;
+    }
 
     function updateMinAdvanceInputs() {
         const mins = getMinAdvanceMinutes();
@@ -670,6 +712,31 @@ export function createBookingSettingsApi(ctx) {
         if (el) el.textContent = `Min advance: ${formatMinutesForDisplay(mins)}`;
     }
 
+    function parsePhpInputToCentavos(id) {
+        const inp = $(id);
+        if (!inp) return null;
+        const raw = String(inp.value || '').trim().replace(/,/g, '');
+        const php = parseFloat(raw);
+        if (!Number.isFinite(php) || php <= 0) return null;
+        const centavos = Math.round(php * 100);
+        if (!Number.isFinite(centavos) || centavos < 1) return null;
+        return centavos;
+    }
+
+    function updateConsultationPriceInputs() {
+        const testInp = $('consultation-price-test-php');
+        const liveInp = $('consultation-price-live-php');
+        if (testInp) testInp.value = (getConsultationPriceCentavosTest() / 100).toFixed(2);
+        if (liveInp) liveInp.value = (getConsultationPriceCentavosLive() / 100).toFixed(2);
+    }
+
+    function updateCurrentConsultationFeeDisplay() {
+        const el = $('schedules-current-fee');
+        if (el) {
+            el.textContent = `Testing (card) ${formatPhpFromCentavos(getConsultationPriceCentavosTest())} · Live (QRPh) ${formatPhpFromCentavos(getConsultationPriceCentavosLive())}`;
+        }
+    }
+
     function syncMinAdvanceInputAttrs() {
         const valInp = $('min-advance-value');
         const unitSel = $('min-advance-unit');
@@ -683,6 +750,7 @@ export function createBookingSettingsApi(ctx) {
 
     function openBookingSettingsModal() {
         updateMinAdvanceInputs();
+        updateConsultationPriceInputs();
         syncMinAdvanceInputAttrs();
         $('booking-settings-error')?.classList.add('is-hidden');
         setModalVisible('booking-settings-overlay', 'booking-settings-modal', true);
@@ -692,44 +760,95 @@ export function createBookingSettingsApi(ctx) {
     async function closeBookingSettingsModal(discardConfirm = false) {
         const inputMins = getMinAdvanceFromInputs();
         const savedMins = getMinAdvanceMinutes();
-        const hasChanges = inputMins !== null && inputMins !== savedMins;
-        if (discardConfirm && hasChanges && !(await appConfirm('Discard unsaved changes?', { confirmText: 'Yes', cancelText: 'No' }))) return;
+        const inputTest = parsePhpInputToCentavos('consultation-price-test-php');
+        const inputLive = parsePhpInputToCentavos('consultation-price-live-php');
+        const savedTest = getConsultationPriceCentavosTest();
+        const savedLive = getConsultationPriceCentavosLive();
+        const advanceChanged = inputMins !== null && inputMins !== savedMins;
+        const testChanged = inputTest !== null && inputTest !== savedTest;
+        const liveChanged = inputLive !== null && inputLive !== savedLive;
+        if (discardConfirm && (advanceChanged || testChanged || liveChanged) && !(await appConfirm('Discard unsaved changes?', { confirmText: 'Yes', cancelText: 'No' }))) return;
         updateMinAdvanceInputs();
+        updateConsultationPriceInputs();
         setModalVisible('booking-settings-overlay', 'booking-settings-modal', false);
     }
 
     async function doSaveBookingSettings() {
         const val = getMinAdvanceFromInputs();
+        const priceTest = parsePhpInputToCentavos('consultation-price-test-php');
+        const priceLive = parsePhpInputToCentavos('consultation-price-live-php');
+        const errEl = $('booking-settings-error');
         if (val === null) {
-            const errEl = $('booking-settings-error');
             if (errEl) {
                 errEl.textContent = `Enter a value between ${MIN_ADVANCE_MIN} and ${MIN_ADVANCE_MAX_MINUTES} minutes (or 0.01–24 hours).`;
                 errEl.classList.remove('is-hidden');
             }
             return;
         }
-        const currentVal = getMinAdvanceMinutes();
-        if (val === currentVal) {
+        if (priceTest === null || priceLive === null) {
+            if (errEl) {
+                errEl.textContent = 'Enter valid PHP amounts for both Testing (card) and Live (QRPh).';
+                errEl.classList.remove('is-hidden');
+            }
+            return;
+        }
+        if (priceTest < MIN_CONSULTATION_PRICE_CENTAVOS_TEST) {
+            if (errEl) {
+                errEl.textContent = `Testing (card) minimum is ${formatPhpFromCentavos(MIN_CONSULTATION_PRICE_CENTAVOS_TEST)}.`;
+                errEl.classList.remove('is-hidden');
+            }
+            return;
+        }
+        if (priceLive < MIN_CONSULTATION_PRICE_CENTAVOS_LIVE) {
+            if (errEl) {
+                errEl.textContent = `Live (QRPh) minimum is ${formatPhpFromCentavos(MIN_CONSULTATION_PRICE_CENTAVOS_LIVE)}.`;
+                errEl.classList.remove('is-hidden');
+            }
+            return;
+        }
+        const currentAdvance = getMinAdvanceMinutes();
+        const currentTest = getConsultationPriceCentavosTest();
+        const currentLive = getConsultationPriceCentavosLive();
+        if (val === currentAdvance && priceTest === currentTest && priceLive === currentLive) {
             await closeBookingSettingsModal();
             return;
         }
         const label = formatMinutesForDisplay(val);
-        if (!(await appConfirm(`Save booking setting to "${label}"? Slots within this window will be deleted from your schedule and cannot be booked.`, { confirmText: 'Yes', cancelText: 'No' }))) return;
+        const feeSummary = `Testing (card) ${formatPhpFromCentavos(priceTest)}, Live (QRPh) ${formatPhpFromCentavos(priceLive)}`;
+        let confirmMsg;
+        const feesChanged = priceTest !== currentTest || priceLive !== currentLive;
+        if (val !== currentAdvance && feesChanged) {
+            confirmMsg = `Save minimum advance as "${label}" and fees (${feeSummary})? Changing the advance window will remove soon-to-book slots from your schedule.`;
+        } else if (val !== currentAdvance) {
+            confirmMsg = `Save booking setting to "${label}"? Slots within this window will be deleted from your schedule and cannot be booked.`;
+        } else {
+            confirmMsg = `Save fees (${feeSummary})?`;
+        }
+        if (!(await appConfirm(confirmMsg, { confirmText: 'Yes', cancelText: 'No' }))) return;
         const saveBtn = $('booking-settings-save-btn');
-        const errEl = $('booking-settings-error');
-        if (saveBtn) saveBtn.disabled = true;
         if (errEl) { errEl.textContent = ''; errEl.classList.add('is-hidden'); }
+        if (saveBtn) saveBtn.disabled = true;
         try {
-            await saveVetSettings(val);
+            await saveVetSettings({
+                minAdvanceBookingMinutes: val,
+                consultationPriceCentavosTest: priceTest,
+                consultationPriceCentavosLive: priceLive,
+            });
             await closeBookingSettingsModal();
             updateCurrentAdvanceDisplay();
-            invalidateSchedulesCache();
-            await recalcExpiryForFutureSlots();
-            scheduleNextExpiryRerender(getCachedSchedules());
-            if (getGridViewActive()) loadWeeklyScheduleView();
-            else loadSchedulesView();
-            loadBlockedDatesView();
-            showToast(`Booking setting saved. Minimum advance is now ${label}.`);
+            updateCurrentConsultationFeeDisplay();
+            if (val !== currentAdvance) {
+                invalidateSchedulesCache();
+                await recalcExpiryForFutureSlots();
+                scheduleNextExpiryRerender(getCachedSchedules());
+                if (getGridViewActive()) loadWeeklyScheduleView();
+                else loadSchedulesView();
+                loadBlockedDatesView();
+            }
+            const parts = [];
+            if (val !== currentAdvance) parts.push(`minimum advance is now ${label}`);
+            if (feesChanged) parts.push(feeSummary);
+            showToast(parts.length ? `Saved. ${parts.join('; ')}.` : 'Settings saved.');
         } catch (err) {
             if (errEl) { errEl.textContent = err.message || 'Failed to save. Please try again.'; errEl.classList.remove('is-hidden'); }
         } finally {
@@ -747,7 +866,9 @@ export function createBookingSettingsApi(ctx) {
 
     return {
         updateMinAdvanceInputs,
+        updateConsultationPriceInputs,
         updateCurrentAdvanceDisplay,
+        updateCurrentConsultationFeeDisplay,
         openBookingSettingsModal,
         closeBookingSettingsModal,
         bindBookingSettingsEvents,

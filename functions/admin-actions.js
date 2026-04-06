@@ -1,6 +1,7 @@
 'use strict';
 
 const { userHasBlockingAppointment } = require('./appointment-blocks-delete');
+const { formatDisplayName } = require('./format-display-name');
 
 function makeAdminActions({
   onCall,
@@ -240,8 +241,8 @@ function makeAdminActions({
       throw new HttpsError('invalid-argument', 'First name and last name are required.');
     }
     const emailTrimmed = email.trim().toLowerCase();
-    const firstNameTrimmed = firstName.trim();
-    const lastNameTrimmed = lastName.trim();
+    const firstNameTrimmed = formatDisplayName(firstName.trim());
+    const lastNameTrimmed = formatDisplayName(lastName.trim());
     const displayNameVal = `${firstNameTrimmed} ${lastNameTrimmed}`.trim();
 
     if (!isValidEmail(emailTrimmed)) {

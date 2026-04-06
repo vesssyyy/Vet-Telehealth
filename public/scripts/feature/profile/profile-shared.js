@@ -3,7 +3,7 @@
  * Consumed by petowner/profile.js and vet/profile.js via initProfile(config).
  */
 import { app, auth, db, storage } from '../../core/firebase/firebase-config.js';
-import { getInitials, formatDate } from '../../core/app/utils.js';
+import { getInitials, formatDate, formatDisplayName } from '../../core/app/utils.js';
 import { openProfilePhotoCrop } from '../../core/app/profile-photo-crop.js';
 import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-functions.js';
 import {
@@ -90,7 +90,7 @@ function setPhoto(url, name, imgEl, placeholderEl = null, initialsEl = null, def
 export function initProfile(config) {
     const {
         defaultName,
-        formatName      = n => n,
+        formatName      = formatDisplayName,
         buildProfile,
         getRole,
         defaultInitials = defaultName.split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2),
@@ -154,7 +154,7 @@ export function initProfile(config) {
             specialization = '', licenseNumber = '',
         } = profile;
         const formattedName = formatName(displayName);
-        const firstName  = (displayName || '').trim().split(/\s+/)[0] || '';
+        const firstName  = (formattedName || '').trim().split(/\s+/)[0] || '';
         // If the first word matches the role default name (e.g. "Pet"), fall back to "there"
         const firstDefault = defaultName.split(/\s+/)[0].toLowerCase();
         const dashName  = firstName && firstName.toLowerCase() !== firstDefault ? firstName : 'there';

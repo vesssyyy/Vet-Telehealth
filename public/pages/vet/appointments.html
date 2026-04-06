@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="../../assets/Browser-logo.png">
     <link rel="stylesheet" href="../../styles/shared/desktop-zoom.css">
     <title>Online Consultations - Televet Health (Vet)</title>
     <link rel="stylesheet" href="../../styles/vet/sidebar-layout.css">
@@ -157,13 +158,16 @@
                             <button type="button" class="schedules-slot-btn" id="schedules-slot-completed" data-slot-filter="completed">Completed</button>
                             <button type="button" class="schedules-slot-btn" id="schedules-slot-expired" data-slot-filter="expired">Expired</button>
                         </div>
-                        <span class="schedules-current-advance-wrap" id="schedules-current-advance-wrap"><span id="schedules-current-advance" aria-live="polite"></span></span>
+                        <span class="schedules-current-advance-wrap" id="schedules-current-advance-wrap">
+                            <span id="schedules-current-advance" aria-live="polite"></span>
+                            <span id="schedules-current-fee" class="schedules-current-fee" aria-live="polite"></span>
+                        </span>
                         <div class="schedules-view-dropdown-wrap">
                             <button type="button" class="schedules-settings-btn" id="schedules-view-settings-btn" aria-label="View settings" aria-expanded="false" aria-haspopup="true"><i class="fa fa-cog" aria-hidden="true"></i></button>
                             <div id="schedules-view-dropdown" class="schedules-view-dropdown is-hidden" role="menu">
                                 <button type="button" class="schedules-view-option" data-view="list" role="menuitem"><i class="fa fa-list" aria-hidden="true"></i> List</button>
                                 <button type="button" class="schedules-view-option" id="schedules-view-option-grid" data-view="grid" role="menuitem"><i class="fa fa-th" aria-hidden="true"></i> Grid</button>
-                                <button type="button" class="schedules-view-option" data-view="settings" role="menuitem"><i class="fa fa-clock-o" aria-hidden="true"></i> Limiting Schedule</button>
+                                <button type="button" class="schedules-view-option" data-view="settings" role="menuitem"><i class="fa fa-clock-o" aria-hidden="true"></i> Booking settings</button>
                             </div>
                         </div>
                     </div>
@@ -421,7 +425,7 @@
     <div class="template-modal is-hidden" id="booking-settings-modal" role="dialog" aria-labelledby="booking-settings-title" aria-modal="true">
         <div class="template-modal-card">
             <div class="template-modal-header">
-                <h2 class="template-modal-title" id="booking-settings-title"><i class="fa fa-clock-o" aria-hidden="true"></i> Limiting Schedule</h2>
+                <h2 class="template-modal-title" id="booking-settings-title"><i class="fa fa-clock-o" aria-hidden="true"></i> Booking settings</h2>
                 <button type="button" class="template-modal-close" id="booking-settings-close" aria-label="Close"><i class="fa fa-times" aria-hidden="true"></i></button>
             </div>
             <div class="template-modal-body">
@@ -440,6 +444,18 @@
                             </select>
                         </div>
                         <span class="template-panel-hint">Example: 2 hours = pet owners must book at least 2 hours before the consultation time.</span>
+                    </div>
+                </div>
+                <div class="template-form-row booking-settings-fee-row">
+                    <div class="booking-settings-fee-grid">
+                        <div class="template-form-group">
+                            <label for="consultation-price-test-php">Testing (card)</label>
+                            <input type="number" id="consultation-price-test-php" min="2" step="0.01" placeholder="100.00" aria-label="Testing card fee in PHP" autocomplete="off">
+                        </div>
+                        <div class="template-form-group">
+                            <label for="consultation-price-live-php">Live (QRPh)</label>
+                            <input type="number" id="consultation-price-live-php" min="2" step="0.01" placeholder="100.00" aria-label="Live QRPh fee in PHP" autocomplete="off">
+                        </div>
                     </div>
                 </div>
                 <p class="template-error-msg is-hidden" id="booking-settings-error" role="alert"></p>
@@ -504,6 +520,10 @@
                         <span class="details-appointment-label"><i class="fa fa-id-badge" aria-hidden="true"></i> Appointment ID:</span>
                         <span class="details-appointment-value details-appointment-value--id" id="details-appointment-id">â€”</span>
                     </div>
+                </div>
+                <div class="details-attached-skin is-hidden" id="details-attached-skin">
+                    <h3 class="details-shared-images-title"><i class="fa fa-stethoscope" aria-hidden="true"></i> Attached skin analysis</h3>
+                    <div class="details-attached-skin-inner" id="details-attached-skin-inner"></div>
                 </div>
                 <div class="details-shared-images">
                     <h3 class="details-shared-images-title"><i class="fa fa-picture-o" aria-hidden="true"></i> Shared Images &amp; Files</h3>

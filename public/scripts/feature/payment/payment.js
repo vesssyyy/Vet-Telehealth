@@ -1,14 +1,22 @@
 import { app, auth } from '../../core/firebase/firebase-config.js';
+import { formatDisplayName } from '../../core/app/utils.js';
 import { appAlertError } from '../../core/ui/app-dialog.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js';
 import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-functions.js';
 import { createAppointment, markAppointmentPaid } from '../appointment/petowner/services.js';
+import { enrichAppointmentAttachedSkinFromHistory } from '../skin-disease/skin-analysis-repository.js';
 import { createCardPaymentMethod, createQrPhPaymentMethod } from './paymongo-client.js';
+import {
+    DEFAULT_CONSULTATION_PRICE_CENTAVOS_LIVE,
+    DEFAULT_CONSULTATION_PRICE_CENTAVOS_TEST,
+    MIN_CONSULTATION_PRICE_CENTAVOS_LIVE,
+    MIN_CONSULTATION_PRICE_CENTAVOS_TEST,
+} from '../appointment/shared/constants.js';
 
 var BOOKING_MEDIA_DB = 'televet_booking_media';
 var BOOKING_MEDIA_STORE = 'files';
-var CARD_TEST_AMOUNT_CENTAVOS = 10000;
-var QR_LIVE_AMOUNT_CENTAVOS = 2000;
+/** Set when payment page loads with ?booking=1 (vet fee from booking payload). */
+var paymentContextBooking = null;
 
 function getBookingMediaFromIndexedDB(mediaKey) {
     return new Promise(function (resolve, reject) {
@@ -214,15 +222,17 @@ function escapeHtml(str) {
 
 function showBookingSummary(booking) {
     if (!summaryEl || !booking) return;
-    var vetLine = (booking.vetName || '-') + (booking.clinicName ? ' - ' + booking.clinicName : '');
+    var vetPart = booking.vetName ? formatDisplayName(String(booking.vetName)) : '-';
+    var clinicPart = booking.clinicName ? formatDisplayName(String(booking.clinicName)) : '';
+    var vetLine = vetPart + (clinicPart ? ' - ' + clinicPart : '');
     var titleText =
         (booking.title && String(booking.title).trim()) ||
         (booking.reason && String(booking.reason).trim()) ||
         '-';
     var titleHtml = escapeHtml(titleText);
     summaryEl.innerHTML =
-        '<div class="payment-summary-row"><span class="sum-label">Veterinarian</span><span class="sum-value">' + vetLine + '</span></div>' +
-        '<div class="payment-summary-row"><span class="sum-label">Pet</span><span class="sum-value">' + (booking.petName || '-') + '</span></div>' +
+        '<div class="payment-summary-row"><span class="sum-label">Veterinarian</span><span class="sum-value">' + escapeHtml(vetLine) + '</span></div>' +
+        '<div class="payment-summary-row"><span class="sum-label">Pet</span><span class="sum-value">' + escapeHtml(booking.petName ? formatDisplayName(String(booking.petName)) : '-') + '</span></div>' +
         '<div class="payment-summary-row"><span class="sum-label">Title:</span><span class="sum-value payment-summary-title-text" title="' + titleHtml + '">' + titleHtml + '</span></div>' +
         '<div class="payment-summary-row"><span class="sum-label">Date &amp; time</span><span class="sum-value">' + (booking.timeDisplay || booking.dateStr || '-') + '</span></div>';
     summaryEl.style.display = 'block';
@@ -271,8 +281,20 @@ function requiredPrefixForMethod(method) {
     return method === 'qrph' ? 'pk_live_' : 'pk_test_';
 }
 
-function amountForMethod(method) {
-    return method === 'qrph' ? QR_LIVE_AMOUNT_CENTAVOS : CARD_TEST_AMOUNT_CENTAVOS;
+function bookingAmountCentavos(booking, method) {
+    var m = method === 'qrph' ? 'qrph' : 'card';
+    var min = m === 'qrph' ? MIN_CONSULTATION_PRICE_CENTAVOS_LIVE : MIN_CONSULTATION_PRICE_CENTAVOS_TEST;
+    var def = m === 'qrph' ? DEFAULT_CONSULTATION_PRICE_CENTAVOS_LIVE : DEFAULT_CONSULTATION_PRICE_CENTAVOS_TEST;
+    if (m === 'qrph') {
+        var live = booking && booking.amountCentavosLive;
+        if (typeof live === 'number' && Number.isFinite(live) && live >= min) return Math.floor(live);
+    } else {
+        var test = booking && booking.amountCentavosTest;
+        if (typeof test === 'number' && Number.isFinite(test) && test >= min) return Math.floor(test);
+    }
+    var legacy = booking && booking.amountCentavos;
+    if (typeof legacy === 'number' && Number.isFinite(legacy) && legacy >= min) return Math.floor(legacy);
+    return def;
 }
 
 function isValidPublishableKeyForMethod(method, key) {
@@ -311,8 +333,11 @@ function lockPaymentMethodSwitch(locked) {
 
 function updateMethodUi() {
     var method = selectedPaymentMethod();
+    var amt = paymentContextBooking
+        ? bookingAmountCentavos(paymentContextBooking, method)
+        : bookingAmountCentavos(null, method);
     if (cardFields) cardFields.style.display = method === 'card' ? 'block' : 'none';
-    if (feeLine) feeLine.textContent = formatPhpCentavos(amountForMethod(method));
+    if (feeLine) feeLine.textContent = formatPhpCentavos(amt);
     var cardInputIds = ['pm-number', 'pm-exp-month', 'pm-exp-year', 'pm-cvc'];
     for (var i = 0; i < cardInputIds.length; i++) {
         var cardInput = document.getElementById(cardInputIds[i]);
@@ -321,9 +346,10 @@ function updateMethodUi() {
         if (method !== 'card') cardInput.setCustomValidity('');
     }
     if (paymentHint) {
+        var exactLine = formatPhpCentavos(amt);
         paymentHint.innerHTML = method === 'card'
             ? '<span class="payment-mode-pill payment-mode-pill--test">Test only</span> - <code>4343 4343 4343 4345</code> or <code>5555 4444 4444 4457</code> - future MM/YY - any CVC'
-            : '<span class="payment-mode-pill payment-mode-pill--live">Live</span> - Pay exactly <code>PHP 20.00</code> using the generated QRPh code.';
+            : '<span class="payment-mode-pill payment-mode-pill--live">Live</span> - Pay exactly <code>' + exactLine + '</code> using the generated QRPh code.';
     }
     if (nameLabel) nameLabel.textContent = method === 'card' ? 'Cardholder name' : 'Payer name';
     if (emailLabel) emailLabel.textContent = method === 'card' ? 'Email' : 'Payer email';
@@ -381,8 +407,23 @@ async function completeBookingAfterPayment(booking) {
     if (booking.mediaKey) {
         mediaFiles = await getBookingMediaFromIndexedDB(booking.mediaKey);
     }
-    var paidAmountCentavos = booking.amountCentavos != null ? booking.amountCentavos : amountForMethod(selectedPaymentMethod());
     var paidMethod = booking.paymentMethod || selectedPaymentMethod();
+    var paidAmountCentavos = bookingAmountCentavos(booking, paidMethod);
+    var skinAttach = booking.attachedSkinAnalysis || null;
+    var u = auth.currentUser;
+    if (u && skinAttach && typeof skinAttach === 'object') {
+        try {
+            var hydratedApt = await enrichAppointmentAttachedSkinFromHistory({
+                ownerId: u.uid,
+                attachedSkinAnalysis: skinAttach,
+            });
+            if (hydratedApt && hydratedApt.attachedSkinAnalysis) {
+                skinAttach = hydratedApt.attachedSkinAnalysis;
+            }
+        } catch (e) {
+            /* keep session snapshot */
+        }
+    }
     var data = {
         title: booking.title || null,
         petId: booking.petId,
@@ -400,6 +441,7 @@ async function completeBookingAfterPayment(booking) {
         costPaidCentavos: paidAmountCentavos,
         paymentMethod: paidMethod,
         paymentIntentId: booking.paymentIntentId || piRef || null,
+        attachedSkinAnalysis: skinAttach,
     };
     var res = await createAppointment(data);
     await markAppointmentPaid(res.id, {
@@ -433,7 +475,7 @@ async function runPayMongoThenBook(booking) {
         (booking.title && String(booking.title).trim()) ||
         (booking.reason && String(booking.reason).trim()) ||
         '';
-    var amountCentavos = amountForMethod(method);
+    var amountCentavos = bookingAmountCentavos(booking, method);
     var piRes = await createPaymentIntent({
         amount: amountCentavos,
         paymentMethod: method,
@@ -502,6 +544,12 @@ async function runPayMongoThenBook(booking) {
         return;
     }
     if (d.redirectUrl) {
+        booking.paymentMethod = method;
+        booking.amountCentavos = amountCentavos;
+        booking.paymentIntentId = pid;
+        try {
+            sessionStorage.setItem('televet_booking', JSON.stringify(booking));
+        } catch (e) { /* ignore */ }
         window.location.href = d.redirectUrl;
         return;
     }
@@ -542,6 +590,8 @@ async function handlePayMongoReturn() {
         return;
     }
     var booking = JSON.parse(stored);
+    paymentContextBooking = booking;
+    if (!booking.paymentMethod) booking.paymentMethod = 'card';
     try {
         if (statusWait) {
             statusWait.style.display = 'block';
@@ -561,6 +611,7 @@ if (params.get('booking') === '1') {
     if (storedBooking) {
         try {
             var booking = JSON.parse(storedBooking);
+            paymentContextBooking = booking;
             showBookingSummary(booking);
 
             if (params.get('paymongo_return') === '1') {
@@ -572,7 +623,7 @@ if (params.get('booking') === '1') {
             } else {
                 loadPayMongoClientConfig().then(function () {
                     if (placeholderText) placeholderText.style.display = 'none';
-                    if (feeLine) feeLine.textContent = formatPhpCentavos(amountForMethod(selectedPaymentMethod()));
+                    updateMethodUi();
                     if (paymentForm) paymentForm.classList.add('is-visible');
                     if (paymentForm) {
                         var methodInputs = document.querySelectorAll('input[name="payment-method"]');
@@ -589,7 +640,6 @@ if (params.get('booking') === '1') {
                                 updateMethodUi();
                             });
                         }
-                        updateMethodUi();
                         var pmNum = document.getElementById('pm-number');
                         if (pmNum) {
                             bindCardNumberSpacing(pmNum);

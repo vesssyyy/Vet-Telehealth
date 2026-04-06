@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="../../assets/Browser-logo.png">
     <link rel="stylesheet" href="../../styles/shared/desktop-zoom.css">
     <title>Skin Health Detection - Televet Health (Vet)</title>
     <link rel="stylesheet" href="../../styles/vet/sidebar-layout.css">
@@ -55,7 +56,7 @@
             </div>
         </header>
 
-        <div class="content-wrapper skin-content-wrapper">
+        <div class="content-wrapper skin-content-wrapper" data-skin-assets="../../assets/" data-skin-api-fallback="http://localhost:5000">
             <div class="skin-stepper-bar">
                 <button type="button" class="skin-back-btn is-hidden" id="skin-back-btn" aria-label="Back to species selection" aria-hidden="true" tabindex="-1">
                     <i class="fa fa-arrow-left" aria-hidden="true"></i>
@@ -94,14 +95,20 @@
                 </nav>
             </div>
 
-            <!-- Selection view: choose Cat or Dog -->
-            <section class="skin-selection-view skin-view" id="skin-selection-view" aria-labelledby="skin-analysis-title">
-                <header class="skin-analysis-header">
-                    <h1 class="skin-analysis-title" id="skin-analysis-title">Skin Health Analysis</h1>
-                    <p class="skin-analysis-subtitle" id="skin-detection-heading">
+            <div class="skin-page-title-bar">
+                <div class="skin-page-title-stack">
+                    <h1 class="skin-page-heading" id="skin-page-heading">Skin Health Analysis</h1>
+                    <p class="skin-page-subtitle" id="skin-detection-heading">
                         Select a species below, then take or upload a photo of your pet&apos;s skin condition. The system will analyze and suggest possible conditions.
                     </p>
-                </header>
+                </div>
+                <button type="button" class="skin-history-open-btn" id="skin-history-open-btn" aria-label="Analysis history" aria-haspopup="dialog" aria-controls="skin-history-list-overlay" aria-expanded="false">
+                    <i class="fa fa-history" aria-hidden="true"></i><span class="skin-history-open-btn-label">History</span>
+                </button>
+            </div>
+
+            <!-- Selection view: choose Cat or Dog -->
+            <section class="skin-selection-view skin-view" id="skin-selection-view" aria-labelledby="skin-page-heading">
 
                 <div class="pet-selection-grid">
                     <div class="pet-card" data-pet-type="cat" role="button" tabindex="0">
@@ -110,7 +117,7 @@
                         </div>
                         <div class="pet-card-content">
                             <h2 class="pet-card-title">CAT</h2>
-                            <button type="button" class="pet-card-btn" aria-label="Select cat for skin analysis">Select <i class="fa fa-chevron-down" aria-hidden="true"></i></button>
+                            <button type="button" class="pet-card-btn" aria-label="Continue with cat">Continue <i class="fa fa-arrow-right" aria-hidden="true"></i></button>
                         </div>
                     </div>
 
@@ -120,7 +127,7 @@
                         </div>
                         <div class="pet-card-content">
                             <h2 class="pet-card-title">DOG</h2>
-                            <button type="button" class="pet-card-btn" aria-label="Select dog for skin analysis">Select <i class="fa fa-chevron-down" aria-hidden="true"></i></button>
+                            <button type="button" class="pet-card-btn" aria-label="Continue with dog">Continue <i class="fa fa-arrow-right" aria-hidden="true"></i></button>
                         </div>
                     </div>
                 </div>
@@ -132,15 +139,13 @@
             </section>
 
             <!-- Full-page identify view: back, 3-way scan/upload, scope list -->
-            <section class="skin-identify-view skin-view is-hidden" id="skin-identify-view" aria-labelledby="skin-identify-title">
+            <section class="skin-identify-view skin-view is-hidden" id="skin-identify-view" aria-labelledby="skin-identify-species-title">
                 <div class="skin-identify-top">
-                    <div class="skin-identify-hero">
+                    <div class="skin-identify-hero skin-identify-hero--species-banner">
                         <div class="skin-identify-pet-badge">
                             <img id="skin-identify-pet-img" src="" alt="" class="skin-identify-pet-img" width="80" height="80">
                         </div>
-                        <div class="skin-identify-hero-text">
-                            <h2 class="skin-identify-title" id="skin-identify-title">Skin Health Analysis</h2>
-                        </div>
+                        <h2 class="skin-identify-species-title" id="skin-identify-species-title">Skin Health Analysis</h2>
                     </div>
                 </div>
 
@@ -206,9 +211,17 @@
                     <figure class="skin-result-photo-wrap" id="skin-result-photo-wrap">
                         <img id="skin-result-photo" class="skin-result-photo" src="" alt="Photo used for analysis">
                     </figure>
-                    <button type="button" class="skin-result-retry-btn" id="skin-result-scan-another">
-                        <i class="fa fa-refresh" aria-hidden="true"></i> Scan another
-                    </button>
+                    <div class="skin-save-status skin-save-status--saved is-hidden" id="skin-save-status" role="status">
+                        <p class="skin-save-status-saved"><i class="fa fa-check-circle" aria-hidden="true"></i> Analysis saved to your history.</p>
+                    </div>
+                    <div class="skin-result-actions">
+                        <button type="button" class="skin-save-analysis-btn" id="skin-save-btn" disabled>
+                            <i class="fa fa-save" aria-hidden="true"></i> Save Analysis
+                        </button>
+                        <button type="button" class="skin-result-retry-btn" id="skin-result-scan-another">
+                            <i class="fa fa-refresh" aria-hidden="true"></i> Scan another
+                        </button>
+                    </div>
                 </div>
             </section>
 
@@ -222,8 +235,71 @@
                     </button>
                 </div>
             </section>
+
         </div>
     </main>
+
+    <div class="skin-history-list-overlay" id="skin-history-list-overlay" aria-hidden="true">
+        <div class="skin-history-list-modal" role="dialog" aria-modal="true" aria-labelledby="skin-history-modal-title">
+            <button type="button" class="skin-history-list-close" id="skin-history-list-close" aria-label="Close history"><i class="fa fa-times" aria-hidden="true"></i></button>
+            <div class="skin-modal-header skin-history-list-modal-header">
+                <span class="skin-modal-header-icon" aria-hidden="true"><i class="fa fa-history"></i></span>
+                <h2 class="skin-history-modal-title" id="skin-history-modal-title">Analysis history</h2>
+            </div>
+            <div class="skin-history-list-modal-body">
+                <div class="skin-history-filter" id="skin-history-filter" role="tablist" aria-label="Filter by species">
+                    <button type="button" class="skin-history-filter-btn is-active" role="tab" aria-selected="true" data-skin-history-filter="all" id="skin-history-filter-all">All</button>
+                    <button type="button" class="skin-history-filter-btn" role="tab" aria-selected="false" data-skin-history-filter="cat" id="skin-history-filter-cat">Cat</button>
+                    <button type="button" class="skin-history-filter-btn" role="tab" aria-selected="false" data-skin-history-filter="dog" id="skin-history-filter-dog">Dog</button>
+                </div>
+                <div class="skin-history-list-scroll" id="skin-history-list-scroll">
+                    <p class="skin-history-modal-empty" id="skin-history-modal-empty">No saved analyses yet.</p>
+                    <ul class="skin-history-modal-list" id="skin-history-modal-list" role="list"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="skin-history-detail-overlay" id="skin-history-detail-overlay" aria-hidden="true">
+        <div class="skin-history-detail-modal" role="dialog" aria-modal="true" aria-labelledby="skin-history-detail-title">
+            <button type="button" class="skin-history-detail-close" id="skin-history-detail-close" aria-label="Close"><i class="fa fa-times" aria-hidden="true"></i></button>
+            <div class="skin-modal-header skin-history-detail-header">
+                <span class="skin-modal-header-icon" aria-hidden="true"><i class="fa fa-stethoscope"></i></span>
+                <h3 id="skin-history-detail-title" class="skin-history-detail-title"></h3>
+            </div>
+            <div class="skin-history-detail-body">
+                <img id="skin-history-detail-img" class="skin-history-detail-img" alt="Saved analysis photo" width="320" height="320">
+                <p class="skin-history-detail-row skin-history-detail-condition is-hidden" id="skin-history-detail-condition"></p>
+                <p class="skin-history-detail-row" id="skin-history-detail-confidence"></p>
+                <p class="skin-history-detail-row" id="skin-history-detail-date"></p>
+                <p class="skin-history-detail-notes" id="skin-history-detail-notes"></p>
+            </div>
+            <div class="skin-history-detail-actions">
+                <button type="button" class="skin-history-detail-delete" id="skin-history-detail-delete"><i class="fa fa-trash-o" aria-hidden="true"></i> Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="skin-app-toast" class="skin-app-toast is-hidden" role="status" aria-live="polite" aria-hidden="true"></div>
+
+    <div class="skin-save-name-overlay" id="skin-save-name-overlay" aria-hidden="true">
+        <div class="skin-save-name-modal" role="dialog" aria-modal="true" aria-labelledby="skin-save-name-title">
+            <div class="skin-modal-header skin-save-name-modal-header">
+                <span class="skin-modal-header-icon" aria-hidden="true"><i class="fa fa-flask"></i></span>
+                <h2 class="skin-save-name-title" id="skin-save-name-title">Name this analysis</h2>
+            </div>
+            <div class="skin-save-name-body">
+                <label class="skin-save-name-label" for="skin-save-name-input">Name <span class="skin-required-mark" aria-hidden="true">*</span></label>
+                <input type="text" id="skin-save-name-input" class="skin-save-name-input" maxlength="120" autocomplete="off" aria-required="true">
+                <div class="skin-save-name-actions">
+                    <button type="button" class="skin-save-name-cancel" id="skin-save-name-cancel">Cancel</button>
+                    <button type="button" class="skin-save-name-confirm" id="skin-save-name-confirm">
+                        <i class="fa fa-save" aria-hidden="true"></i> Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Camera capture overlay for Scan -->
     <div class="skin-camera-overlay is-hidden" id="skin-camera-overlay" aria-hidden="true">
@@ -249,6 +325,6 @@
     <script type="module" src="../../scripts/core/authentication/route-guard.js"></script>
     <script type="module" src="../../scripts/feature/profile/vet-profile.js"></script>
     <script src="../../scripts/core/config/skin-disease-api-base.js"></script>
-    <script src="../../scripts/feature/skin-disease/skin-disease.js" data-assets="../../assets/" data-api-base="http://localhost:5000"></script>
+    <script type="module" src="../../scripts/feature/skin-disease/skin-disease-app.js"></script>
 </body>
 </html>

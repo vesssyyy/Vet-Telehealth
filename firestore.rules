@@ -116,6 +116,17 @@ service cloud.firestore {
       allow read, write: if request.auth.uid == userId;
     }
 
+    /**
+     * Saved skin health analyses: pet owner owns writes; vets may read petOwner subdocs so
+     * appointment details can resolve history savedAt when the embedded snapshot omits it.
+     */
+    match /users/{userId}/skinAnalyses/{analysisId} {
+      allow read, create, update, delete: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && isVet()
+        && exists(/databases/$(database)/documents/users/$(userId))
+        && get(/databases/$(database)/documents/users/$(userId)).data.role == 'petOwner';
+    }
+
     match /conversations/{convId} {
       // Keep messaging permissive (as requested) to avoid creation/list failures.
       allow read, create, update: if request.auth != null;
