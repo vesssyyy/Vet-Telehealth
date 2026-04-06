@@ -286,6 +286,34 @@
         .payment-config-warning { padding: 12px 14px; background: #fffbeb; border: 1px solid #f59e0b; border-radius: 8px; font-size: 0.8125rem; color: #92400e; margin-bottom: 14px; }
         .payment-status-wait { font-size: 0.875rem; color: var(--text-light, #718096); margin-bottom: 14px; }
         .payment-intent-ref { font-size: 0.75rem; color: var(--text-light, #a0aec0); margin: 0 0 12px 0; line-height: 1.45; word-break: break-all; }
+        .payment-policy-notice {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            padding: 14px 14px;
+            border-radius: 12px;
+            border: 1px solid #f59e0b;
+            border-left-width: 6px;
+            background: #fffbeb;
+            color: #92400e;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            margin: 14px 0 12px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+        }
+        .payment-policy-notice i {
+            color: #b45309;
+            margin-top: 2px;
+            flex-shrink: 0;
+            width: 30px;
+            height: 30px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(245, 158, 11, 0.15);
+        }
+        .payment-policy-notice strong { font-weight: 700; }
 
         @media (max-width: 768px) {
             .content-wrapper.payment-page {
@@ -391,8 +419,7 @@
 
     <aside class="sidebar">
         <div class="sidebar-header">
-            <a href="dashboard.html" class="sidebar-brand">Telehealth</a>
-            <div class="sidebar-tagline">Pet Owner Portal</div>
+            <a href="dashboard.html" class="sidebar-brand" aria-label="Telehealth"><img src="../../assets/Browser-logo.png" alt="" class="sidebar-brand-logo"><span class="sidebar-brand-text">Telehealth</span></a>
         </div>
         <div class="user-profile">
             <a href="profile.html" class="user-profile-link">
@@ -495,6 +522,10 @@
                                 </label>
                                 <label class="payment-field payment-field-cvc"><span>CVC</span><input type="text" id="pm-cvc" name="cc-csc" autocomplete="cc-csc" required placeholder="123" maxlength="4" inputmode="numeric"></label>
                             </div>
+                        </div>
+                        <div class="payment-policy-notice" role="note" aria-label="Cancellation policy">
+                            <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+                            <div><strong>Notice:</strong> Once you pay and the booking is confirmed, this appointment can’t be cancelled anymore.</div>
                         </div>
                         <button type="submit" class="btn-confirm-pay" id="btn-confirm-pay"><i class="fa fa-lock" aria-hidden="true"></i> Pay securely</button>
                     </form>

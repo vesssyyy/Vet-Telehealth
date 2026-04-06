@@ -41,6 +41,13 @@ body {
     padding: 1rem 0;
 }
 
+@media (max-width: 768px) {
+    .nav-header {
+        position: static;
+        top: auto;
+    }
+}
+
 .nav-content {
     display: flex;
     justify-content: space-between;

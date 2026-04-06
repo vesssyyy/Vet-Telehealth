@@ -1173,6 +1173,45 @@
 
     .skin-stepper-bar {
         padding: 0 2px 6px 2px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+    }
+
+    /* Mobile: don't reserve space for hidden back button (prevents stepper compression). */
+    .skin-stepper-bar .skin-back-btn.is-hidden {
+        display: none !important;
+        width: 0 !important;
+        min-width: 0 !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: 0 !important;
+    }
+
+    /* Mobile: when back button is shown, put it below the stepper (no compression). */
+    .skin-stepper-bar .skin-stepper {
+        order: 1;
+        padding: 0;
+    }
+
+    .skin-stepper-bar .skin-back-btn {
+        order: 2;
+        width: auto;
+        min-width: 32px;
+        height: 32px;
+        min-height: 32px;
+        margin: 0 0 2px 4px;
+        border-radius: 8px;
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        align-self: flex-start;
+    }
+
+    .skin-stepper-bar .skin-back-btn i {
+        font-size: 1.05rem;
     }
 
     .skin-selection-view {

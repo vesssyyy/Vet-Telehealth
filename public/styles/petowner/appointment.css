@@ -624,7 +624,7 @@
 .details-modal-title {
     margin: 0;
     font-size: clamp(1.1rem, 2.2vw, 1.3rem);
-    font-weight: 400; color: var(--text-dark, #2d3748);
+    font-weight: 700; color: var(--text-dark, #2d3748);
     letter-spacing: -0.02em; text-align: center;
 }
 .details-modal-title i { color: var(--primary-color, #2c5f7d); font-size: clamp(1rem, 2vw, 1.1rem); opacity: .9; }

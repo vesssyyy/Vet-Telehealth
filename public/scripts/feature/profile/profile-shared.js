@@ -154,7 +154,10 @@ export function initProfile(config) {
             specialization = '', licenseNumber = '',
         } = profile;
         const formattedName = formatName(displayName);
-        const firstName  = (formattedName || '').trim().split(/\s+/)[0] || '';
+        // Skip "Dr." / "Doctor" so vet greeting stays "Dr. Jane" not "Dr. Dr." (HTML already prefixes Dr.)
+        const nameWords = (formattedName || '').trim().split(/\s+/).filter(Boolean);
+        while (nameWords.length && /^(dr\.?|doctor\.?)$/i.test(nameWords[0])) nameWords.shift();
+        const firstName = nameWords[0] || '';
         // If the first word matches the role default name (e.g. "Pet"), fall back to "there"
         const firstDefault = defaultName.split(/\s+/)[0].toLowerCase();
         const dashName  = firstName && firstName.toLowerCase() !== firstDefault ? firstName : 'there';
