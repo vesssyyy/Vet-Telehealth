@@ -1,6 +1,4 @@
-/**
- * Load appointment + related profiles and download consultation summary PDF.
- */
+// Load appointment + related profiles and download consultation summary PDF.
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 import { db } from '../../core/firebase/firebase-config.js';
 import { appAlertError } from '../../core/ui/app-dialog.js';

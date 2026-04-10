@@ -267,6 +267,11 @@
     background: #f0fdf4;
     border-color: #bbf7d0;
 }
+.appointment-card-chip--ending {
+    color: #92400e;
+    background: #fffbeb;
+    border-color: #fcd34d;
+}
 .appointment-card-chip--cancelled {
     color: #64748b;
     background: #f1f5f9;
@@ -708,6 +713,8 @@
     width: 100%; height: 100%; object-fit: cover;
     transition: opacity 0.35s ease;
 }
+.details-doctor-avatar-img[aria-hidden="true"] { display: none; }
+.details-pet-avatar-img[aria-hidden="true"] { display: none; }
 .details-doctor-avatar-fallback { display: none; }
 .details-doctor-avatar-fallback.visible { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
 .details-doctor-name { margin: 0; font-size: clamp(0.9375rem, 1.8vw, 1.05rem); font-weight: 600; color: var(--text-dark, #2d3748); }

@@ -1,9 +1,4 @@
-/**
- * Chat header peer/pet chips: fade image in after load.
- * Peer: icon fallback stays visible until the photo loads.
- * Pet: no paw when a photo URL exists (loading uses empty ring); paw only when the pet has no image.
- * Pet URLs are cached by owner+pet so conversation list snapshots do not refetch / flicker.
- */
+// Messages chat header: fade-in avatars, peer/pet fallbacks, cached pet URLs to avoid list flicker.
 
 const petHeaderAvatarCache = new Map();
 /** @type {Map<string, Promise<string>>} */
@@ -20,12 +15,7 @@ function petUrlFromDoc(p) {
     return u ? String(u).trim() : '';
 }
 
-/**
- * @param {string} ownerId
- * @param {string} petId
- * @param {(ownerId: string, petId: string) => Promise<object|null>} fetchPetProfile
- * @returns {Promise<string>}
- */
+// Resolve pet image URL with cache and single in-flight fetch per owner+pet.
 function loadPetAvatarUrl(ownerId, petId, fetchPetProfile) {
     const key = petAvatarKey(ownerId, petId);
     if (!key) return Promise.resolve('');
@@ -52,19 +42,13 @@ function loadPetAvatarUrl(ownerId, petId, fetchPetProfile) {
     return inflight;
 }
 
-/**
- * Invalidate when the owner updates a pet photo in profile (optional hook).
- */
+// Invalidate when the owner updates a pet photo in profile (optional hook).
 export function invalidatePetHeaderAvatarCache(ownerId, petId) {
     const key = petAvatarKey(ownerId, petId);
     if (key) petHeaderAvatarCache.delete(key);
 }
 
-/**
- * @param {{ petHasPhoto?: boolean, awaitingPetPhoto?: boolean }} [opts]
- *        petHasPhoto — pet chip: hide paw while image loads / when URL is set.
- *        awaitingPetPhoto — pet chip: fetching URL unknown; show empty ring (no paw).
- */
+// Set chip image or fallback; opts control pet paw vs empty ring while loading.
 export function setHeaderChipAvatar(imgEl, fallbackEl, url, opts = {}) {
     if (!imgEl) return;
     const u = url && String(url).trim();
@@ -82,9 +66,7 @@ export function setHeaderChipAvatar(imgEl, fallbackEl, url, opts = {}) {
         return n;
     };
 
-    /**
-     * Decode bitmap if possible, then two rAFs so the browser paints opacity:0 before --ready (smooth fade).
-     */
+    // Decode bitmap if possible, then two rAFs so the browser paints opacity:0 before --ready (smooth fade).
     const revealAvatar = (gen) => {
         if (parseInt(imgEl.dataset.avatarLoadGen, 10) !== gen) return;
         const applyReady = () => {
@@ -177,9 +159,7 @@ export function setHeaderChipAvatar(imgEl, fallbackEl, url, opts = {}) {
     }
 }
 
-/**
- * @param {() => boolean} stillValid e.g. () => state.currentConvId === conv.id
- */
+// @param {() => boolean} stillValid e.g. () => state.currentConvId === conv.id
 export function setPetHeaderChipAvatar(imgEl, fallbackEl, ownerId, petId, fetchPetProfile, stillValid) {
     if (!imgEl) return;
     const key = petAvatarKey(ownerId, petId);
@@ -200,7 +180,7 @@ export function setPetHeaderChipAvatar(imgEl, fallbackEl, ownerId, petId, fetchP
         return;
     }
 
-    /* Avoid repeated clear+fallback flicker while the same pet is still loading (e.g. list snapshots). */
+    // Avoid repeated clear+fallback flicker while the same pet is still loading (e.g. list snapshots).
     if (imgEl?.dataset.petHeaderKey !== key) {
         imgEl.dataset.petHeaderKey = key;
         setHeaderChipAvatar(imgEl, fallbackEl, '', { awaitingPetPhoto: true });

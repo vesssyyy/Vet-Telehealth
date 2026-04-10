@@ -5,9 +5,7 @@ import {
     deleteField,
 } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 
-/**
- * Offer creation logic (including m-line retry path) for the offerer peer.
- */
+// Offer creation logic (including m-line retry path) for the offerer peer.
 export function createRtcOfferer(ctx) {
     const {
         videoCallRef,

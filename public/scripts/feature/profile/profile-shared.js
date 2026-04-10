@@ -1,7 +1,4 @@
-/**
- * Televet Health — Shared Profile Logic
- * Consumed by petowner/profile.js and vet/profile.js via initProfile(config).
- */
+// Shared profile page logic: pet owner and vet shells call initProfile(config).
 import { app, auth, db, storage } from '../../core/firebase/firebase-config.js';
 import { getInitials, formatDate, formatDisplayName } from '../../core/app/utils.js';
 import { openProfilePhotoCrop } from '../../core/app/profile-photo-crop.js';
@@ -43,15 +40,7 @@ const writeCache = (uid, p) => {
     }
 };
 
-/**
- * Show or hide a photo element with a companion placeholder.
- * @param {string}      url           Download URL (empty → show placeholder)
- * @param {string}      name          Used for alt text and initials
- * @param {HTMLElement} imgEl         The <img> element
- * @param {HTMLElement} [placeholderEl] Placeholder that shows initials when no photo
- * @param {HTMLElement} [initialsEl]    Alternative element toggled alongside placeholder
- * @param {string}      [defaultInitials]
- */
+// Show profile image or hide it and show placeholder/initials instead.
 function setPhoto(url, name, imgEl, placeholderEl = null, initialsEl = null, defaultInitials = '') {
     if (!imgEl) return;
     const show = Boolean(url);
@@ -77,16 +66,7 @@ function setPhoto(url, name, imgEl, placeholderEl = null, initialsEl = null, def
     if (initialsEl) initialsEl.classList.toggle('is-hidden', show);
 }
 
-/**
- * Initialize the profile page.
- *
- * @param {object}   config
- * @param {string}   config.defaultName      Fallback display name  ('Pet Owner' | 'Veterinarian')
- * @param {function} [config.formatName]     Transform the display name shown in UI  (default: identity)
- * @param {function} config.buildProfile     (firestoreData, firebaseUser) → profile object
- * @param {function} config.getRole          (profile) → role label string shown in badge
- * @param {string}   [config.defaultInitials] Initials shown when no photo (default: first 2 caps of defaultName)
- */
+// Wire profile UI: Firestore sync, edit modal, photo upload, password, delete account, SPA re-init.
 export function initProfile(config) {
     const {
         defaultName,
@@ -99,7 +79,7 @@ export function initProfile(config) {
 
     initPasswordToggleFields(document);
 
-    /* ── DOM references ───────────────────────────────────────────── */
+    // DOM references
     const DOM_IDS = {
         sidebarName: 'sidebar-name', sidebarEmail: 'sidebar-email',
         sidebarAvatar: 'sidebar-avatar', sidebarAvatarImg: 'sidebar-avatar-img',
@@ -130,11 +110,11 @@ export function initProfile(config) {
     const queryDOM = () => { for (const k in DOM_IDS) D[k] = $(DOM_IDS[k]); };
     queryDOM();
 
-    /* ── Pending state (cleared on Cancel, applied on Save) ────────── */
+    // Pending state (cleared on Cancel, applied on Save)
     let pendingProfilePhoto = null; // { file: File, objectUrl: string } | null
     let pendingPhotoAction  = null; // 'remove' | { type: 'url', url: string } | null
 
-    /* ── Photo helpers ─────────────────────────────────────────────── */
+    // Photo helpers
     const setSidebarPhoto  = (url, name) => setPhoto(url, name, D.sidebarAvatarImg, null, D.sidebarAvatar);
     const setProfilePhoto  = (url, name) => setPhoto(url, name, D.profilePhoto, D.profilePhotoPlaceholder, null, defaultInitials);
     const setModalPhoto    = (url, name) => setPhoto(url, name, D.editProfilePhoto, D.editProfilePhotoPlaceholder, null, defaultInitials);
@@ -146,7 +126,7 @@ export function initProfile(config) {
         return readCache(auth.currentUser?.uid)?.photoUrl || '';
     };
 
-    /* ── Apply profile to DOM ──────────────────────────────────────── */
+    // Apply profile to DOM
     const applyProfile = profile => {
         if (!profile) return;
         const {
@@ -191,7 +171,7 @@ export function initProfile(config) {
         if (D.license) D.license.value = licenseNumber;
     };
 
-    /* ── Firestore sync ────────────────────────────────────────────── */
+    // Firestore sync
     const syncProfile = async user => {
         const snap = await getDoc(doc(db, 'users', user.uid));
         const data  = snap.exists() ? snap.data() : {};
@@ -204,7 +184,7 @@ export function initProfile(config) {
     const reveal       = () => { document.body.classList.remove('profile-loading'); window.dispatchEvent(new CustomEvent('profileReady')); };
     const profileReady = () => requestAnimationFrame(() => requestAnimationFrame(reveal));
 
-    /* ── Storage helpers ───────────────────────────────────────────── */
+    // Storage helpers
     const deleteStoragePhoto = async () => {
         const user = auth.currentUser;
         if (!user) return;
@@ -223,7 +203,7 @@ export function initProfile(config) {
         applyProfile(cache || { ...readCache(user.uid), photoUrl: url });
     };
 
-    /* ── Edit modal ────────────────────────────────────────────────── */
+    // Edit modal
     const openEditModal = () => {
         const user = auth.currentUser;
         const c    = readCache(user?.uid);
@@ -248,7 +228,7 @@ export function initProfile(config) {
         D.editModal?.setAttribute('aria-hidden', 'true');
     };
 
-    /* ── Save profile ──────────────────────────────────────────────── */
+    // Save profile
     const saveProfile = async () => {
         const user = auth.currentUser;
         if (!user) return;
@@ -301,7 +281,7 @@ export function initProfile(config) {
         }
     };
 
-    /* ── Photo actions (modal) ─────────────────────────────────────── */
+    // Photo actions (modal)
     const removePhoto = () => {
         if (pendingProfilePhoto) { URL.revokeObjectURL(pendingProfilePhoto.objectUrl); pendingProfilePhoto = null; }
         pendingPhotoAction = 'remove';
@@ -317,7 +297,7 @@ export function initProfile(config) {
         setModalPhoto(user.photoURL, c?.displayName || user.displayName || defaultName);
     };
 
-    /* ── Change password ───────────────────────────────────────────── */
+    // Change password
     const handleChangePassword = async e => {
         e.preventDefault();
         const user = auth.currentUser;
@@ -352,7 +332,7 @@ export function initProfile(config) {
         }
     };
 
-    /* ── Delete account modal ──────────────────────────────────────── */
+    // Delete account modal
     const openDeleteModal  = () => {
         D.modal?.setAttribute('aria-hidden', 'false');
         if (D.deletePass) {
@@ -408,7 +388,7 @@ export function initProfile(config) {
         }
     };
 
-    /* ── Bind UI events ────────────────────────────────────────────── */
+    // Bind UI events
     const initUI = user => {
         if (D.bio) D.bio.addEventListener('input', () => setText(D.bioCount, String((D.bio.value || '').length)));
 
@@ -466,14 +446,14 @@ export function initProfile(config) {
         if (!isEmailProvider(user) && deletePassGroup) deletePassGroup.style.display = 'none';
     };
 
-    /* ── Global keyboard handler (registered once, references D dynamically) */
+    // Escape closes delete-account or edit-profile modal (D rebound after SPA navigation).
     document.addEventListener('keydown', e => {
         if (e.key !== 'Escape') return;
         if (D.modal?.getAttribute('aria-hidden') === 'false') closeDeleteModal();
         else if (D.editModal?.getAttribute('aria-hidden') === 'false') closeEditModal();
     });
 
-    /* ── Auth state entry point ────────────────────────────────────── */
+    // Auth state entry point
     onAuthStateChanged(auth, user => {
         if (!user) return;
 
@@ -502,7 +482,7 @@ export function initProfile(config) {
 
         initUI(user);
 
-        /* ── SPA re-initialization ─────────────────────────────────── */
+        // SPA re-initialization
         window.addEventListener('spa:afternavigate', () => {
             queryDOM();
             const c = readCache(user.uid);

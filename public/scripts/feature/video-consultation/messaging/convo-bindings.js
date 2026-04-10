@@ -46,7 +46,7 @@ export async function resolveVideoCallConversation(options = {}) {
             const baseOwner = isVet ? (otherParticipantName || 'Pet Owner') : myName;
             const ownerTrim = String(baseOwner ?? '').trim();
             const ownerName = ownerTrim ? formatDisplayName(ownerTrim) : (baseOwner ?? '');
-            /** Always store canonical vet title; whoever opens the call first used to skip "Dr." for the vet. */
+            // Always store canonical vet title; whoever opens the call first used to skip "Dr." for the vet.
             const vetName = withDr(isVet ? myName : otherParticipantName);
             const convRef = await addDoc(collection(db, 'conversations'), {
                 ownerId: ownerUid,

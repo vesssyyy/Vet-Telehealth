@@ -1,4 +1,4 @@
-/** Televet Health — Admin dashboard: list users, reports, disable/enable/delete via Cloud Functions */
+// Televet Health — Admin dashboard: list users, reports, disable/enable/delete via Cloud Functions
 import { app, auth } from '../../core/firebase/firebase-config.js';
 import { escapeHtml, formatDisplayName, roleIdToDisplayLabel } from '../../core/app/utils.js';
 import { initPasswordToggleFields } from '../../core/app/password-toggle.js';
@@ -215,7 +215,7 @@ import { appAlertError, appConfirm } from '../../core/ui/app-dialog.js';
         els.overlay?.classList.add('is-hidden');
         els.modal?.classList.add('is-hidden');
     }
-    /** Get user-facing message from Firebase callable or generic error. */
+    // Get user-facing message from Firebase callable or generic error.
     function getErrorMessage(e) {
         if (!e) return 'Delete failed.';
         return e.message || (e.details && (typeof e.details === 'string' ? e.details : e.details.message)) || e.code || 'Delete failed.';

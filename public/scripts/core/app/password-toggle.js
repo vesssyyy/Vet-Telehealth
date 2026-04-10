@@ -27,9 +27,7 @@ function bindToggle(input, btn) {
     btn.addEventListener('click', () => setState(input.type === 'password'));
 }
 
-/**
- * @param {ParentNode} [root=document]
- */
+// @param {ParentNode} [root=document]
 export function initPasswordToggleFields(root = document) {
     root.querySelectorAll('input[type="password"]').forEach((input) => {
         if (input.closest('.password-input-wrap')) return;

@@ -1,13 +1,9 @@
-/**
- * Televet Health — Messaging core helpers
- *
- * Shared by messaging pages today; designed so video-call can adopt later.
- */
+// Messaging UI helpers: timestamps, delivery icons, emoji picker, lightbox, skin-analysis card HTML.
 import { escapeHtml, timestampToMs } from '../app/utils.js';
 import { appAlertError } from '../ui/app-dialog.js';
 import { downloadMessageAttachmentFile } from './attachments.js';
 
-/* ── Timestamp formatting ───────────────────────────────────────────── */
+// Timestamp formatting
 export function formatBubbleTimestamp(ts) {
     if (!ts?.toDate) return '';
     const d = ts.toDate();
@@ -33,7 +29,7 @@ export function formatBubbleTimestamp(ts) {
     return `${datePart} - ${timePart}`;
 }
 
-/* ── Status icon (sent/delivered/seen) ──────────────────────────────── */
+// Status icon (sent/delivered/seen)
 export function renderMessageStatusIcon({ msg, convData, readField, deliveredField, isLastSent }) {
     if (!isLastSent) return '';
     if ((msg.status || 'sent') === 'sending') {
@@ -47,9 +43,7 @@ export function renderMessageStatusIcon({ msg, convData, readField, deliveredFie
     }
     const lastReadMs  = timestampToMs(convData?.[readField]);
     const lastDelivMs = timestampToMs(convData?.[deliveredField]);
-    /* Require positive read/delivery times so missing fields never match via 0 >= msgMs edge cases.
-       Seen only when read cursor is strictly after the delivery watermark for this message; otherwise
-       an immediate lastReadAt on thread open beats lastDeliveredAt and hides the double-check forever. */
+    // Require positive read/delivery ms; “seen” needs read after delivery so open-thread read does not hide delivered.
     const readCovers    = lastReadMs > 0 && lastReadMs >= msgMs;
     const delivCovers   = lastDelivMs > 0 && lastDelivMs >= msgMs;
     const seenAfterDeliv = readCovers && delivCovers && lastReadMs > lastDelivMs;
@@ -57,7 +51,7 @@ export function renderMessageStatusIcon({ msg, convData, readField, deliveredFie
         return '<span class="message-status message-status--seen" aria-label="Seen"><i class="fa fa-eye"></i></span>';
     }
     if (delivCovers) {
-        /* fa-check-double is not in FA4; messages pages load FA4 after FA6 and override .fa. */
+        // fa-check-double is not in FA4; messages pages load FA4 after FA6 and override .fa.
         return '<span class="message-status message-status--delivered" aria-label="Delivered"><span class="message-status-dbl" aria-hidden="true"><i class="fa fa-check"></i><i class="fa fa-check"></i></span></span>';
     }
     if (readCovers) {
@@ -66,7 +60,7 @@ export function renderMessageStatusIcon({ msg, convData, readField, deliveredFie
     return '<span class="message-status message-status--sent" aria-label="Sent"><i class="fa fa-check"></i></span>';
 }
 
-/* ── Emoji picker ───────────────────────────────────────────────────── */
+// Emoji picker
 export function createEmojiPicker({ emojiBtn, input, resizeInput }) {
     const EMOJI_LIST = ['😀','😊','😁','😂','🤣','😃','😄','😅','😉','😍','😘','🥰','🙂','🤗','😋','😜','😎','🤔','😐','😏','🙄','😌','😔','😴','😷','🤒','🤢','🤧','😵','😤','😡','👍','👎','👏','🙌','🙏','✌️','🤞','👌','❤️','🧡','💛','💚','💙','💜','🖤','💕','💖','💪','🐾','🐕','🐈','🦴','⭐','🔥','✨','💯'];
     let pickerEl = null;
@@ -154,10 +148,7 @@ export function createEmojiPicker({ emojiBtn, input, resizeInput }) {
     return { toggle, close, getOrCreateElement: () => pickerEl };
 }
 
-/**
- * Structured skin analysis share (pet owner → vet).
- * @param {Record<string, unknown>} share
- */
+// HTML block for a skin analysis shared inside a message bubble.
 export function renderSkinAnalysisShare(share) {
     if (!share || typeof share !== 'object') return '';
     const url = escapeHtml(String(share.imageUrl || ''));
@@ -187,7 +178,7 @@ export function renderSkinAnalysisShare(share) {
     </div>`;
 }
 
-/** After injecting message HTML, wire image/video thumbs (placeholders hide when ready). */
+// After injecting message HTML, wire image/video thumbs (placeholders hide when ready).
 export function wireMessageAttachmentThumbnails(rootEl) {
     if (!rootEl) return;
     rootEl.querySelectorAll('.message-skin-analysis-img').forEach((img) => {
@@ -213,7 +204,7 @@ export function wireMessageAttachmentThumbnails(rootEl) {
             try {
                 vid.pause();
                 vid.currentTime = 0;
-            } catch (_) { /* ignore */ }
+            } catch (_) {}
             vid.classList.add('is-loaded');
             wrap.classList.add('is-loaded');
         };
@@ -222,7 +213,7 @@ export function wireMessageAttachmentThumbnails(rootEl) {
     });
 }
 
-/* ── Image/video lightbox (attachments; video: no autoplay, like appointment details) ── */
+// Image/video lightbox for message attachments (video does not autoplay).
 export function initMessagingImageLightbox({ lightboxEl, chatBodyEl }) {
     const lb = lightboxEl;
     if (!lb || !chatBodyEl) return { close: () => {} };
@@ -234,7 +225,7 @@ export function initMessagingImageLightbox({ lightboxEl, chatBodyEl }) {
         if (!lbVideo) return;
         lbVideo.pause();
         lbVideo.removeAttribute('src');
-        try { lbVideo.load?.(); } catch (_) { /* ignore */ }
+        try { lbVideo.load?.(); } catch (_) {}
         lbVideo.classList.add('is-hidden');
     };
 
@@ -270,11 +261,11 @@ export function initMessagingImageLightbox({ lightboxEl, chatBodyEl }) {
             lbVideo.setAttribute('preload', 'none');
             lbVideo.src = src;
             lbVideo.classList.remove('is-hidden');
-            try { lbVideo.load(); } catch (_) { /* ignore */ }
+            try { lbVideo.load(); } catch (_) {}
             lbVideo.pause();
             lbVideo.addEventListener('loadedmetadata', () => {
                 lbVideo.pause();
-                try { lbVideo.currentTime = 0; } catch (_) { /* ignore */ }
+                try { lbVideo.currentTime = 0; } catch (_) {}
             }, { once: true });
         }
         lb.classList.remove('is-hidden');
@@ -332,11 +323,7 @@ export function initMessagingImageLightbox({ lightboxEl, chatBodyEl }) {
     return { close, open: openImage, openVideo };
 }
 
-/**
- * File attachments use cross-origin Storage URLs; the anchor `download` attribute is ignored.
- * Intercept click, fetch as blob, trigger save. Capture phase so it runs before bubble
- * handlers (e.g. timestamp toggle). Ctrl/Meta-click still opens the URL in a new tab.
- */
+// Fetch Storage file URLs as blobs and save (anchor download is unreliable cross-origin); capture phase before other clicks.
 export function initMessagingFileAttachmentDownload(chatBodyEl) {
     if (!chatBodyEl) return;
     chatBodyEl.addEventListener('click', (e) => {
@@ -350,7 +337,7 @@ export function initMessagingFileAttachmentDownload(chatBodyEl) {
     }, true);
 }
 
-/* ── Attachment preview helpers ─────────────────────────────────────── */
+// Attachment preview helpers
 export function createAttachmentPreviewController({ attachInput, attachPreview, attachPreviewName, attachPreviewRemove, validateAttachment }) {
     let pendingAttachment = null;
 
@@ -380,7 +367,7 @@ export function createAttachmentPreviewController({ attachInput, attachPreview, 
     return { getPending: () => pendingAttachment, show, clear };
 }
 
-/* ── Message bubble footer HTML ─────────────────────────────────────── */
+// Message bubble footer HTML
 export function buildMessageFooterHtml({ timeText, statusIconHtml }) {
     if (!timeText && !statusIconHtml) return '';
     return `<div class="message-bubble-footer">

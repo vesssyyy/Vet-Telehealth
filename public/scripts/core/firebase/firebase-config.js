@@ -17,10 +17,10 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export { app };
 export const auth = getAuth(app);
-/** Auto long-polling helps mobile/proxy environments; forced long-polling can misbehave behind some reverse proxies. */
+// Auto long-polling helps mobile/proxy environments; forced long-polling can misbehave behind some reverse proxies.
 export const db = initializeFirestore(app, {
     experimentalAutoDetectLongPolling: true,
 });
 export const storage = getStorage(app);
 
-/** PayMongo publishable keys are served via callable (payMongoGetClientConfig) from Functions params. */
+// PayMongo publishable keys are served via callable (payMongoGetClientConfig) from Functions params.

@@ -1,7 +1,4 @@
-/**
- * Televet Health — Vet Appointments
- * Availability templates (week/day) & schedules management
- */
+// Vet appointments: availability templates, schedules, slot expiry, booking settings, modals.
 import { auth, db } from '../../../core/firebase/firebase-config.js';
 import { escapeHtml } from '../../../core/app/utils.js';
 import {
@@ -176,7 +173,7 @@ import {
         return normalizeConsultationPriceLive(cachedVetSettings?.consultationPriceCentavosLive);
     }
 
-    /** Compute expiryTime (ms) for a slot: slot start time minus advance booking limit. */
+    // Compute expiryTime (ms) for a slot: slot start time minus advance booking limit.
     function computeExpiryTimeMs(dateStr, slotStart, minAdvanceMinutes) {
         const [h, m] = (slotStart || '').split(':').map(Number);
         const slotMins = (h || 0) * 60 + (m || 0);
@@ -185,8 +182,7 @@ import {
         return d.getTime();
     }
 
-    /** Returns true if slot is expired (available and past expiryTime, or already marked expired). Booked/ongoing/completed slots are not considered expired for display.
-     *  Security: Pet owner booking must only allow slots where !isSlotExpired(slot, Date.now()) && (slot.status || 'available') === 'available'. */
+    // True if an available slot is past expiryTime (or status expired); booked/ongoing/completed are never expired here.
     function isSlotExpired(slot, nowMs) {
         const status = slot.status || 'available';
         if (status === 'booked' || status === 'ongoing' || status === 'completed') return false;
@@ -196,7 +192,7 @@ import {
         return nowMs >= expiry;
     }
 
-    /** Update Firebase: set status to "expired" for slots that are available and past expiryTime. Makes expiry visible in DB. */
+    // Update Firebase: set status to "expired" for slots that are available and past expiryTime. Makes expiry visible in DB.
     async function markExpiredSlotsInFirebase() {
         const user = auth.currentUser;
         if (!user) return;
@@ -226,7 +222,7 @@ import {
         }
     }
 
-    /** Returns true if slot is past cutoff (past date, or within min advance window today). Booked slots should always be shown. */
+    // Returns true if slot is past cutoff (past date, or within min advance window today). Booked slots should always be shown.
     function isSlotPastCutoff(dateStr, slotStart, minAdvanceMinutes) {
         const today = getTodayDateString();
         if (dateStr < today) return true;
@@ -239,7 +235,7 @@ import {
         return diffMinutes < (minAdvanceMinutes ?? getMinAdvanceMinutes());
     }
 
-    /** Ensure slot has expiryTime (for legacy slots). Uses dateStr and slot.start. */
+    // Ensure slot has expiryTime (for legacy slots). Uses dateStr and slot.start.
     function ensureSlotExpiry(slot, dateStr, minAdvanceMinutes) {
         const mins = minAdvanceMinutes ?? getMinAdvanceMinutes();
         if (slot.expiryTime != null) return slot;
@@ -269,12 +265,7 @@ import {
         }
     }
 
-    /**
-     * @param {object} updates
-     * @param {number} [updates.minAdvanceBookingMinutes]
-     * @param {number} [updates.consultationPriceCentavosTest]
-     * @param {number} [updates.consultationPriceCentavosLive]
-     */
+    // Write vet scheduling settings (min advance booking, test/live consultation prices in centavos).
     async function saveVetSettings(updates) {
         const user = auth.currentUser;
         if (!user) return;
@@ -299,7 +290,7 @@ import {
         }
     }
 
-    /** Recalculate expiryTime for all future unbooked slots and update Firestore. */
+    // Recalculate expiryTime for all future unbooked slots and update Firestore.
     async function recalcExpiryForFutureSlots() {
         const user = auth.currentUser;
         if (!user) return;
@@ -323,7 +314,7 @@ import {
         cachedSchedules = await loadAllSchedules();
     }
 
-    /** Permanently delete all expired (available, past expiryTime) slot records in bulk. */
+    // Permanently delete all expired (available, past expiryTime) slot records in bulk.
     async function deleteAllExpiredSlots() {
         const user = auth.currentUser;
         if (!user) return;
@@ -368,7 +359,7 @@ import {
         return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     }
 
-    /** Returns ms until the next expiry (next available slot with expiryTime > now), or null if none. */
+    // Returns ms until the next expiry (next available slot with expiryTime > now), or null if none.
     function getMsUntilNextExpiry(schedules, nowMs) {
         nowMs = nowMs ?? Date.now();
         let nextExpiryMs = null;
@@ -384,7 +375,7 @@ import {
         return nextExpiryMs != null ? Math.max(0, nextExpiryMs - nowMs) : null;
     }
 
-    /** Schedules a single re-render at the next slot expiry. When expiry hits, marks expired slots in Firebase and updates UI. */
+    // Schedules a single re-render at the next slot expiry. When expiry hits, marks expired slots in Firebase and updates UI.
     function scheduleNextExpiryRerender(schedules) {
         if (nextCleanupTimerId) clearTimeout(nextCleanupTimerId);
         nextCleanupTimerId = null;
@@ -399,7 +390,7 @@ import {
         }, ms);
     }
 
-    /** Starts realtime listener on schedules; expired slots are marked in Firebase and filtered in UI. */
+    // Starts realtime listener on schedules; expired slots are marked in Firebase and filtered in UI.
     function startSchedulesRealtime() {
         const user = auth.currentUser;
         if (!user || schedulesUnsubscribe) return;
@@ -420,7 +411,7 @@ import {
         if (schedulesUnsubscribe) { schedulesUnsubscribe(); schedulesUnsubscribe = null; }
     }
 
-    /** Returns schedules from cache. Realtime updates come from onSnapshot; call startSchedulesRealtime() once. */
+    // Returns schedules from cache. Realtime updates come from onSnapshot; call startSchedulesRealtime() once.
     async function ensureSchedulesLoaded() {
         if (cachedSchedules !== null) return cachedSchedules;
         try {
@@ -436,7 +427,7 @@ import {
         }
     }
 
-    /** List view order: today → upcoming days (soonest first) → past days (most recent first) → missing date last. */
+    // List view order: today → upcoming days (soonest first) → past days (most recent first) → missing date last.
     function compareScheduleDatesForVetList(aDate, bDate, todayStr) {
         const da = aDate || '';
         const db = bDate || '';
@@ -505,7 +496,7 @@ import {
         });
     }
 
-    /** Display/filter status when appointment doc is completed but schedule slot was not synced yet. */
+    // Display/filter status when appointment doc is completed but schedule slot was not synced yet.
     function slotEffectiveStatus(s) {
         return (s && s.__displayStatus) || (s && s.status) || 'available';
     }
@@ -523,7 +514,7 @@ import {
         return String(aptData.status || '').toLowerCase() === 'completed';
     }
 
-    /** Match Join button: after slot end, show as finished in the list even if schedule doc still says booked. */
+    // Match Join button: after slot end, show as finished in the list even if schedule doc still says booked.
     function isPastAppointmentSlotEndForDisplay(aptData) {
         const endAt = getAppointmentSlotEndDate(aptData);
         return !!(endAt && Date.now() >= endAt.getTime());
@@ -559,9 +550,7 @@ import {
             .finally(() => setTimeout(() => scheduleRepairInFlight.delete(k), 8000));
     }
 
-    /**
-     * For booked/ongoing slots with an appointmentId, load appointment docs and mark display (and optionally repair Firestore) when the appointment is already completed.
-     */
+    // For booked/ongoing slots with an appointmentId, load appointment docs and mark display (and optionally repair Firestore) when the appointment is already completed.
     async function resolveAppointmentFromScheduleSlot(vetId, dateStr, slotStart) {
         const safeVetId = String(vetId || '').trim();
         const safeDate = String(dateStr || '').trim();
@@ -590,7 +579,7 @@ import {
                 const first = snapFallback.docs[0];
                 return { id: first.id, ...first.data() };
             }
-        } catch (_) { /* ignore */ }
+        } catch (_) {}
         return null;
     }
 
@@ -622,7 +611,7 @@ import {
                 try {
                     const snap = await getDoc(appointmentDoc(id));
                     if (snap.exists()) aptMap.set(id, snap.data());
-                } catch (_) { /* ignore */ }
+                } catch (_) {}
             }),
         );
         await Promise.all(
@@ -780,7 +769,7 @@ import {
         return DAY_NAMES[date.getDay()];
     }
 
-    /** Get slots from template for a date, optionally filtering out slots that are past or within min-advance (for apply-template). */
+    // Get slots from template for a date, optionally filtering out slots that are past or within min-advance (for apply-template).
     function getSlotsForDateFromTemplate(template, date, minAdvanceMinutes, filterPastCutoff = false) {
         const dateStr = toLocalDateString(date);
         const mins = minAdvanceMinutes ?? getMinAdvanceMinutes();
@@ -824,8 +813,37 @@ import {
         return templateApi?.showToast(message);
     }
 
+    function bindAvailabilityPanelsToggle() {
+        const btn = $('availability-panels-toggle-btn');
+        if (!btn) return;
+
+        const topRow = document.querySelector('.appointments-top-row');
+        const divider = document.querySelector('.appointments-partition-horizontal');
+        if (!topRow || !divider) return;
+
+        const setCollapsed = (collapsed) => {
+            topRow.classList.toggle('is-hidden', collapsed);
+            divider.classList.toggle('is-hidden', collapsed);
+
+            const icon = btn.querySelector('i');
+            if (icon) {
+                icon.classList.toggle('fa-bars', collapsed);
+                icon.classList.toggle('fa-times', !collapsed);
+            }
+            const label = collapsed ? 'Show templates and blocked dates' : 'Hide templates and blocked dates';
+            btn.setAttribute('aria-label', label);
+            btn.setAttribute('title', label);
+            btn.dataset.collapsed = collapsed ? '1' : '0';
+        };
+
+        setCollapsed(btn.dataset.collapsed === '1');
+        btn.addEventListener('click', () => setCollapsed(!(btn.dataset.collapsed === '1')));
+    }
+
     // === Event bindings ===
     document.addEventListener('DOMContentLoaded', () => {
+        bindAvailabilityPanelsToggle();
+
         const setTemplateType = (type) => {
             templateType = type;
             templateApi?.syncTemplateTypeUI();

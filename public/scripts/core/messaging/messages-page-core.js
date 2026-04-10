@@ -1,8 +1,4 @@
-/**
- * Televet Health — Messaging (messages page) shared UI
- *
- * Factory used by petowner/vet messaging pages. Kept stable to avoid page regressions.
- */
+// Messages page: conversation list, thread, compose, attachments, optional skin-analysis share.
 
 import { auth, db } from '../firebase/firebase-config.js';
 import { escapeHtml, timestampToMs } from '../app/utils.js';
@@ -32,14 +28,12 @@ import {
 const $ = id => document.getElementById(id);
 const isMobileView = () => window.matchMedia('(max-width: 768px)').matches;
 
-/** Recent page for live listener; older chunks load on upward scroll. */
+// Live listener page size; older messages load when scrolling up.
 const MESSAGES_TAIL_PAGE_SIZE = 48;
 const MESSAGES_OLDER_PAGE_SIZE = 40;
 const MESSAGES_SCROLL_LOAD_THRESHOLD_PX = 100;
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Factory
-───────────────────────────────────────────────────────────────────────── */
+// Shared messages UI factory for pet owner and vet messaging pages.
 export function createMessaging(config) {
     const {
         readField, deliveredField, selfReadField,
@@ -49,7 +43,7 @@ export function createMessaging(config) {
         allowSkinAnalysisShare = false,
     } = config;
 
-    /* ── DOM refs ──────────────────────────────────────────────────── */
+    // DOM refs
     const refs = {
         overlay:             $('new-conversation-overlay'),
         modal:               $('new-conversation-modal'),
@@ -75,7 +69,7 @@ export function createMessaging(config) {
         attachPreviewRemove: $('messages-attach-preview-remove'),
     };
 
-    /* ── Shared mutable state ──────────────────────────────────────── */
+    // Shared mutable state
     const state = {
         conversations:              [],
         currentConvId:              null,
@@ -104,7 +98,7 @@ export function createMessaging(config) {
         threadScrollHandler:        null,
     };
 
-    /* ── List / chat view ──────────────────────────────────────────── */
+    // List / chat view
     function setPageBootstrap(active) {
         if (!refs.pageBootstrap) return;
         refs.pageBootstrap.classList.toggle('is-hidden', !active);
@@ -123,8 +117,7 @@ export function createMessaging(config) {
     }
 
     function setChatView(active) {
-        /* Always target live nodes: SPA swaps main content; stale refs would toggle detached elements
-           so the list updates (fresh getElementById in render) but the chat pane stays on the placeholder. */
+        // Re-query chat nodes: SPA replaces main; cached refs would leave the chat pane on the placeholder.
         const chatWelcome = document.getElementById('messages-chat-welcome');
         const chatActive = document.getElementById('messages-chat-active');
         const wrap = document.getElementById('messages-wrapper');
@@ -137,7 +130,7 @@ export function createMessaging(config) {
     const showPlaceholder = () => setChatView(false);
     const showChat        = () => setChatView(true);
 
-    /* ── Render helpers ────────────────────────────────────────────── */
+    // Render helpers
     function setThreadLoading(loading) {
         const el = $('messages-thread-loading');
         if (!el) return;
@@ -283,8 +276,8 @@ export function createMessaging(config) {
         refs.listRoot.style.display = unique.length ? '' : 'none';
     }
 
-    /* ── Message subscription ──────────────────────────────────────── */
-    /** Stable across sentAt resolution and peer sending→sent; avoids resetting the delivery timer every snapshot. */
+    // Message subscription
+    // Fingerprint peer message ids so delivery timers are not reset on every snapshot.
     function fingerprintPeerMessages(messages, uid) {
         if (!uid) return '';
         return messages
@@ -294,10 +287,7 @@ export function createMessaging(config) {
             .join(',');
     }
 
-    /**
-     * When the peer sends, the conversation list snapshot still updates even if this user never
-     * opens the thread. Writing incomingDeliveredField here matches “delivered to their app/session.”
-     */
+    // Debounce-write “incoming delivered” when list shows a new message from the peer (even if thread is closed).
     function onConversationListUpdated(conversations) {
         const myId = auth.currentUser?.uid;
         if (!incomingDeliveredField || !myId || !conversations?.length) return;
@@ -379,11 +369,7 @@ export function createMessaging(config) {
         body.addEventListener('scroll', state.threadScrollHandler, { passive: true });
     }
 
-    /**
-     * Unsubscribe prior thread, clear the transcript, show the thread loader.
-     * Call as soon as the chat pane is shown (e.g. before awaiting avatars) so “No messages yet”
-     * and stale bubbles never flash.
-     */
+    // Tear down prior listeners, clear transcript, show loader (call before avatars to avoid stale bubbles).
     function prepareThreadPaneForOpen() {
         if (state.incomingDeliveredTimer) {
             clearTimeout(state.incomingDeliveredTimer);
@@ -492,7 +478,7 @@ export function createMessaging(config) {
         showChat();
     }
 
-    /* ── Modal helpers ─────────────────────────────────────────────── */
+    // Modal helpers
     function showModalError(msg) {
         const el = $('new-conversation-error');
         if (el) { el.textContent = msg; el.classList.remove('is-hidden'); }
@@ -515,7 +501,7 @@ export function createMessaging(config) {
         resetFieldsFn();
     }
 
-    /* ── Compose input ─────────────────────────────────────────────── */
+    // Compose input
     function getComposeInputEl() {
         return document.getElementById('messages-compose-input') || refs.composeInput;
     }
@@ -528,7 +514,7 @@ export function createMessaging(config) {
         el.style.height = Math.min(Math.max(el.scrollHeight, lh), lh * 5) + 'px';
     }
 
-    /* ── Attachment preview + emoji picker (core) ──────────────────── */
+    // Attachment preview + emoji picker (core)
     const attachmentPreview = createAttachmentPreviewController({
         attachInput: refs.attachInput,
         attachPreview: refs.attachPreview,
@@ -538,7 +524,7 @@ export function createMessaging(config) {
     });
     let emojiPicker = null;
 
-    /* ── Send message ──────────────────────────────────────────────── */
+    // Send message
     function clearPendingSkinAnalysis() {
         state.pendingSkinAnalysis = null;
         const prev = $('messages-skin-preview');
@@ -558,7 +544,7 @@ export function createMessaging(config) {
         prev?.classList.remove('is-hidden');
     }
 
-    /* ── Navigation ────────────────────────────────────────────────── */
+    // Navigation
     function goBackToList() {
         refs.composeInput?.blur();
         document.body.classList.remove('messages-input-focused');
@@ -643,8 +629,7 @@ export function createMessaging(config) {
 
             attachmentPreview.clear();
             clearPendingSkinAnalysis();
-            /* Do not call focus() here on mobile — it causes keyboard dismiss + reopen. Keep focus on
-               the textarea by preventing the send button from taking focus (pointerdown/touchstart). */
+            // On mobile, avoid focus() here (keyboard flicker); send button handlers keep focus in the textarea.
 
             if (!fileToUpload) {
                 await updateDoc(doc(db, 'conversations', state.currentConvId, 'messages', msgRef.id), { status: 'sent' }).catch(() => {});
@@ -677,7 +662,7 @@ export function createMessaging(config) {
         }
     }
 
-    /* ── Lightbox ──────────────────────────────────────────────────── */
+    // Lightbox
     function initLightbox() {
         const chatBody = $('messages-chat-body');
         initMessagingImageLightbox({
@@ -687,12 +672,12 @@ export function createMessaging(config) {
         initMessagingFileAttachmentDownload(chatBody);
     }
 
-    /* ── Init shared UI ────────────────────────────────────────────── */
+    // Init shared UI
     function initSharedUI({ doOpenModal, doCloseModal, onFormSubmit, onConvClick, dropdownIds = [] }) {
         setPageBootstrap(true);
         showPlaceholder();
 
-        /* Modal */
+        // Modal
         [refs.closeBtn, refs.cancelBtn, refs.overlay].forEach(el => {
             el?.addEventListener('click', e => {
                 if (el === refs.overlay && e.target !== refs.overlay) return;
@@ -719,21 +704,19 @@ export function createMessaging(config) {
             }
         });
 
-        /* Back: always update UI here. Mobile used history.back() so popstate would run, but the SPA
-           router handles popstate first with stopImmediatePropagation and navigate() no-ops for same
-           page — so goBackToList() never ran and the thread stayed open. */
+        // Always clear thread UI here; history.back() alone can miss goBackToList when the SPA router consumes popstate.
         refs.chatBack?.addEventListener('click', () => {
             goBackToList();
             if (isMobileView() && history.state && history.state.conv) {
                 history.back();
             }
         });
-        /* Capture phase runs before the SPA router’s popstate listener so hardware back leaves the thread. */
+        // Capture-phase popstate: hardware back closes the thread before the SPA router runs.
         window.addEventListener('popstate', () => {
             if (isMobileView() && state.currentConvId) goBackToList();
         }, true);
 
-        /* Search */
+        // Search
         $('messages-search-input')?.addEventListener('input', e => {
             const q = (e.target.value || '').trim().toLowerCase();
             refs.listRoot?.querySelectorAll('.messages-conversation-item').forEach(item => {
@@ -743,7 +726,7 @@ export function createMessaging(config) {
             });
         });
 
-        /* Conversation list click */
+        // Conversation list click
         refs.listRoot?.addEventListener('click', e => {
             const item = e.target.closest('.messages-conversation-item');
             if (!item) return;
@@ -756,10 +739,10 @@ export function createMessaging(config) {
             }
         });
 
-        /* Lightbox */
+        // Lightbox
         initLightbox();
 
-        /* Click-to-reveal message timestamp */
+        // Click-to-reveal message timestamp
         $('messages-chat-body')?.addEventListener('click', e => {
             const bubble = e.target.closest('.message-bubble');
             if (!bubble) return;
@@ -771,15 +754,14 @@ export function createMessaging(config) {
             renderChatMessages(state.lastRenderedMessages, state.currentConvData);
         });
 
-        /* Form */
+        // Form
         refs.form?.addEventListener('submit', onFormSubmit);
 
-        /* Compose */
+        // Compose
         refs.composeInput?.addEventListener('input', resizeComposeInput);
         refs.composeInput?.addEventListener('paste', () => setTimeout(resizeComposeInput, 0));
         refs.composeInput?.addEventListener('focus', () => { if (isMobileView()) document.body.classList.add('messages-input-focused'); });
-        /* Defer shrinking .messages-main: sync blur used to reflow before click/touchend on Send finished,
-           moving the button so the first tap missed (especially with keyboard open). */
+        // Defer layout collapse on blur so Send’s first tap is not lost when the keyboard reflows the bar.
         refs.composeInput?.addEventListener('blur', () => {
             if (!isMobileView()) {
                 document.body.classList.remove('messages-input-focused');
@@ -818,7 +800,7 @@ export function createMessaging(config) {
             if (document.hidden) document.body.classList.remove('messages-input-focused');
         });
 
-        /* Emoji */
+        // Emoji
         refs.emojiBtn?.addEventListener('click', (e) => {
             e.stopPropagation();
             if (!emojiPicker) {
@@ -831,12 +813,10 @@ export function createMessaging(config) {
             emojiPicker.toggle();
         });
 
-        /* Attachment */
+        // Attachment
         refs.attachBtn?.addEventListener('click', () => refs.attachInput?.click());
 
-        /* Send: first tap with keyboard open — layout reflow from blur could lose the delayed click.
-           Touch path uses pointerup/touchend + preventDefault so send runs before reflow; suppress duplicate click.
-           pointerdown/touchstart preventDefault keeps focus on the textarea so the keyboard does not dismiss. */
+        // Mobile send: pointer handlers avoid blur reflow losing the tap and keep the keyboard open on the textarea.
         if (refs.sendBtn) {
             const keepComposeFocusedOnSendTap = (e) => {
                 if (!isMobileView()) return;
@@ -880,7 +860,7 @@ export function createMessaging(config) {
             });
         }
 
-        /* Dropdown toggles */
+        // Dropdown toggles
         const dropdowns = dropdownIds.map(base => $(`${base}-dropdown`));
         dropdownIds.forEach((base, i) => {
             $(`${base}-trigger`)?.addEventListener('click', e => {
@@ -972,13 +952,13 @@ export function createMessaging(config) {
     };
 }
 
-/** SPA: unsubscribe Firestore + reset chat so a previous visit’s listeners cannot drive the DOM. */
+// On SPA leave, tear down messaging listeners so a prior page cannot update the DOM.
 if (typeof window !== 'undefined' && !window.__telehealthMessagesSpaLeaveWired) {
     window.__telehealthMessagesSpaLeaveWired = true;
     window.addEventListener('spa:beforeleave', () => {
         try {
             window.__telehealthMessagesTeardown?.();
-        } catch (_) { /* ignore */ }
+        } catch (_) {}
     });
 }
 

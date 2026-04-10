@@ -1,6 +1,4 @@
-/**
- * Televet Health — Portal route guard (pet owner / vet / admin) from URL path.
- */
+// Televet Health — Portal route guard (pet owner / vet / admin) from URL path.
 import { auth, db } from '../firebase/firebase-config.js';
 import { onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js';
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';

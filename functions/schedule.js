@@ -1,7 +1,7 @@
 'use strict';
 
 const DEFAULT_SLOT_DURATION_MINUTES = 30;
-/** Only scan this many days back (YYYY-MM-DD string range on appointments.dateStr). */
+// Only scan this many days back (YYYY-MM-DD string range on appointments.dateStr).
 const LOOKBACK_DAYS = 120;
 const QUERY_PAGE_SIZE = 200;
 
@@ -24,7 +24,7 @@ function addMinutesToTime(timeStr, durationMinutes) {
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
-/** Calendar YYYY-MM-DD in the slot offset (same interpretation as slot end parsing). */
+// Calendar YYYY-MM-DD in the slot offset (same interpretation as slot end parsing).
 function ymdForInstantInIsoOffset(utcMillis, isoOffset) {
   const m = /^([+-])(\d{2}):(\d{2})$/.exec(String(isoOffset || '').trim());
   if (!m) {
@@ -71,7 +71,7 @@ function appointmentNeedsAutoEnd(data, nowMs, isoOffset) {
   return nowMs >= endMs;
 }
 
-/** True if the video room still has someone connected (past slot end should not force-complete). */
+// True if the video room still has someone connected (past slot end should not force-complete).
 function videoRoomStillOccupied(roomData) {
   if (!roomData || typeof roomData !== 'object') return false;
   if (String(roomData.status || '').toLowerCase() === 'ended') return false;

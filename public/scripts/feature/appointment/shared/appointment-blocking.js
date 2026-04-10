@@ -18,9 +18,7 @@ export function appointmentBlocksRemoval(data) {
     return isUpcoming(data);
 }
 
-/**
- * True if this user cannot delete their account due to appointments as pet owner or vet.
- */
+// True if this user cannot delete their account due to appointments as pet owner or vet.
 export async function accountHasBlockingAppointments(db, uid) {
     if (!db || !uid) return false;
     const col = collection(db, APPOINTMENTS_COLLECTION);

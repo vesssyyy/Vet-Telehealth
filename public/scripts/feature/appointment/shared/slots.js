@@ -36,7 +36,7 @@ export function ensureSlotExpiry(slot, dateStr, minAdvanceMinutes) {
     return { ...slot, expiryTime: computeExpiryTimeMs(dateStr, slot.start, mins) };
 }
 
-/** Returns true if two time ranges on the same date overlap (start1 < end2 && start2 < end1). Times in "HH:mm". */
+// Returns true if two time ranges on the same date overlap (start1 < end2 && start2 < end1). Times in "HH:mm".
 export function slotsOverlapSameDate(start1, end1, start2, end2) {
     if (!start1 || !end1 || !start2 || !end2) return false;
     return start1 < end2 && start2 < end1;

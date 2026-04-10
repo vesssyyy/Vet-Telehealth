@@ -1,4 +1,4 @@
-/** Veterinary consultation summary PDF (jsPDF). */
+// Veterinary consultation summary PDF (jsPDF).
 import { formatDisplayName } from '../app/utils.js';
 
 const NOTES_LABELS = [

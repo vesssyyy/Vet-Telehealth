@@ -161,8 +161,13 @@ body.dashboard-ready .dashboard-content { display: flex !important; animation: s
     .dashboard-row-three > .dashboard-card { width: 100%; max-width: 100%; }
 }
 
-.edit-info-card .edit-info-content { display: flex; flex-direction: column; gap: 10px; }
+.edit-info-card .edit-info-content { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0; }
 .edit-info-desc { font-size: 14px; color: var(--text-light); margin: 0; line-height: 1.45; }
+.edit-info-card .edit-info-content .btn {
+    margin-top: auto;
+    width: 100%;
+    align-self: stretch;
+}
 .appointment-card { display: flex; flex-direction: column; min-height: 0; }
 .appointment-card .appointment-details {
     display: flex; flex-direction: column; gap: 3px; flex: 1; min-height: 0;

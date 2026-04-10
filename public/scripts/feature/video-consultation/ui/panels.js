@@ -54,7 +54,7 @@ export function initVideoCallPanels(options = {}) {
         detailsPanel.setAttribute('aria-hidden', open ? 'false' : 'true');
     }
 
-    /* Mobile details panel: pet sub-views */
+    // Mobile details panel: pet sub-views
     const detailsPetDefaultView = $('details-pet-default-view');
     const detailsPetDetailView = $('details-pet-detail-view');
     const detailsPetDetailConcern = $('details-pet-detail-concern');
@@ -86,7 +86,7 @@ export function initVideoCallPanels(options = {}) {
     $('details-shared-images-btn')?.addEventListener('click', () => showDetailsPetDetailView('shared-images'));
     $('details-pet-detail-back')?.addEventListener('click', showDetailsPetDefaultView);
 
-    /* Sidebar pet card: detail view toggles */
+    // Sidebar pet card: detail view toggles
     const petDefaultView = $('pet-default-view');
     const petDetailView = $('pet-detail-view');
     const petDetailConcern = $('pet-detail-concern');

@@ -92,7 +92,7 @@
         <header class="app-top-header">
             <div class="header-left">
                 <button class="mobile-menu-toggle" aria-label="Toggle Menu"><i class="fa fa-bars"></i></button>
-                <span class="role-badge"><i class="fa fa-id-badge" aria-hidden="true"></i> Pet Owner</span>
+                <span class="role-badge"><i class="fa fa-id-badge" aria-hidden="true"></i> Pet Owner Portal</span>
             </div>
             <div class="header-right">
                 <button type="button" class="profile-header-btn" aria-label="Profile"><i class="fa fa-user-circle" aria-hidden="true"></i></button>
@@ -251,7 +251,7 @@
                     <h4 class="details-section-header"><i class="fa fa-user-md" aria-hidden="true"></i> Veterinarian</h4>
                     <div class="details-doctor-section">
                         <div class="details-doctor-avatar-wrap">
-                            <img class="details-doctor-avatar-img" id="details-vet-img" src="" alt="" onerror="this.style.display='none';this.nextElementSibling.classList.add('visible')">
+                            <img class="details-doctor-avatar-img" id="details-vet-img" src="" alt="" aria-hidden="true" onerror="this.setAttribute('aria-hidden','true');this.style.display='none';this.nextElementSibling.classList.add('visible')">
                             <span class="details-doctor-avatar-fallback" id="details-vet-avatar-fallback" aria-hidden="true"><i class="fa fa-user-md" aria-hidden="true"></i></span>
                         </div>
                         <p class="details-doctor-name" id="details-vet-name">-</p>
@@ -260,7 +260,7 @@
                     <h4 class="details-section-header"><i class="fa fa-paw" aria-hidden="true"></i> Pet Info</h4>
                     <div class="details-pet-card">
                         <div class="details-pet-avatar-wrap" id="details-pet-avatar-wrap">
-                            <img class="details-pet-avatar-img" id="details-pet-img" src="" alt="" onerror="this.style.display='none';this.nextElementSibling.classList.add('visible')">
+                            <img class="details-pet-avatar-img" id="details-pet-img" src="" alt="" aria-hidden="true" onerror="this.setAttribute('aria-hidden','true');this.style.display='none';this.nextElementSibling.classList.add('visible')">
                             <span class="details-pet-avatar-fallback" id="details-pet-avatar-fallback" aria-hidden="true"><i class="fa fa-paw" aria-hidden="true"></i></span>
                         </div>
                         <div class="details-pet-info">

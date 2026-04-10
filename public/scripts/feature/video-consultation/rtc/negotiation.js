@@ -3,9 +3,7 @@ import {
     serverTimestamp,
 } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 
-/**
- * Builds offer/answer/ICE handlers while keeping mutable call state in the caller.
- */
+// Builds offer/answer/ICE handlers while keeping mutable call state in the caller.
 export function createRtcNegotiationHandlers(ctx) {
     const {
         userUid,

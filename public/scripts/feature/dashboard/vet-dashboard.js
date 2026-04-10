@@ -1,4 +1,4 @@
-/** Televet Health — Vet Dashboard */
+// Televet Health — Vet Dashboard
 import { auth, db } from '../../core/firebase/firebase-config.js';
 import {
     collection,
@@ -70,7 +70,7 @@ function getFirestoreTimestampMs(c) {
     return NaN;
 }
 
-/** Timestamp (ms) for when a consultation completed, or scheduled start as fallback (for older docs). */
+// Timestamp (ms) for when a consultation completed, or scheduled start as fallback (for older docs).
 function getAppointmentCompletedAtMs(data) {
     const c = data?.completedAt;
     if (c && typeof c.toDate === 'function') {
@@ -92,7 +92,20 @@ function getAppointmentCompletedAtMs(data) {
     return booked ? booked.getTime() : 0;
 }
 
-/** Same local calendar day as `ref` (browser timezone), independent of appointment schedule date. */
+function isAppointmentCompletedLike(data) {
+    const st = String(data?.status || '').toLowerCase();
+    if (st === 'cancelled' || st === 'canceled') return false;
+    if (st === 'completed' || st === 'confirmed') return true;
+    if (data?.videoSessionEndedAt != null) return true;
+    if (data?.completedAt != null) return true;
+    // Some views (e.g. schedules) treat past-by-time booked/ongoing as effectively completed
+    // while the appointment doc may still be syncing.
+    const end = getAppointmentSlotEndDate(data);
+    if (end && Number.isFinite(end.getTime()) && end.getTime() <= Date.now()) return true;
+    return false;
+}
+
+// Same local calendar day as `ref` (browser timezone), independent of appointment schedule date.
 function isSameLocalCalendarDay(date, ref) {
     return (
         date.getFullYear() === ref.getFullYear() &&
@@ -147,7 +160,7 @@ let transactionsCache = [];
  */
 let completedConsultationsCache = [];
 
-/** Created-at timestamps (ms) for all appointments — booking rate chart */
+// Created-at timestamps (ms) for all appointments — booking rate chart
 let bookingRateCreatedMsCache = [];
 
 /** @type {'count' | 'percent'} */
@@ -170,7 +183,7 @@ const DAY_MS = 86400000;
 /** @type {'today' | '3d' | '7d' | '30d' | 'month' | 'custom'} */
 let transactionPeriod = 'today';
 
-/** Inclusive custom range (local date boundaries), ms since epoch */
+// Inclusive custom range (local date boundaries), ms since epoch
 let transactionCustomFromMs = 0;
 let transactionCustomToMs = 0;
 
@@ -309,7 +322,7 @@ function initialsFromName(name) {
 /** @type {(() => void) | null} */
 let scheduleDonutUnsubscribe = null;
 
-/** Latest counts for donut hover tooltips */
+// Latest counts for donut hover tooltips
 let scheduleDonutCountsCache = {
     avail: 0,
     booked: 0,
@@ -739,8 +752,13 @@ function renderCompletedConsultationsModalBody(listEl, rows) {
                 extractTimeRangeFromDisplay(r.timeDisplay) ?? (r.timeDisplay || '—');
             const scheduledAt = `${escapeHtml(dateFormatted)} <span class="dashboard-new-bookings-sep" aria-hidden="true">·</span> ${escapeHtml(timePart)}`;
             const vcMs = getFirestoreTimestampMs(r.videoSessionEndedAt);
-            const endedAtLabel =
+            let endedAtLabel =
                 Number.isFinite(vcMs) && vcMs > 0 ? formatCompactDateTime(vcMs) : '—';
+            // Fallback for "past-by-time" completions where VC endedAt wasn't recorded.
+            if (endedAtLabel === '—') {
+                const end = getAppointmentSlotEndDate(r);
+                if (end && Number.isFinite(end.getTime())) endedAtLabel = formatCompactDateTime(end.getTime());
+            }
             const apptIdAttr = r.id ? escapeHtml(r.id) : '';
             return `<tr data-appt-id="${apptIdAttr}">
                 <td>${escapeHtml(r.ownerName ? formatDisplayName(r.ownerName) : '—')}</td>
@@ -775,6 +793,8 @@ function hydrateCompletedConsultationsEndedAt(listEl, rows) {
         const tr = listEl.querySelector(`tr[data-appt-id="${CSS.escape(r.id)}"]`);
         const cell = tr?.querySelector('.dashboard-completed-ended-at');
         if (!cell) continue;
+        // If we already have a non-dash label (e.g. computed slot end fallback), skip fetch.
+        if (String(cell.textContent || '').trim() !== '—') continue;
         getDoc(doc(db, 'appointments', r.id, 'videoCall', 'room'))
             .then((snap) => {
                 if (!snap.exists()) return;
@@ -1119,9 +1139,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const customRangeApply = document.getElementById('dashboard-custom-apply');
     const customPeriodBtn = document.getElementById('dashboard-period-custom-btn');
 
-    /**
-     * @param {{ closeModal?: boolean }} [opts]
-     */
+    // @param {{ closeModal?: boolean }} [opts]
     function applyCustomRangeFromInputs(opts = {}) {
         const closeModal = Boolean(opts.closeModal);
         if (!customRangeFrom || !customRangeTo) return false;
@@ -1217,7 +1235,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (needCompleted) {
                     completedConsultationsCache = snap.docs
-                        .filter((d) => String(d.data()?.status || '').toLowerCase() === 'completed')
+                        .filter((d) => isAppointmentCompletedLike(d.data()))
                         .map((d) => {
                             const data = d.data();
                             const vcMs = getFirestoreTimestampMs(data.videoSessionEndedAt);
@@ -1228,6 +1246,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                 petName: data.petName || '—',
                                 title: (data.title && String(data.title).trim()) || '',
                                 dateStr: data.dateStr || data.date || '',
+                                date: data.date || data.dateStr || '',
+                                slotStart: data.slotStart || data.timeStart || '',
+                                slotEnd: data.slotEnd || data.timeEnd || '',
+                                timeEnd: data.timeEnd || data.slotEnd || '',
                                 timeDisplay:
                                     data.timeDisplay || getAppointmentTimeDisplay(data) || '—',
                                 completedMs: getAppointmentCompletedAtMs(data),

@@ -19,6 +19,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 def load_checkpoint_model(model_path):
+    """Load EfficientNet-B0 weights, class names, and matching image transform from a .pth file."""
     try:
         ckpt = torch.load(model_path, map_location=DEVICE, weights_only=False)
     except TypeError:
@@ -63,6 +64,7 @@ dog_data = load_checkpoint_model(DOG_MODEL_PATH)
 
 
 def predict_image(file, model_data):
+    """Run one forward pass on an uploaded image; returns label + confidence or an error tuple."""
     try:
         img = Image.open(file.stream).convert("RGB")
     except Exception:

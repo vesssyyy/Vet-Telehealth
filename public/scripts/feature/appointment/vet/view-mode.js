@@ -196,7 +196,21 @@ export function createViewRenderingApi(ctx) {
             </div>`;
         }).filter(Boolean).join('');
 
-        listEl.innerHTML = blocks || (filter !== 'all' ? '<p class="schedules-no-slots">No matching slots in this view.</p>' : '');
+        if (!blocks) {
+            wrap.classList.add('is-hidden');
+            empty?.classList.remove('is-hidden');
+            const p = empty?.querySelector('p');
+            const hint = empty?.querySelector('.schedules-view-empty-hint');
+            if (p) p.textContent = filter === 'all' ? 'No slots to display' : 'No matching slots';
+            if (hint) hint.textContent = filter === 'all'
+                ? 'Try a different date filter, or apply a template to generate new slots.'
+                : 'Try a different slot filter, or change the date filter to see other schedules.';
+            listEl.innerHTML = '';
+        } else {
+            wrap.classList.remove('is-hidden');
+            empty?.classList.add('is-hidden');
+            listEl.innerHTML = blocks;
+        }
         $('schedules-expired-actions')?.classList.toggle('is-hidden', filter !== 'expired');
     }
 

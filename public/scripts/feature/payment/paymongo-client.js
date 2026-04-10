@@ -1,6 +1,4 @@
-/**
- * PayMongo client-side calls (public key only). Card data goes directly to PayMongo, not your server.
- */
+// PayMongo client-side calls (public key only). Card data goes directly to PayMongo, not your server.
 const PAYMONGO_API = 'https://api.paymongo.com/v1';
 
 function authHeader(publicKey) {

@@ -6,7 +6,7 @@ import { storage } from '../firebase/firebase-config.js';
 import { escapeHtml } from '../app/utils.js';
 import { ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-storage.js';
 
-/** Max file size: 25 MB */
+// Max file size: 25 MB
 export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'];
@@ -32,7 +32,7 @@ function isVideoFile(file) {
     return ALLOWED_VIDEO_EXT.some(ext => name.endsWith(ext)) || ALLOWED_VIDEO_MIMES.includes(mime);
 }
 
-/** True if name or (Firebase) URL suggests a video — fixes legacy messages stored as type "file". */
+// True if name or (Firebase) URL suggests a video — fixes legacy messages stored as type "file".
 export function looksLikeMessageVideo(name, url) {
     const n = (name || '').toLowerCase();
     if (ALLOWED_VIDEO_EXT.some(ext => n.endsWith(ext))) return true;
@@ -107,7 +107,7 @@ export async function uploadMessageAttachment(file, convId) {
     return { url, name: file.name || safeName, type: getAttachmentKind(file) };
 }
 
-/** Strip characters that are invalid or risky in download filenames (Windows-safe). */
+// Strip characters that are invalid or risky in download filenames (Windows-safe).
 function sanitizeDownloadFilename(name) {
     return String(name || 'attachment').replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').trim().slice(0, 200) || 'attachment';
 }

@@ -15,7 +15,7 @@ import {
 
 var BOOKING_MEDIA_DB = 'televet_booking_media';
 var BOOKING_MEDIA_STORE = 'files';
-/** Set when payment page loads with ?booking=1 (vet fee from booking payload). */
+// Set when payment page loads with ?booking=1 (vet fee from booking payload).
 var paymentContextBooking = null;
 
 function getBookingMediaFromIndexedDB(mediaKey) {
@@ -82,7 +82,7 @@ function cardDigitsOnly(value) {
     return String(value || '').replace(/\D/g, '');
 }
 
-/** Groups of four (standard card spacing); PayMongo strips spaces in createCardPaymentMethod. */
+// Groups of four (standard card spacing); PayMongo strips spaces in createCardPaymentMethod.
 function formatCardNumberDisplay(digits) {
     var d = cardDigitsOnly(digits).slice(0, CARD_DIGITS_MAX);
     var parts = [];
@@ -116,7 +116,7 @@ function applyCardNumberFormatting(input) {
     }
     try {
         input.setSelectionRange(pos, pos);
-    } catch (e) { /* ignore */ }
+    } catch (e) {}
 }
 
 function bindCardNumberSpacing(input) {
@@ -132,7 +132,7 @@ function bindCardNumberSpacing(input) {
         input.value = formatCardNumberDisplay(merged);
         try {
             input.setSelectionRange(input.value.length, input.value.length);
-        } catch (e) { /* ignore */ }
+        } catch (e) {}
     });
 }
 
@@ -147,7 +147,7 @@ function parseCardExpiry() {
         throw new Error('Enter a valid expiry year.');
     }
     if (yRaw.length === 4 && y >= 2000 && y <= 2099) {
-        /* full year */
+        // full year
     } else if (yRaw.length === 2) {
         y = 2000 + y;
     } else {
@@ -421,7 +421,7 @@ async function completeBookingAfterPayment(booking) {
                 skinAttach = hydratedApt.attachedSkinAnalysis;
             }
         } catch (e) {
-            /* keep session snapshot */
+            // keep session snapshot
         }
     }
     var data = {
@@ -549,7 +549,7 @@ async function runPayMongoThenBook(booking) {
         booking.paymentIntentId = pid;
         try {
             sessionStorage.setItem('televet_booking', JSON.stringify(booking));
-        } catch (e) { /* ignore */ }
+        } catch (e) {}
         window.location.href = d.redirectUrl;
         return;
     }

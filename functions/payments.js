@@ -73,7 +73,7 @@ function makePayments({
     return v;
   }
 
-  /** Clip and normalize user-provided strings for PayMongo metadata (no newlines). */
+  // Clip and normalize user-provided strings for PayMongo metadata (no newlines).
   function paymongoDescriptionPart(raw, maxLen) {
     if (raw == null) return '';
     const t = String(raw)
@@ -84,7 +84,7 @@ function makePayments({
     return t.length > maxLen ? `${t.slice(0, maxLen - 1)}…` : t;
   }
 
-  /** Dashboard description: title, vet, pet owner (from auth), pet. Max ~512 chars for API safety. */
+  // Dashboard description: title, vet, pet owner (from auth), pet. Max ~512 chars for API safety.
   async function buildPaymongoConsultationDescription(request, data) {
     const token = request.auth.token || {};
     const ownerEmail = paymongoDescriptionPart(token.email, 120);
@@ -94,7 +94,7 @@ function makePayments({
         const rec = await admin.auth().getUser(request.auth.uid);
         ownerName = paymongoDescriptionPart(formatDisplayName(rec.displayName || ''), 80);
       } catch (_) {
-        /* ignore */
+        // ignore
       }
     }
     const ownerLabel = ownerName && ownerEmail
@@ -121,14 +121,14 @@ function makePayments({
     return desc || 'TeleVet consultation';
   }
 
-  /** PayMongo metadata values must be strings; keep within typical limits. */
+  // PayMongo metadata values must be strings; keep within typical limits.
   function paymongoIntentMetadataFromDescription(description) {
     const v = paymongoDescriptionPart(description, 500);
     if (!v) return null;
     return { description: v };
   }
 
-  /** Sandbox: create a Payment Intent (PHP). Amount in centavos. */
+  // Sandbox: create a Payment Intent (PHP). Amount in centavos.
   const payMongoCreatePaymentIntent = onCall(callableOptions, async (request) => {
     if (!request.auth?.uid) {
       throw new HttpsError('unauthenticated', 'Must be logged in.');
@@ -196,7 +196,7 @@ function makePayments({
     }
   });
 
-  /** Server-side attach (secret key). return_url is used if the card requires 3DS redirect. */
+  // Server-side attach (secret key). return_url is used if the card requires 3DS redirect.
   const payMongoAttachPayment = onCall(callableOptions, async (request) => {
     if (!request.auth?.uid) {
       throw new HttpsError('unauthenticated', 'Must be logged in.');
@@ -257,7 +257,7 @@ function makePayments({
     }
   });
 
-  /** Verify intent belongs to caller and return status (for post-3DS return and polling). */
+  // Verify intent belongs to caller and return status (for post-3DS return and polling).
   const payMongoGetPaymentIntentStatus = onCall(callableOptions, async (request) => {
     if (!request.auth?.uid) {
       throw new HttpsError('unauthenticated', 'Must be logged in.');
@@ -292,7 +292,7 @@ function makePayments({
     }
   });
 
-  /** Return method-specific publishable keys so frontend can keep live keys out of static files. */
+  // Return method-specific publishable keys so frontend can keep live keys out of static files.
   const payMongoGetClientConfig = onCall(callableOptions, async (request) => {
     if (!request.auth?.uid) {
       throw new HttpsError('unauthenticated', 'Must be logged in.');

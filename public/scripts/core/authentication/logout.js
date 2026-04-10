@@ -1,6 +1,4 @@
-/**
- * Televet Health — Shared logout (profile cache + session + Firebase signOut).
- */
+// Televet Health — Shared logout (profile cache + session + Firebase signOut).
 import { signOut } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js';
 import { appAlertError, appConfirm } from '../ui/app-dialog.js';
 

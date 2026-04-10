@@ -6,6 +6,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 import {
     getAppointmentSlotEndDate,
+    getAppointmentGraceEndDate,
     isVideoSessionEnded,
 } from '../utils/appointment-time.js';
 
@@ -66,7 +67,10 @@ export function createScheduleEndController(options = {}) {
         if (isVideoSessionEnded(apt)) return false;
 
         const slotEndAt = getAppointmentSlotEndDate(apt);
-        if (!slotEndAt || Date.now() < slotEndAt.getTime()) return false;
+        const graceEndAt = getAppointmentGraceEndDate(apt);
+        if (!slotEndAt || !graceEndAt) return false;
+        // Do not auto-end until scheduled end + grace window.
+        if (Date.now() < graceEndAt.getTime()) return false;
 
         let roomSnap;
         try {
@@ -140,14 +144,14 @@ export function createScheduleEndController(options = {}) {
 
     function armScheduleEndCompletion() {
         clearScheduleEndWatchers();
-        const endDate = getAppointmentSlotEndDate(getAppointmentData?.());
-        if (!endDate) return;
+        const graceEndDate = getAppointmentGraceEndDate(getAppointmentData?.());
+        if (!graceEndDate) return;
 
         const run = () => {
             finalizeConsultationForScheduleEnd().catch((e) => console.warn('Schedule end finalize:', e));
         };
 
-        const ms = endDate.getTime() - Date.now();
+        const ms = graceEndDate.getTime() - Date.now();
         if (ms <= 0) {
             run();
             return;
@@ -158,7 +162,7 @@ export function createScheduleEndController(options = {}) {
                 clearScheduleEndWatchers();
                 return;
             }
-            if (Date.now() >= endDate.getTime()) run();
+            if (Date.now() >= graceEndDate.getTime()) run();
         }, 15000);
     }
 

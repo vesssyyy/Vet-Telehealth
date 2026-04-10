@@ -16,7 +16,7 @@ function petProfileImageUrl(petData = {}) {
     ).trim();
 }
 
-/** VC header datetime: avoid duplicating date when `timeDisplay` already includes it (pet-owner bookings). */
+// VC header datetime: avoid duplicating date when `timeDisplay` already includes it (pet-owner bookings).
 function formatConsultationHeaderDatetime(appointmentData) {
     const dateRaw = String(appointmentData.dateStr || appointmentData.date || '').trim();
     const timeRaw = String(appointmentData.timeDisplay || '').trim();

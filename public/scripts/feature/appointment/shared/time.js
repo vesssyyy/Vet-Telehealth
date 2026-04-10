@@ -7,7 +7,7 @@ export function getTodayDateString() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-/** Given "HH:mm" start, return "HH:mm" start + duration minutes. */
+// Given "HH:mm" start, return "HH:mm" start + duration minutes.
 export function addMinutesToTime(timeStr, durationMinutes) {
     if (!timeStr || typeof timeStr !== 'string') return null;
     const [hStr, mStr = '0'] = String(timeStr).trim().split(':');
@@ -28,7 +28,7 @@ export function formatAppointmentDate(dateStr) {
     }
 }
 
-/** Same as formatAppointmentDate but without weekday (e.g. "April 6, 2026"). */
+// Same as formatAppointmentDate but without weekday (e.g. "April 6, 2026").
 export function formatAppointmentDateNoWeekday(dateStr) {
     if (!dateStr) return '—';
     try {
@@ -39,7 +39,7 @@ export function formatAppointmentDateNoWeekday(dateStr) {
     }
 }
 
-/** Extract time range from timeDisplay string (e.g. "Feb 25, 2026 at 8:15 AM" → "8:15 AM", "Feb 25, 2026 at 8:15 AM – 9:15 AM" → "8:15 AM - 9:15 AM"). */
+// Extract time range from timeDisplay string (e.g. "Feb 25, 2026 at 8:15 AM" → "8:15 AM", "Feb 25, 2026 at 8:15 AM – 9:15 AM" → "8:15 AM - 9:15 AM").
 export function extractTimeRangeFromDisplay(timeDisplay) {
     if (!timeDisplay || typeof timeDisplay !== 'string') return null;
     const s = timeDisplay.trim();
@@ -50,7 +50,7 @@ export function extractTimeRangeFromDisplay(timeDisplay) {
     return timePart.replace(/\s*[–—]\s*/g, ' - ');
 }
 
-/** Build time range only for card display (e.g. "8:00 AM - 9:00 AM"). Uses slotEnd or default duration when start is known. */
+// Build time range only for card display (e.g. "8:00 AM - 9:00 AM"). Uses slotEnd or default duration when start is known.
 export function getAppointmentTimeDisplay(apt) {
     const slotStart = apt.slotStart;
     const slotEnd = apt.slotEnd || (slotStart ? addMinutesToTime(slotStart, DEFAULT_SLOT_DURATION_MINUTES) : null);

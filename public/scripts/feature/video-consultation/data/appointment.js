@@ -1,6 +1,6 @@
 import { getDoc } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 
-/** Firestore may return string or DocumentReference-like id fields. */
+// Firestore may return string or DocumentReference-like id fields.
 export function idFromFirestoreField(value) {
     if (value == null) return '';
     if (typeof value === 'string') return value.trim();
@@ -8,9 +8,7 @@ export function idFromFirestoreField(value) {
     return String(value).trim();
 }
 
-/**
- * Load and normalize appointment data for VC access checks.
- */
+// Load and normalize appointment data for VC access checks.
 export async function loadVideoCallAppointmentContext({ appointmentRef, userUid }) {
     const aptSnap = await getDoc(appointmentRef);
     if (!aptSnap.exists()) {

@@ -1,7 +1,4 @@
-/**
- * Televet Health — Video call room (WebRTC + Firestore signaling)
- * Shared by petowner/video-call.html and vet/video-call.html
- */
+// Video consultation room: WebRTC media, Firestore signaling, notes, chat, session end (pet owner + vet pages).
 import { app, auth, db } from '../../core/firebase/firebase-config.js';
 import { escapeHtml } from '../../core/app/utils.js';
 import { generateConsultationPDF } from '../../core/pdf/consultation-pdf.js';
@@ -55,7 +52,7 @@ import {
     increment,
 } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 
-/* Default ICE servers; TURN can be loaded dynamically from Cloud Functions. */
+// Default ICE servers; TURN can be loaded dynamically from Cloud Functions.
 const DEFAULT_ICE_SERVERS = [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
@@ -87,7 +84,7 @@ export function initVideoCallPage(options = {}) {
     const statusEl = $('call-status');
     const waitingEl = $('waiting-message');
     const connectedEl = $('connected-message');
-    /** Cleared when returning to waiting, on error, or media cleanup. */
+    // Cleared when returning to waiting, on error, or media cleanup.
     let connectedLabelHideTimeoutId = null;
 
     const container    = $('video-call-container');
@@ -96,13 +93,13 @@ export function initVideoCallPage(options = {}) {
 
     const panels = initVideoCallPanels({ $, onMessageClick });
 
-    /* Notes panel (vet only) — slides in from left like message, dashed border */
+    // Notes panel (vet only) — slides in from left like message, dashed border
     const notesPanel = $('video-call-notes-panel');
 
     const notesTextareas = CONSULTATION_NOTES_FIELDS.map(({ id }) => id);
     function resizeNotesTextarea(ta) {
         if (!ta) return;
-        /* Flex layout handles sizing; no manual height needed */
+        // Flex layout handles sizing; no manual height needed
     }
     function resetNotesFieldExpansion() {
         notesPanel?.querySelectorAll('.video-call-notes-field[data-notes-field]').forEach((field) => {
@@ -192,7 +189,7 @@ export function initVideoCallPage(options = {}) {
         let myPhotoURL = '';
         let otherPhotoURL = '';
         let rtcConfig = { ...DEFAULT_RTC_CONFIG };
-        /** Set after `initVideoCallNotes` in the load try block; used by schedule-end + vet leave modal. */
+        // Set after `initVideoCallNotes` in the load try block; used by schedule-end + vet leave modal.
         let getNotesFromForm;
 
         async function loadRtcConfig() {
@@ -250,7 +247,7 @@ export function initVideoCallPage(options = {}) {
             myPhotoURL = hydrated.myPhotoURL || '';
             otherPhotoURL = hydrated.otherPhotoURL || '';
 
-            /* Vet: Clinical notes — auto-save, load saved notes, save on terminate */
+            // Vet: Clinical notes — auto-save, load saved notes, save on terminate
             const notesController = initVideoCallNotes({
                 isVet,
                 appointmentRef,
@@ -515,7 +512,7 @@ export function initVideoCallPage(options = {}) {
             resetPeerConnectionState,
         });
 
-        /** Returns true if joined, false if room was already ended. */
+        // Returns true if joined, false if room was already ended.
         async function joinRoom() {
             const result = await joinVideoCallRoom({
                 appointmentRef,
@@ -546,7 +543,7 @@ export function initVideoCallPage(options = {}) {
             }, 1000);
         }
 
-        /** Stop media tracks, close peer connection, clear videos, clear timer. */
+        // Stop media tracks, close peer connection, clear videos, clear timer.
         function cleanupLocalMedia() {
             if (connectedLabelHideTimeoutId) {
                 clearTimeout(connectedLabelHideTimeoutId);
@@ -563,7 +560,7 @@ export function initVideoCallPage(options = {}) {
             showReconnectUI(false);
         }
 
-        /** Clean up call state (timer, peer, streams) and remove self from room. Does not redirect. */
+        // Clean up call state (timer, peer, streams) and remove self from room. Does not redirect.
         function cleanupAndLeaveRoom() {
             cleanupLocalMedia();
             if (videoCallUnsubscribe) { videoCallUnsubscribe(); videoCallUnsubscribe = null; }
@@ -576,7 +573,7 @@ export function initVideoCallPage(options = {}) {
             }).catch(() => {});
         }
 
-        /** Full-screen "Session Ended" overlay with start/end times and role-specific button. Vet: shows consultation notes for final review + Download PDF. */
+        // Full-screen "Session Ended" overlay with start/end times and role-specific button. Vet: shows consultation notes for final review + Download PDF.
         async function showSessionEndedOverlay(redirectQuery, opts = {}) {
             const {
                 startLabel = '—',
@@ -600,8 +597,7 @@ export function initVideoCallPage(options = {}) {
             });
         }
 
-        /** @param {string} [redirectQuery] - e.g. '?callEnded=1' to append to backUrl
-         *  @param {{ showSessionEnded?: boolean, startLabel?: string, endLabel?: string, isVet?: boolean }} [opts] */
+        // Navigate away or show session-ended overlay; redirectQuery merges into backUrl (e.g. ?callEnded=1).
         function leaveRoom(redirectQuery = '', opts = {}) {
             const targetUrl = redirectQuery ? `${backUrl}${backUrl.includes('?') ? '&' : '?'}${redirectQuery.replace(/^\?/, '')}` : backUrl;
             if (opts.showSessionEnded) {
@@ -638,7 +634,7 @@ export function initVideoCallPage(options = {}) {
         const finalizeConsultationForScheduleEnd = scheduleEndController.finalizeConsultationForScheduleEnd;
         const armScheduleEndCompletion = scheduleEndController.armScheduleEndCompletion;
 
-        /** Pet or vet temporarily leaves; session stays active, they can rejoin via same link. */
+        // Pet or vet temporarily leaves; session stays active, they can rejoin via same link.
         function leaveTemporary() {
             clearScheduleEndWatchers();
             cleanupLocalMedia();
@@ -680,7 +676,7 @@ export function initVideoCallPage(options = {}) {
             })();
         }
 
-        /** Vet only: show Leave Only / Terminate Call popup. */
+        // Vet only: show Leave Only / Terminate Call popup.
         function showVetLeaveEndModal() {
             showVetLeaveEndModalFeature({
                 userUid: user.uid,
@@ -878,13 +874,13 @@ export function initVideoCallPage(options = {}) {
                 setWaiting(true);
             }
 
-            /* Mark slot as ongoing when both participants are in the call (one-time) */
+            // Mark slot as ongoing when both participants are in the call (one-time)
             if (pids.length >= 2 && !sessionOngoingSlotUpdated && appointmentData) {
                 sessionOngoingSlotUpdated = true;
                 updateAssignedSlotStatus('ongoing', ['booked', 'ongoing']).catch((e) => console.warn('Could not set slot ongoing:', e));
             }
 
-            /* Recreate offer if we have no PC (e.g. sessionId changed and resetPeerConnectionState ran but Firestore still held a stale offer). */
+            // Recreate offer if we have no PC (e.g. sessionId changed and resetPeerConnectionState ran but Firestore still held a stale offer).
             const offererNeedsFreshOffer =
                 !data.offer || (!peerConnection && !connectionEstablished);
             if (isOfferer && offererNeedsFreshOffer) {

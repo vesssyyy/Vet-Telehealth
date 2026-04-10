@@ -1,6 +1,4 @@
-/**
- * Televet Health — Firebase Authentication
- */
+// Televet Health — Firebase Authentication
 import { auth, db } from '../firebase/firebase-config.js';
 import {
     createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup,

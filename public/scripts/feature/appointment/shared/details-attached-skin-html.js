@@ -1,7 +1,4 @@
-/**
- * HTML for attached skin analysis in appointment details (pet owner + vet).
- * Thumbnail opens details-media-lightbox via delegated click on .details-attached-skin-img-btn.
- */
+// Renders attached skin analysis block in appointment details; thumb uses shared media lightbox.
 import { escapeHtml } from '../../../core/app/utils.js';
 import { skinAnalysisSavedAtToMs } from '../../skin-disease/skin-analysis-repository.js';
 
@@ -16,11 +13,7 @@ function formatAnalysisHistoryDateTime(ms) {
     }
 }
 
-/**
- * Date line uses skin analysis history only (savedAt / savedAtMs on attachment or loaded from history).
- * @param {Record<string, unknown>} s
- * @returns {string}
- */
+// Build HTML for one attachment snapshot; date from savedAt / savedAtMs / history merge.
 export function buildDetailsAttachedSkinAnalysisHtml(s) {
     if (!s || !s.imageUrl) return '';
     const imgUrl = escapeHtml(String(s.imageUrl));
@@ -54,7 +47,7 @@ export function buildDetailsAttachedSkinAnalysisHtml(s) {
     );
 }
 
-/** Fade in thumbnails after load (call after setting innerHTML on the skin inner container). */
+// Fade in thumbnails after load (call after setting innerHTML on the skin inner container).
 export function wireDetailsAttachedSkinThumbnails(containerEl) {
     if (!containerEl) return;
     containerEl.querySelectorAll('.details-attached-skin-thumb').forEach((img) => {

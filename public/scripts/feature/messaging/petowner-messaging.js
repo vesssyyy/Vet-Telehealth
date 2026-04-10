@@ -210,8 +210,7 @@ export function initPetownerMessagingPage() {
         state.sentAvatarUrl = myPhoto;
         state.receivedAvatarUrl = peerPhoto;
 
-        /* lastReadAt / unread are flushed from subscribeMessages (debounced) so lastDeliveredAt can
-           land first; an immediate read here hid the double-check because seen always beat delivered. */
+        // Defer mark-read to subscribeMessages so delivery timestamps are not overwritten by an eager read.
         subscribeMessages(conv, myId, () => updateDoc(doc(db, 'conversations', conv.id), {
             lastReadAt_ownerId: serverTimestamp(),
             unreadCount_owner: 0,

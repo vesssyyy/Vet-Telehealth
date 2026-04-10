@@ -39,7 +39,7 @@ export function registerModalEvents(ctx) {
         window.location.href = `video-call.html?appointmentId=${currentDetailsApt.id}`;
     });
 
-    /* Details media lightbox (click to enlarge, no new tab) */
+    // Details media lightbox (click to enlarge, no new tab)
     (function initDetailsMediaLightbox() {
         const lb = $('details-media-lightbox');
         const lbImg = lb?.querySelector('.details-media-lightbox-img');
@@ -88,11 +88,11 @@ export function registerModalEvents(ctx) {
                     lbVideo.removeAttribute('autoplay');
                     lbVideo.src = url;
                     lbVideo.classList.remove('is-hidden');
-                    try { lbVideo.load(); } catch (_) { /* ignore */ }
+                    try { lbVideo.load(); } catch (_) {}
                     lbVideo.pause();
                     lbVideo.addEventListener('loadedmetadata', () => {
                         lbVideo.pause();
-                        try { lbVideo.currentTime = 0; } catch (_) { /* ignore */ }
+                        try { lbVideo.currentTime = 0; } catch (_) {}
                     }, { once: true });
                 }
             } else {
@@ -369,6 +369,7 @@ export function createDetailsApi(ctx) {
         if (ownerNameEl) ownerNameEl.textContent = ownerDisplay ? formatDisplayName(ownerDisplay) : '—';
         if (ownerImg) {
             ownerImg.style.display = 'none';
+            ownerImg.setAttribute('aria-hidden', 'true');
             ownerImg.src = '';
             ownerImg.style.opacity = '';
             ownerImg.alt = ownerDisplay ? formatDisplayName(ownerDisplay) : 'Owner';
@@ -381,7 +382,13 @@ export function createDetailsApi(ctx) {
                     ownerImg.style.transition = 'opacity 0.35s ease';
                     ownerImg.onload = () => {
                         requestAnimationFrame(() => { ownerImg.style.opacity = '1'; });
+                        ownerImg.setAttribute('aria-hidden', 'false');
                         if (ownerFallback) ownerFallback.classList.remove('visible');
+                    };
+                    ownerImg.onerror = () => {
+                        ownerImg.setAttribute('aria-hidden', 'true');
+                        ownerImg.style.display = 'none';
+                        if (ownerFallback) ownerFallback.classList.add('visible');
                     };
                     ownerImg.src = ownerSnap.data().photoURL;
                     ownerImg.style.display = '';
@@ -399,6 +406,7 @@ export function createDetailsApi(ctx) {
         if (petWeightEl) petWeightEl.textContent = '—';
         if (petImg) {
             petImg.style.display = 'none';
+            petImg.setAttribute('aria-hidden', 'true');
             petImg.src = '';
             petImg.style.opacity = '';
             petImg.alt = petName !== '—' ? String(petName) : 'Pet';
@@ -422,7 +430,13 @@ export function createDetailsApi(ctx) {
                         petImg.style.transition = 'opacity 0.35s ease';
                         petImg.onload = () => {
                             requestAnimationFrame(() => { petImg.style.opacity = '1'; });
+                            petImg.setAttribute('aria-hidden', 'false');
                             if (petFallback) petFallback.classList.remove('visible');
+                        };
+                        petImg.onerror = () => {
+                            petImg.setAttribute('aria-hidden', 'true');
+                            petImg.style.display = 'none';
+                            if (petFallback) petFallback.classList.add('visible');
                         };
                         petImg.src = pet.imageUrl;
                         petImg.style.display = '';
@@ -498,7 +512,7 @@ export function createDetailsApi(ctx) {
                     vid.src = url;
                     const onThumbReady = () => {
                         vid.pause();
-                        try { vid.currentTime = 0; } catch (_) { /* ignore */ }
+                        try { vid.currentTime = 0; } catch (_) {}
                         vid.classList.add('is-loaded');
                     };
                     vid.addEventListener('loadeddata', onThumbReady, { once: true });

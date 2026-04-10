@@ -7,9 +7,7 @@ import {
     setMappedFieldValues,
 } from '../utils/field-mapping.js';
 
-/**
- * Wire vet notes autosave and expose form getters/setters.
- */
+// Wire vet notes autosave and expose form getters/setters.
 export function initVideoCallNotes(options = {}) {
     const {
         isVet = false,

@@ -1,4 +1,4 @@
-/** Televet Health — Pet Owner Profile */
+// Televet Health — Pet Owner Profile
 import { initProfile } from './profile-shared.js';
 
 const formatRole = role => (role === 'vet' ? 'Veterinarian' : 'Pet Owner');

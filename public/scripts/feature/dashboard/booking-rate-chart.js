@@ -27,7 +27,7 @@ function accumulatedCssZoom(el) {
     return z;
 }
 
-/** Chart.js: correct pointer x/y when ancestors use CSS `zoom` (e.g. root 0.75 desktop layout). */
+// Chart.js: correct pointer x/y when ancestors use CSS `zoom` (e.g. root 0.75 desktop layout).
 const chartCssZoomFixPlugin = {
     id: 'telehealthChartCssZoomFix',
     beforeEvent(chart, args) {
@@ -107,9 +107,7 @@ function startOfLocalWeekMonday(ms) {
     return d.getTime();
 }
 
-/**
- * @returns {{ bucketStarts: number[], labelForIndex: (i: number) => string, endForIndex: (i: number) => number }}
- */
+// @returns {{ bucketStarts: number[], labelForIndex: (i: number) => string, endForIndex: (i: number) => number }}
 function buildBuckets(granularity, startMs, endMs) {
     if (granularity === 'hour') {
         const day = new Date(startMs);
@@ -261,7 +259,7 @@ export function createBookingRateChart(root, opts = {}) {
     /** @type {{ destroy: () => void, data: object, options: object, update: (mode?: string) => void, resize: () => void } | null} */
     let chart = null;
 
-    /** Tooltip / axis context for latest dataset */
+    // Tooltip / axis context for latest dataset
     let latestMeta = {
         bucketStarts: [],
         granularity: 'day',
@@ -286,7 +284,7 @@ export function createBookingRateChart(root, opts = {}) {
         return 12;
     }
 
-    /** Monospace-friendly rows: label column + value column (no color swatch). */
+    // Monospace-friendly rows: label column + value column (no color swatch).
     const tooltipLabelColWidth = 20;
     function tooltipMetricRow(label, value) {
         return `${String(label).padEnd(tooltipLabelColWidth)} ${String(value)}`;

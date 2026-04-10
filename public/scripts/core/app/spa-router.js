@@ -1,14 +1,5 @@
-/**
- * Televet Health — SPA Router
- *
- * Intercepts in-portal link clicks and swaps page content via fetch +
- * DOMParser, keeping the sidebar, header, and bottom-nav persistent.
- * Provides browser back/forward support through the History API.
- *
- * Used by both petowner and vet portals.
- * Pages with a different shell (video-call.html) are excluded and
- * cause a normal full-page navigation.
- */
+// SPA router: intercept same-portal links, fetch and swap <main> content, keep shell and bottom nav.
+// Excludes video-call.html (full navigation). Uses History API for back/forward.
 (function () {
     'use strict';
 
@@ -17,7 +8,7 @@
 
     window.__spaRouterActive = true;
 
-    /* ── Configuration ──────────────────────────────────────────────── */
+    // Configuration
 
     var EXCLUDED_FILES  = { 'video-call.html': true };
     var COMMON_SCRIPTS  = [
@@ -26,14 +17,14 @@
     ];
     var CDN_HOSTS       = ['cdn.jsdelivr.net', 'cdnjs.cloudflare.com'];
 
-    /* ── State ──────────────────────────────────────────────────────── */
+    // State
 
     var _navigating     = false;
     var _abortCtrl      = null;
     var _loadedCdnSrcs  = {};
     var _dclPatched     = false;
 
-    /* ── Helpers ────────────────────────────────────────────────────── */
+    // Helpers
 
     function filename(url) {
         return (url || '').split('/').pop().split('?')[0].split('#')[0];
@@ -74,12 +65,7 @@
         return t === 'body{visibility:hidden;}' || t === 'body{visibility:hidden}';
     }
 
-    /* ── DOMContentLoaded shim ─────────────────────────────────────── *
-     * After the first SPA navigation the document is already loaded,   *
-     * but newly-injected scripts may register DOMContentLoaded          *
-     * listeners. This shim runs them immediately.                       *
-     * ─────────────────────────────────────────────────────────────────  */
-
+    // After SPA navigation, document is already loaded; run DOMContentLoaded handlers immediately for injected scripts.
     function patchDCL() {
         if (_dclPatched) return;
         _dclPatched = true;
@@ -87,7 +73,7 @@
         document.addEventListener = function (type, fn, opts) {
             if (type === 'DOMContentLoaded') {
                 requestAnimationFrame(function () {
-                    try { fn.call(document, new Event('DOMContentLoaded')); } catch (e) { /* skip */ }
+                    try { fn.call(document, new Event('DOMContentLoaded')); } catch (e) {}
                 });
                 return;
             }
@@ -95,7 +81,7 @@
         };
     }
 
-    /* ── Progress bar ──────────────────────────────────────────────── */
+    // Progress bar
 
     (function injectCSS() {
         var s = document.createElement('style');
@@ -130,7 +116,7 @@
         setTimeout(function () { if (bar.parentNode) bar.remove(); }, 500);
     }
 
-    /* ── CSS diffing ───────────────────────────────────────────────── */
+    // CSS diffing
 
     function hrefOf(l) { return l.getAttribute('href') || ''; }
 
@@ -145,7 +131,7 @@
         };
     }
 
-    /* ── Content extraction ────────────────────────────────────────── */
+    // Content extraction
 
     function extractPage(doc) {
         var main   = doc.querySelector('main');
@@ -202,7 +188,7 @@
         };
     }
 
-    /* ── Script loading ────────────────────────────────────────────── */
+    // Script loading
 
     function loadScripts(defs, done) {
         var remaining = defs.length;
@@ -243,7 +229,7 @@
         });
     }
 
-    /* ── Active-nav highlight ──────────────────────────────────────── */
+    // Active-nav highlight
 
     function updateNav() {
         var page = filename(window.location.pathname);
@@ -255,7 +241,7 @@
         });
     }
 
-    /* ── Navigate ──────────────────────────────────────────────────── */
+    // Navigate
 
     function navigate(url, opts) {
         opts = opts || {};
@@ -263,7 +249,7 @@
         if (filename(url) === filename(window.location.href) && !opts.force) return;
 
         _navigating = true;
-        if (_abortCtrl) try { _abortCtrl.abort(); } catch (_) { /* ok */ }
+        if (_abortCtrl) try { _abortCtrl.abort(); } catch (_) {}
         _abortCtrl = new AbortController();
 
         showProgress();
@@ -287,7 +273,7 @@
                 var data   = extractPage(newDoc);
                 var header = main ? main.querySelector('.app-top-header') : null;
 
-                /* 1 — Remove old main content (keep header) */
+                // 1 — Remove old main content (keep header)
                 if (main) {
                     var rm = []; var past = !header;
                     for (var i = 0; i < main.children.length; i++) {
@@ -297,7 +283,7 @@
                     rm.forEach(function (n) { n.remove(); });
                 }
 
-                /* 2 — Remove old body-level extras */
+                // 2 — Remove old body-level extras
                 var oldX = [];
                 for (var j = 0; j < document.body.children.length; j++) {
                     var ch  = document.body.children[j];
@@ -312,14 +298,14 @@
                 }
                 oldX.forEach(function (n) { n.remove(); });
 
-                /* 3 — Remove previously loaded SPA scripts */
+                // 3 — Remove previously loaded SPA scripts
                 document.querySelectorAll('script[data-spa-loaded]').forEach(function (s) { s.remove(); });
 
-                /* 3b — Inline-hide persistent overlays before CSS swap removes their display:none rules */
+                // 3b — Inline-hide persistent overlays before CSS swap removes their display:none rules
                 var plo = document.querySelector('.profile-loading-overlay');
                 if (plo) plo.style.display = 'none';
 
-                /* 4 — Swap stylesheets */
+                // 4 — Swap stylesheets
                 var css = diffCSS(newDoc);
                 css.toRemove.forEach(function (l) { l.remove(); });
                 var cssReady = css.toAdd.map(function (l) {
@@ -332,7 +318,7 @@
                     });
                 });
 
-                /* 5 — Swap inline <style> */
+                // 5 — Swap inline <style>
                 document.querySelectorAll('head style[data-spa-style]').forEach(function (s) { s.remove(); });
                 data.inlineStyles.forEach(function (st) {
                     var cl = st.cloneNode(true);
@@ -340,7 +326,7 @@
                     document.head.appendChild(cl);
                 });
 
-                /* 6 — Update body / main attributes (strip loading classes to avoid flash) */
+                // 6 — Update body / main attributes (strip loading classes to avoid flash)
                 document.body.className = data.bodyClass
                     .replace(/\bprofile-loading-full-page\b/g, '')
                     .replace(/\bprofile-loading\b/g, '')
@@ -350,7 +336,7 @@
                 document.body.style.opacity    = '1';
                 if (main) main.className = data.mainClass;
 
-                /* 7 — Title & URL */
+                // 7 — Title & URL
                 document.title = data.title;
                 if (opts.pushState !== false) {
                     history.pushState({ spaUrl: url }, data.title, url);
@@ -358,21 +344,20 @@
                     history.replaceState({ spaUrl: url }, data.title, url);
                 }
 
-                /* 8 — Active nav + scroll */
+                // 8 — Active nav + scroll
                 updateNav();
                 window.scrollTo(0, 0);
                 if (main) main.scrollTop = 0;
 
-                /* 9 — Wait for CSS, THEN inject content, fade in & run scripts.
-                 *     This prevents modals/overlays from flashing unstyled. */
+                // Wait for new CSS before injecting DOM so overlays do not flash unstyled.
                 Promise.all(cssReady).then(function () {
 
-                    /* 9a — Inject new main content */
+                    // 9a — Inject new main content
                     data.contentNodes.forEach(function (n) {
                         main.appendChild(document.importNode(n, true));
                     });
 
-                    /* 9b — Inject new body-level extras (before bottom-nav) */
+                    // 9b — Inject new body-level extras (before bottom-nav)
                     var bottomNav = document.querySelector('.bottom-nav');
                     data.extras.forEach(function (n) {
                         var imp = document.importNode(n, true);
@@ -383,7 +368,7 @@
                         }
                     });
 
-                    /* 9c — Clean up loading states (route-guard won't re-run on SPA nav) */
+                    // 9c — Clean up loading states (route-guard won't re-run on SPA nav)
                     document.body.classList.remove(
                         'profile-loading', 'profile-loading-full-page', 'dashboard-waiting'
                     );
@@ -405,7 +390,7 @@
                         el.setAttribute('aria-hidden', 'true');
                     });
 
-                    /* 9d — Animate new content in (header stays untouched) */
+                    // 9d — Animate new content in (header stays untouched)
                     if (main) {
                         var header2 = main.querySelector('.app-top-header');
                         for (var ci = 0; ci < main.children.length; ci++) {
@@ -415,7 +400,7 @@
                         }
                     }
 
-                    /* 9e — Load page scripts */
+                    // 9e — Load page scripts
                     loadScripts(data.scripts, function () {
                         window.dispatchEvent(new CustomEvent('spa:afternavigate'));
                         _navigating = false;
@@ -433,7 +418,7 @@
             });
     }
 
-    /* ── Click interception (capture phase) ────────────────────────── */
+    // Click interception (capture phase)
 
     document.addEventListener('click', function (e) {
         if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
@@ -446,7 +431,7 @@
         navigate(resolve(href));
     }, true);
 
-    /* ── History popstate ──────────────────────────────────────────── */
+    // History popstate
 
     window.addEventListener('popstate', function (e) {
         if (e.state && e.state.spaUrl) {
@@ -455,7 +440,7 @@
         }
     });
 
-    /* ── Public API ────────────────────────────────────────────────── */
+    // Public API
 
     window.__spaNavigate = function (href) {
         if (!isSamePortalLink(href)) return false;
@@ -463,7 +448,7 @@
         return true;
     };
 
-    /* ── Init ──────────────────────────────────────────────────────── */
+    // Init
 
     history.replaceState(
         { spaUrl: window.location.href },

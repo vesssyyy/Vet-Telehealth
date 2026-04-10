@@ -1,6 +1,4 @@
-/**
- * Wire mic/camera button toggles for current local media stream.
- */
+// Wire mic/camera button toggles for current local media stream.
 export function wireMediaToggle({ $, btnId, getTracks, icons, labels, onToggle }) {
     $(btnId)?.addEventListener('click', () => {
         const tracks = getTracks();

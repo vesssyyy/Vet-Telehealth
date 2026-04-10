@@ -1,6 +1,4 @@
-/**
- * Vet schedule slot tallies for dashboard (read-only; matches appointments schedule list semantics).
- */
+// Vet schedule slot tallies for dashboard (read-only; matches appointments schedule list semantics).
 import { db } from '../../../core/firebase/firebase-config.js';
 import {
     collection,
@@ -111,14 +109,12 @@ async function resolveAppointmentFromScheduleSlot(vetId, dateStr, slotStart) {
             return { id: first.id, ...first.data() };
         }
     } catch (_) {
-        /* ignore */
+        // ignore
     }
     return null;
 }
 
-/**
- * Sets __displayStatus on slots from appointment docs (same rules as scheduling enrich; no Firestore writes).
- */
+// Sets __displayStatus on slots from appointment docs (same rules as scheduling enrich; no Firestore writes).
 async function enrichSchedulesWithAppointmentStatusReadOnly(schedules, vetUid) {
     const cloned = cloneSchedulesShallow(schedules);
     const ids = new Set();
@@ -148,7 +144,7 @@ async function enrichSchedulesWithAppointmentStatusReadOnly(schedules, vetUid) {
                 const snap = await getDoc(appointmentDoc(id));
                 if (snap.exists()) aptMap.set(id, snap.data());
             } catch (_) {
-                /* ignore */
+                // ignore
             }
         }),
     );
@@ -205,7 +201,7 @@ async function loadVetMinAdvanceMinutes(uid) {
             if (typeof m === 'number' && Number.isFinite(m) && m >= 1) return m;
         }
     } catch (_) {
-        /* ignore */
+        // ignore
     }
     return DEFAULT_MIN_ADVANCE_MINUTES;
 }
@@ -216,9 +212,7 @@ async function loadAllSchedulesForVet(uid) {
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
-/**
- * @returns {Promise<{ avail: number, booked: number, completed: number, expired: number, total: number }>}
- */
+// @returns {Promise<{ avail: number, booked: number, completed: number, expired: number, total: number }>}
 export async function fetchVetScheduleSlotCounts(vetUid) {
     const empty = { avail: 0, booked: 0, completed: 0, expired: 0, total: 0 };
     if (!vetUid) return empty;
@@ -274,9 +268,7 @@ function getScheduleDonutSegments(counts) {
     return rows.filter((r) => r.count > 0);
 }
 
-/**
- * @param {{ avail: number, booked: number, completed: number, expired: number, total: number }} counts
- */
+// @param {{ avail: number, booked: number, completed: number, expired: number, total: number }} counts
 export function buildScheduleDonutConicGradient(counts) {
     const segments = getScheduleDonutSegments(counts);
     const total = counts.total;

@@ -1,6 +1,4 @@
-/**
- * Televet Health - Pet Owner Appointment data layer (Firestore, Storage)
- */
+// Televet Health - Pet Owner Appointment data layer (Firestore, Storage)
 import { auth, db, storage } from '../../../core/firebase/firebase-config.js';
 import { escapeHtml, formatDisplayName, formatTime12h, withDr } from '../../../core/app/utils.js';
 import {
@@ -51,7 +49,7 @@ const scheduleCol = (vetId) => collection(db, 'users', vetId, 'schedules');
 const scheduleDoc = (vetId, dateStr) => doc(db, 'users', vetId, 'schedules', dateStr);
 const vetSettingsDoc = (vetId) => doc(db, 'users', vetId, 'vetSettings', 'scheduling');
 
-/** Load owner's upcoming appointment time ranges (dateStr, start, end) for overlap checks. Excludes cancelled/completed, dateStr >= today. */
+// Load owner's upcoming appointment time ranges (dateStr, start, end) for overlap checks. Excludes cancelled/completed, dateStr >= today.
 async function getOwnerUpcomingSlotRanges(ownerId) {
     if (!ownerId) return [];
     const today = getTodayDateString();
@@ -72,7 +70,7 @@ async function getOwnerUpcomingSlotRanges(ownerId) {
     return ranges;
 }
 
-/** Returns true if the given slot overlaps any of the owner's upcoming appointments. */
+// Returns true if the given slot overlaps any of the owner's upcoming appointments.
 async function ownerHasOverlappingAppointment(ownerId, dateStr, slotStart, slotEnd) {
     if (!ownerId || !dateStr || !slotStart) return false;
     const end = slotEnd || addMinutesToTime(slotStart, DEFAULT_SLOT_DURATION_MINUTES);
@@ -104,7 +102,7 @@ function formatTimeDisplay(timeStr) {
     return timeStr;
 }
 
-/** Extract time range from timeDisplay string (e.g. "Feb 25, 2026 at 8:15 AM" -> "8:15 AM", "Feb 25, 2026 at 8:15 AM - 9:15 AM" -> "8:15 AM - 9:15 AM"). */
+// Extract time range from timeDisplay string (e.g. "Feb 25, 2026 at 8:15 AM" -> "8:15 AM", "Feb 25, 2026 at 8:15 AM - 9:15 AM" -> "8:15 AM - 9:15 AM").
 function extractTimeRangeFromDisplay(timeDisplay) {
     if (!timeDisplay || typeof timeDisplay !== 'string') return null;
     const s = timeDisplay.trim();
@@ -116,7 +114,7 @@ function extractTimeRangeFromDisplay(timeDisplay) {
     return timePart.replace(/\s*[–—]\s*/g, ' - ');
 }
 
-/** Build time range only for card display (e.g. "8:00 AM - 9:00 AM"). Uses slotEnd or default duration when start is known. */
+// Build time range only for card display (e.g. "8:00 AM - 9:00 AM"). Uses slotEnd or default duration when start is known.
 function getAppointmentTimeDisplay(apt) {
     const slotStart = apt.slotStart;
     const slotEnd = apt.slotEnd || (slotStart ? addMinutesToTime(slotStart, DEFAULT_SLOT_DURATION_MINUTES) : null);
@@ -155,14 +153,14 @@ function isUpcoming(appointment) {
     return true;
 }
 
-/** Load current user's pets from Firestore */
+// Load current user's pets from Firestore
 export async function loadPets(uid) {
     if (!uid) return [];
     const snap = await getDocs(petsRef(uid));
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
-/** Load a single vet's profile (photoURL, displayName) by vetId */
+// Load a single vet's profile (photoURL, displayName) by vetId
 export async function loadVetProfile(vetId) {
     if (!vetId) return null;
     try {
@@ -180,7 +178,7 @@ export async function loadVetProfile(vetId) {
     }
 }
 
-/** Load registered vets from Firestore (users with role === 'vet', not disabled) */
+// Load registered vets from Firestore (users with role === 'vet', not disabled)
 export async function loadVets() {
     try {
         const q = query(usersRef(), where('role', '==', 'vet'));
@@ -215,7 +213,7 @@ function normalizeConsultationPriceLive(raw) {
     return n;
 }
 
-/** Load vet's scheduling settings (min advance, test vs live consultation fees). */
+// Load vet's scheduling settings (min advance, test vs live consultation fees).
 export async function loadVetSettings(vetId) {
     const defaults = {
         minAdvanceBookingMinutes: DEFAULT_MIN_ADVANCE_MINUTES,
@@ -244,7 +242,7 @@ export async function loadVetSettings(vetId) {
     return defaults;
 }
 
-/** Load vet's schedules from Firestore */
+// Load vet's schedules from Firestore
 export async function loadVetSchedules(vetId) {
     if (!vetId) return [];
     try {
@@ -259,7 +257,7 @@ export async function loadVetSchedules(vetId) {
     }
 }
 
-/** Get available dates and time slots for a vet. Returns { dates: string[], slotsByDate: { [dateStr]: [{ start, end, display }] } } */
+// Get available dates and time slots for a vet. Returns { dates: string[], slotsByDate: { [dateStr]: [{ start, end, display }] } }
 export async function getAvailableDatesAndSlots(vetId) {
     if (!vetId) return { dates: [], slotsByDate: {} };
     const [schedules, settings] = await Promise.all([loadVetSchedules(vetId), loadVetSettings(vetId)]);
@@ -294,8 +292,7 @@ export async function getAvailableDatesAndSlots(vetId) {
     return { dates, slotsByDate };
 }
 
-/** Check if a specific slot is still available (for pre-confirmation check). Returns { available: boolean, reason?: string }.
- * Handles vet deleted date, blocked date, already booked by another user (race condition), and owner's own schedule overlap. */
+// Pre-submit guard: slot still available (not blocked, expired, taken, or overlapping owner’s other bookings).
 export async function checkSlotAvailability(vetId, dateStr, slotStart, ownerId = null) {
     if (!vetId || !dateStr || !slotStart) return { available: false };
     try {
@@ -330,7 +327,7 @@ export async function checkSlotAvailability(vetId, dateStr, slotStart, ownerId =
     }
 }
 
-/** Upload files to Storage under appointments/{appointmentId}/media/ */
+// Upload files to Storage under appointments/{appointmentId}/media/
 async function uploadMediaFiles(appointmentId, ownerId, files) {
     if (!appointmentId || !ownerId || !files?.length) return [];
     const urls = [];
@@ -368,7 +365,7 @@ function normalizeAttachedSkinAnalysis(raw) {
     };
 }
 
-/** Create appointment in Firestore; optionally upload media and add URLs. If slotStart is provided, validates slot is still available and atomically marks it as booked. Prevents booking when vet has deleted/blocked the date. */
+// Create appointment in Firestore; optionally upload media and add URLs. If slotStart is provided, validates slot is still available and atomically marks it as booked. Prevents booking when vet has deleted/blocked the date.
 export async function createAppointment(data) {
     const user = auth.currentUser;
     if (!user) throw new Error('You must be signed in to book an appointment.');
@@ -511,7 +508,7 @@ export async function createAppointment(data) {
     return { id: appointmentId, ...appointmentData };
 }
 
-/** Mark appointment as paid (called from payment page) */
+// Mark appointment as paid (called from payment page)
 export async function markAppointmentPaid(appointmentId) {
     const user = auth.currentUser;
     if (!user) throw new Error('You must be signed in.');
@@ -638,7 +635,7 @@ export function subscribeAppointments(uid, callback) {
     };
 }
 
-/** Get vet label by id from a list */
+// Get vet label by id from a list
 export function getVetOption(vetId, vetsList) {
     const list = Array.isArray(vetsList) ? vetsList : [];
     return list.find((v) => v.id === vetId) || null;

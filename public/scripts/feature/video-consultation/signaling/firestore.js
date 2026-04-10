@@ -4,7 +4,7 @@ import {
     writeBatch,
 } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 
-/** Remove ICE candidate docs under appointments/{id}/signaling in 500-write batches. */
+// Remove ICE candidate docs under appointments/{id}/signaling in 500-write batches.
 export async function clearSignalingCollection(db, appointmentId) {
     const colRef = collection(db, 'appointments', appointmentId, 'signaling');
     const snap = await getDocs(colRef);

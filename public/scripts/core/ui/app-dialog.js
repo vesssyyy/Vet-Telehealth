@@ -1,13 +1,10 @@
-/**
- * Centered in-app dialogs to replace native alert/confirm (browser chrome at top of window).
- */
-
+// Centered in-app dialogs to replace native alert/confirm (browser chrome at top of window).
 const ROOT_ID = 'telehealth-app-dialog';
 
 function injectStyles() {
-    if (document.getElementById('telehealth-app-dialog-styles-v6')) return;
+    if (document.getElementById('telehealth-app-dialog-styles-v7')) return;
     const style = document.createElement('style');
-    style.id = 'telehealth-app-dialog-styles-v6';
+    style.id = 'telehealth-app-dialog-styles-v7';
     style.textContent = `
 #${ROOT_ID}.app-dialog {
   position: fixed; inset: 0; z-index: 20000;
@@ -180,9 +177,7 @@ function captureFocusBeforeDialog() {
     savedFocusBeforeDialog = el instanceof HTMLElement ? el : null;
 }
 
-/**
- * Move focus out of `root` before aria-hidden, or screen readers see a focused but "hidden" subtree.
- */
+// Move focus out of `root` before aria-hidden, or screen readers see a focused but "hidden" subtree.
 function releaseDialogFocus(root) {
     const toRestore = savedFocusBeforeDialog;
     savedFocusBeforeDialog = null;
@@ -193,7 +188,7 @@ function releaseDialogFocus(root) {
             try {
                 toRestore.focus();
             } catch {
-                /* ignore */
+                // ignore
             }
         }
     }
@@ -203,7 +198,7 @@ function releaseDialogFocus(root) {
         try {
             document.body.focus({ preventScroll: true });
         } catch {
-            /* ignore */
+            // ignore
         }
         if (hadTabIndex === null) document.body.removeAttribute('tabindex');
     }
@@ -270,7 +265,7 @@ export function appAlert(message, options = {}) {
     });
 }
 
-/** Shorthand for `appAlert(message, { variant: 'error' })`. */
+// Shorthand for `appAlert(message, { variant: 'error' })`.
 export function appAlertError(message) {
     return appAlert(message, { variant: 'error' });
 }

@@ -1,15 +1,4 @@
-/**
- * Televet Health — Message Notification System
- *
- * Context-aware unread message indicators with priority-based display:
- *   1. Active conversation thread (highest) — real-time messages, no indicators
- *   2. Conversation list — unread dot/bold on individual items
- *   3. Sidebar badge (lowest) — cumulative unread count on Messages link (1–9, then "9+")
- *
- * Only one notification level is visible per message at a time.
- * On the messages page the sidebar dot is suppressed (conversation-list
- * indicators are handled by messages-page-core.js instead).
- */
+// Unread messaging indicators: sidebar badge off messages.html; list/thread handled elsewhere.
 import { db } from '../firebase/firebase-config.js';
 import { timestampToMs } from '../app/utils.js';
 import {
@@ -23,7 +12,7 @@ function isOnMessagesPage() {
     return (window.location.pathname.split('/').pop() || '') === 'messages.html';
 }
 
-/** @param {number} total - raw cumulative unread count */
+// Show 1–9 or 9+ on nav Messages links from cumulative unread count.
 function setSidebarUnreadBadge(total) {
     var n = typeof total === 'number' && total > 0 ? Math.floor(total) : 0;
     var label = n === 0 ? '' : (n > 9 ? '9+' : String(n));
@@ -45,21 +34,14 @@ function unreadCountForConversation(data, readField, unreadCountField) {
     var c = data[unreadCountField];
     if (typeof c === 'number' && !Number.isNaN(c)) {
         if (c > 0) return Math.floor(c);
-        /* Explicit zero from Firestore: trust it. Timestamp fallback fights counter updates
-           and causes sidebar badge flicker during deployment / multi-field writes. */
+        // Trust numeric zero from Firestore; timestamp heuristics caused badge flicker on multi-field updates.
         return 0;
     }
     if (timestampToMs(data.lastMessageAt) > timestampToMs(data[readField])) return 1;
     return 0;
 }
 
-/**
- * Start listening for unread conversations and toggle the sidebar red dot.
- * Skips the Firestore subscription on the messages page (the messaging
- * module already owns the conversation query there).
- *
- * @param {{ role: 'petowner'|'vet', uid: string }} opts
- */
+// Subscribe to conversations for this user and drive the sidebar unread badge (no-op on messages.html).
 export function initMessageNotifications({ role, uid }) {
     _lastOpts = { role: role, uid: uid };
     _applyNotifications();

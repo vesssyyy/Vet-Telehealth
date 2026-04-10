@@ -9,6 +9,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 import {
     formatAppointmentDate,
+    extractTimeRangeFromDisplay,
     getAppointmentTimeDisplay,
     isUpcoming,
 } from '../appointment/shared/time.js';
@@ -175,6 +176,16 @@ let activePetId = null;
 /** @type {Map<string, any>} */
 const vetProfileCache = new Map();
 
+const SELECTED_PET_STORAGE_KEY = 'telehealthSelectedPetId';
+
+function initActivePetIdFromStorage(uid) {
+    if (!uid || activePetId) return;
+    try {
+        const saved = localStorage.getItem(`${SELECTED_PET_STORAGE_KEY}:${uid}`);
+        if (saved) activePetId = saved;
+    } catch (_) {}
+}
+
 const nextDateEl = document.getElementById('dashboard-next-appointment-date');
 const nextTimeEl = document.getElementById('dashboard-next-appointment-time');
 const nextViewBtn = document.getElementById('dashboard-next-appointment-view');
@@ -325,7 +336,13 @@ function renderPastConsultations() {
         const scheduledDateLabel = formatListDateNoWeekday(apt.date || apt.dateStr);
         const scheduledAtLabel = `${scheduledDateLabel}${timeLabel ? ` • ${timeLabel}` : ''}`;
         const endedAtLocal = apt.videoSessionEndedAt || apt.completedAt || null;
-        const endedAtLabelInitial = endedAtLocal ? formatDateTimeLabel(endedAtLocal) : '—';
+        let endedAtLabelInitial = endedAtLocal ? formatDateTimeLabel(endedAtLocal) : '—';
+        // Fallback for past-by-time rows where VC endedAt wasn't recorded.
+        if (endedAtLabelInitial === '—') {
+            const end = getAppointmentSlotEndDate(apt);
+            const label = end ? formatDateTimeLabel(end) : '—';
+            if (label !== '—') endedAtLabelInitial = label;
+        }
 
         const row = document.createElement('article');
         row.className = 'dashboard-appointment-row';
@@ -371,7 +388,8 @@ function renderPastConsultations() {
 
         // Ended At comes from VC termination: prefer appointment.videoSessionEndedAt, else read room.endedAt
         const endedAtEl = row.querySelector('.dashboard-appt-ended-at');
-        if (endedAtEl && !endedAtLocal && apt?.id) {
+        const endedAtMissing = endedAtLabelInitial === '—';
+        if (endedAtEl && endedAtMissing && apt?.id) {
             getDoc(doc(db, 'appointments', apt.id, 'videoCall', 'room'))
                 .then((snap) => {
                     if (!snap.exists()) return;
@@ -398,7 +416,8 @@ function renderTransactionsModalBody(bodyEl, rows) {
     const trs = rows
         .map((t) => {
             const dateFormatted = formatCompactDateNoWeekday(t.dateStr);
-            const timePart = t.timeDisplay || '—';
+            const timeRaw = t.timeDisplay || '—';
+            const timePart = extractTimeRangeFromDisplay(timeRaw) ?? timeRaw;
             const scheduledAt = `${escapeHtml(dateFormatted)} <span class="dashboard-new-bookings-sep" aria-hidden="true">·</span> ${escapeHtml(timePart)}`;
             const paidAt = escapeHtml(formatCompactDateTime(t.createdMs));
             return `<tr>
@@ -478,6 +497,19 @@ window.addEventListener('petChanged', (e) => {
     renderPastConsultations();
 });
 
+// If Pet Manager selected a pet before this script attached listeners, recover it from storage.
+window.addEventListener('petsReady', () => {
+    const uid = auth.currentUser?.uid || null;
+    if (!uid) return;
+    const before = activePetId;
+    initActivePetIdFromStorage(uid);
+    if (activePetId !== before) {
+        refreshNextAppointmentForActivePet();
+        refreshTransactionDisplay();
+        renderPastConsultations();
+    }
+});
+
 function openTransactionsModal() {
     if (!transactionsOverlay || !transactionsBody) return;
     renderTransactionsModalBody(transactionsBody, filterTransactionsForActivePet(transactionsCache));
@@ -508,7 +540,7 @@ if (transactionsTrigger && transactionsOverlay && transactionsBody) {
     });
 }
 
-/* ── Details modal ── */
+// Appointment details modal (read-only list + media).
 const $ = (id) => document.getElementById(id);
 const detailsOverlay = $('details-modal-overlay');
 const detailsModalEl = $('details-modal');
@@ -632,7 +664,7 @@ async function openDetailsModal(apt) {
                 vid.src = url;
                 const onThumbReady = () => {
                     vid.pause();
-                    try { vid.currentTime = 0; } catch (_) { /* ignore */ }
+                    try { vid.currentTime = 0; } catch (_) {}
                     vid.classList.add('is-loaded');
                 };
                 vid.addEventListener('loadeddata', onThumbReady, { once: true });
@@ -778,7 +810,7 @@ detailsJoinBtn?.addEventListener('click', () => {
     window.location.href = `video-call.html?appointmentId=${currentDetailsApt.id}`;
 });
 
-/* Lightbox */
+// Lightbox
 (function initLightbox() {
     const lb = $('details-media-lightbox');
     const lbImg = lb?.querySelector('.details-media-lightbox-img');
@@ -826,11 +858,11 @@ detailsJoinBtn?.addEventListener('click', () => {
                 lbVideo.removeAttribute('autoplay');
                 lbVideo.src = url;
                 lbVideo.classList.remove('is-hidden');
-                try { lbVideo.load(); } catch (_) { /* ignore */ }
+                try { lbVideo.load(); } catch (_) {}
                 lbVideo.pause();
                 lbVideo.addEventListener('loadedmetadata', () => {
                     lbVideo.pause();
-                    try { lbVideo.currentTime = 0; } catch (_) { /* ignore */ }
+                    try { lbVideo.currentTime = 0; } catch (_) {}
                 }, { once: true });
             }
         } else {
@@ -864,7 +896,7 @@ detailsJoinBtn?.addEventListener('click', () => {
     });
 })();
 
-/* ── View button opens modal ── */
+// Row "View" opens the details modal for that booking.
 if (nextViewBtn) {
     nextViewBtn.addEventListener('click', () => {
         if (!nextDashboardAppointment?.id) return;
@@ -874,11 +906,13 @@ if (nextViewBtn) {
 
 const u = auth.currentUser;
 if (u) {
+    initActivePetIdFromStorage(u.uid);
     loadOwnerAppointments(u.uid);
 } else {
     const unsub = auth.onAuthStateChanged((user) => {
         if (user) {
             unsub();
+            initActivePetIdFromStorage(user.uid);
             loadOwnerAppointments(user.uid);
         }
     });

@@ -1,4 +1,4 @@
-/** Televet Health — Vet Profile */
+// Televet Health — Vet Profile
 import { withDr } from '../../core/app/utils.js';
 import { initProfile } from './profile-shared.js';
 

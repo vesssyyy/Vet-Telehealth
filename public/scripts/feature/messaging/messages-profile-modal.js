@@ -1,6 +1,4 @@
-/**
- * Profile details modal for messages chat header (peer user + pet).
- */
+// Profile details modal for messages chat header (peer user + pet).
 import { escapeHtml, formatDisplayName, withDr } from '../../core/app/utils.js';
 import { ownerDisplayName, vetDisplayName } from './shared-messaging.js';
 
@@ -14,7 +12,7 @@ function formatValue(v) {
             if (d instanceof Date && !Number.isNaN(d.getTime())) {
                 return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
             }
-        } catch (_) { /* ignore */ }
+        } catch (_) {}
         return '—';
     }
     if (typeof v === 'number' && Number.isFinite(v)) return String(v);
@@ -22,7 +20,7 @@ function formatValue(v) {
     return s || '—';
 }
 
-/** Title for the profile modal (name only; details omit Name). */
+// Title for the profile modal (name only; details omit Name).
 export function getPeerProfileTitle(data) {
     const role = (data?.role || '').toLowerCase();
     const name = role === 'vet'
@@ -33,10 +31,7 @@ export function getPeerProfileTitle(data) {
     return role === 'vet' ? 'Veterinarian' : 'Pet owner';
 }
 
-/**
- * @param {Record<string, unknown>} data Firestore users/{id} data
- * @returns {{ label: string, value: string }[]}
- */
+// Key/value rows for the peer profile modal from Firestore user fields.
 export function buildPeerProfileRows(data) {
     const role = (data?.role || '').toLowerCase();
     const rows = [
@@ -69,7 +64,7 @@ const PET_LABELS = {
 
 const PET_ORDER = ['species', 'breed', 'sex', 'gender', 'age', 'weight', 'color', 'microchip', 'notes', 'bio'];
 
-/** Modal title: pet document name, else conversation pet name, else "Pet". */
+// Modal title: pet document name, else conversation pet name, else "Pet".
 export function getPetProfileTitle(pet, conversationPetName = '') {
     const fromDoc = pet && pet.name != null ? String(pet.name).trim() : '';
     const raw = fromDoc || String(conversationPetName || '').trim();
@@ -81,10 +76,7 @@ const SKIP_PET_KEYS = new Set([
     'imageUrl', 'imageStoragePath', 'photoURL', 'photoUrl', 'createdAt', 'updatedAt',
 ]);
 
-/**
- * @param {Record<string, unknown>} pet
- * @returns {{ label: string, value: string }[]}
- */
+// Key/value rows for pet details in the modal (ordered fields, skip internal keys).
 export function buildPetProfileRows(pet) {
     if (!pet || typeof pet !== 'object') {
         return [];
@@ -123,9 +115,7 @@ function renderRowsHtml(rows) {
     `).join('');
 }
 
-/**
- * @returns {{ open: (title: string, rows: {label: string, value: string}[]) => void, close: () => void, isOpen: () => boolean }}
- */
+// @returns {{ open: (title: string, rows: {label: string, value: string}[]) => void, close: () => void, isOpen: () => boolean }}
 export function wireMessagesProfileModal() {
     const overlay = $('messages-profile-overlay');
     const titleEl = $('messages-profile-title');

@@ -1,6 +1,4 @@
-/**
- * Televet Health — Pet Manager: CRUD, Firestore sync, dashboard UI
- */
+// Televet Health — Pet Manager: CRUD, Firestore sync, dashboard UI
 import { auth, db, storage } from '../../core/firebase/firebase-config.js';
 import { escapeHtml, formatDisplayName } from '../../core/app/utils.js';
 import { openProfilePhotoCrop } from '../../core/app/profile-photo-crop.js';
@@ -23,11 +21,11 @@ import { appointmentBlocksRemoval } from '../appointment/shared/appointment-bloc
 import { appAlertError, appConfirm } from '../../core/ui/app-dialog.js';
 
 const SPECIES_OPTIONS = ['Dog', 'Cat'];
-/** Filipino native first; other breeds common locally (≥5 each); last option is always “Others”. */
+// Filipino native first; other breeds common locally (≥5 each); last option is always “Others”.
 const BREED_DOG_OPTIONS = ['Aspin', 'Poodle', 'Shih Tzu', 'Beagle', 'Chihuahua'];
 const BREED_CAT_OPTIONS = ['Puspin', 'Persian', 'Siamese', 'British Shorthair', 'Maine Coon'];
 const BREED_OTHER_VALUE = '__other__';
-/** Shown when the select is closed; `disabled` + `hidden` keeps it out of the dropdown list. */
+// Shown when the select is closed; `disabled` + `hidden` keeps it out of the dropdown list.
 function selectPlaceholderOptionHtml(label) {
     return `<option value="" disabled hidden selected>${escapeHtml(label)}</option>`;
 }
@@ -44,11 +42,11 @@ let currentPet = null;
 let editPetId = null;
 let petsUnsubscribe = null;
 let firstPetsLoadDone = false;
-/** Pending cropped pet photo (create or edit). Cleared on cancel/panel close. */
+// Pending cropped pet photo (create or edit). Cleared on cancel/panel close.
 let pendingPetPhoto = null; // { file: File, objectUrl: string } | null
-/** When editing: user chose to remove the current pet photo. */
+// When editing: user chose to remove the current pet photo.
 let petPhotoRemoved = false;
-/** Pet currently shown in Manage Pet modal (for delete). */
+// Pet currently shown in Manage Pet modal (for delete).
 let managePetTarget = null;
 
 const petsRef = (uid) => collection(db, 'users', uid, 'pets');
@@ -153,7 +151,7 @@ function resolveBreedFromForm(form) {
     return v;
 }
 
-/** After options exist, set select + optional “Others” text from stored breed string. */
+// After options exist, set select + optional “Others” text from stored breed string.
 function applyStoredBreedToForm(petBreed, species) {
     populateBreedSelectForSpecies(species);
     const select = document.getElementById('add-pet-breed-select');
@@ -351,7 +349,7 @@ function bindManagePetModal() {
         delBtn.textContent = 'Removing…';
         try {
             const path = `pet-photos/${uid}/${pet.id}`;
-            try { await deleteObject(ref(storage, path)); } catch (_) { /* may not exist */ }
+            try { await deleteObject(ref(storage, path)); } catch (_) {}
             await deleteDoc(doc(db, 'users', uid, 'pets', pet.id));
             try {
                 if (currentPetId === pet.id) {
@@ -730,7 +728,7 @@ async function handleAddPetSubmit(form) {
             const updateData = { ...basePetData };
             if (petPhotoRemoved) {
                 const path = `pet-photos/${uid}/${editPetId}`;
-                try { await deleteObject(ref(storage, path)); } catch (_) { /* may not exist */ }
+                try { await deleteObject(ref(storage, path)); } catch (_) {}
                 updateData.imageUrl = null;
             } else if (pendingPetPhoto) {
                 const path = `pet-photos/${uid}/${editPetId}`;

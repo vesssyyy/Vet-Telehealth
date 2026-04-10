@@ -11,9 +11,7 @@ import {
 } from '../utils/notes-fields.js';
 import { attachNotesDashTextarea } from '../utils/notes-dash-textarea.js';
 
-/**
- * Full-screen "Session Ended" overlay with optional vet notes + report download.
- */
+// Full-screen "Session Ended" overlay with optional vet notes + report download.
 export async function showSessionEndedOverlay(options = {}) {
     const {
         redirectQuery = '',

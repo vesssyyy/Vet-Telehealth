@@ -1,6 +1,6 @@
 'use strict';
 
-/** Keep in sync with public/scripts/feature/appointment/shared/time.js + appointment-blocking.js */
+// Keep in sync with public/scripts/feature/appointment/shared/time.js + appointment-blocking.js
 const DEFAULT_SLOT_DURATION_MINUTES = 30;
 
 function addMinutesToTime(timeStr, durationMinutes) {

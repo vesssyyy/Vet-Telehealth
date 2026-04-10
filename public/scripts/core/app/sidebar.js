@@ -1,9 +1,4 @@
-/**
- * Televet Health — Shared Sidebar
- * Handles: mobile menu toggle, active nav highlighting,
- * sidebar avatar initials, profile button, and mobile viewport height fix.
- * Used by all portals (petowner, vet, admin).
- */
+// Shared sidebar: mobile menu, active nav, avatar initials, profile shortcut, --vh for mobile viewport.
 (function () {
     'use strict';
 
@@ -83,11 +78,7 @@
         });
     });
 
-    /* ── Global smooth image reveal ───────────────────────────────────── *
-     * Automatically fades in any <img> that is dynamically added to the  *
-     * DOM via innerHTML or createElement. Images already loaded (e.g.    *
-     * from cache) are left untouched so they appear instantly.           *
-     * ─────────────────────────────────────────────────────────────────── */
+    // Fade in dynamically inserted images on load; skip if already decoded (e.g. from cache).
     (function () {
         var DUR = '0.35s';
         function prep(img) {

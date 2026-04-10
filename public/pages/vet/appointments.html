@@ -14,7 +14,7 @@
     <link href="https://fonts.googleapis.com/css?family=Lalezar" rel="stylesheet">
     <style>body{visibility:hidden}</style>
 </head>
-<body>
+<body class="vet-appointments-page">
     <div class="profile-loading-overlay loading-animation" aria-hidden="true">
         <div class="loader">
             <div class="wrapper">
@@ -87,13 +87,27 @@
         <header class="app-top-header">
             <div class="header-left">
                 <button class="mobile-menu-toggle" aria-label="Toggle Menu"><i class="fa fa-bars"></i></button>
-                <span class="role-badge"><i class="fa fa-stethoscope" aria-hidden="true"></i> Veterinarian</span>
+                <span class="role-badge"><i class="fa fa-stethoscope" aria-hidden="true"></i> Veterinarian Portal</span>
             </div>
             <div class="header-right">
                 <button type="button" class="profile-header-btn" aria-label="Profile"><i class="fa fa-user-circle" aria-hidden="true"></i></button>
             </div>
         </header>
         <div class="content-wrapper">
+            <div class="appointments-top-controls">
+                <button
+                    type="button"
+                    class="appointments-panels-toggle-btn"
+                    id="availability-panels-toggle-btn"
+                    data-collapsed="1"
+                    aria-label="Hide templates and blocked dates"
+                    title="Hide templates and blocked dates"
+                ><i class="fa fa-bars" aria-hidden="true"></i></button>
+                <div class="appointments-top-title" aria-hidden="true">
+                    <i class="fa fa-calendar-o" aria-hidden="true"></i>
+                    <span>Consultation Schedules</span>
+                </div>
+            </div>
             <div class="appointments-top-row">
                 <section class="appointments-section appointments-templates-section" aria-labelledby="templates-heading">
                     <div class="appointments-section-header">
@@ -130,7 +144,7 @@
             <div class="appointments-partition-horizontal" aria-hidden="true"></div>
             <section class="appointments-schedules-section" aria-labelledby="schedules-heading">
                 <div class="schedules-section-header">
-                    <h2 id="schedules-heading" class="appointments-section-title"><i class="fa fa-calendar-o" aria-hidden="true"></i> Consultation Schedules</h2>
+                    <h2 id="schedules-heading" class="sr-only">Consultation Schedules</h2>
                     <div class="schedules-view-controls">
                         <div id="schedules-list-filter-row" class="schedules-filter-row">
                             <label for="schedules-filter">Date</label>
@@ -479,7 +493,7 @@
                 <h4 class="details-section-header"><i class="fa fa-user" aria-hidden="true"></i> Pet Owner</h4>
                 <div class="details-doctor-section details-owner-section">
                     <div class="details-doctor-avatar-wrap">
-                        <img class="details-doctor-avatar-img" id="details-owner-img" src="" alt="" onerror="this.style.display='none';this.nextElementSibling.classList.add('visible')">
+                        <img class="details-doctor-avatar-img" id="details-owner-img" src="" alt="" aria-hidden="true" onerror="this.setAttribute('aria-hidden','true');this.style.display='none';this.nextElementSibling.classList.add('visible')">
                         <span class="details-doctor-avatar-fallback" id="details-owner-avatar-fallback" aria-hidden="true"><i class="fa fa-user" aria-hidden="true"></i></span>
                     </div>
                     <p class="details-doctor-name" id="details-owner-name">â€”</p>
@@ -488,7 +502,7 @@
                 <h4 class="details-section-header"><i class="fa fa-paw" aria-hidden="true"></i> Pet Info</h4>
                 <div class="details-pet-card">
                     <div class="details-pet-avatar-wrap" id="details-pet-avatar-wrap">
-                        <img class="details-pet-avatar-img" id="details-pet-img" src="" alt="" onerror="this.style.display='none';this.nextElementSibling.classList.add('visible')">
+                        <img class="details-pet-avatar-img" id="details-pet-img" src="" alt="" aria-hidden="true" onerror="this.setAttribute('aria-hidden','true');this.style.display='none';this.nextElementSibling.classList.add('visible')">
                         <span class="details-pet-avatar-fallback" id="details-pet-avatar-fallback" aria-hidden="true"><i class="fa fa-paw" aria-hidden="true"></i></span>
                     </div>
                     <div class="details-pet-info">

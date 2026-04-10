@@ -1,6 +1,4 @@
-/**
- * Skin health UI + saved analyses (Firestore/Storage): inference, manual save, history.
- */
+// Skin health UI + saved analyses (Firestore/Storage): inference, manual save, history.
 import { auth } from '../../core/firebase/firebase-config.js';
 import { appConfirm } from '../../core/ui/app-dialog.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js';
@@ -44,7 +42,7 @@ function moveFocusOutOfSkinOverlay(overlay, ...fallbackIdsOrEls) {
     try {
         document.body.focus({ preventScroll: true });
     } catch {
-        /* ignore */
+        // ignore
     }
     if (hadTabIndex === null) document.body.removeAttribute('tabindex');
 }
@@ -162,11 +160,11 @@ let currentPetType = 'cat';
 let currentConditionName = '';
 let currentResultSaved = false;
 let historyUnsub = null;
-/** Latest full list from Firestore (before species filter). */
+// Latest full list from Firestore (before species filter).
 let historyItemsAll = [];
 /** @type {'all'|'cat'|'dog'} */
 let historyPetFilter = 'all';
-/** Row shown in history detail modal (for delete). */
+// Row shown in history detail modal (for delete).
 let historyDetailOpenRecord = null;
 
 function escapeHtml(s) {
@@ -759,7 +757,7 @@ function handleImageFile(file) {
                 try {
                     if (text) data = JSON.parse(text);
                 } catch {
-                    /* ignore */
+                    // ignore
                 }
                 if (!res.ok) throw new Error((data && data.error) || `Server error ${res.status}`);
                 return data;

@@ -3,7 +3,7 @@
  * Import these instead of redefining them in each file.
  */
 
-/** Safely escape a string for HTML insertion. */
+// Safely escape a string for HTML insertion.
 export function escapeHtml(str) {
     if (str == null) return '';
     const div = document.createElement('div');
@@ -62,9 +62,7 @@ export function formatConversationMeta(ts) {
     return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-/**
- * Format a Firestore Timestamp as a short time string: "08:30 AM".
- */
+// Format a Firestore Timestamp as a short time string: "08:30 AM".
 export function formatMessageTime(ts) {
     return ts?.toDate
         ? ts.toDate().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
@@ -166,7 +164,7 @@ export function formatDisplayName(str) {
     return s.split(/\s+/).map((word) => (word ? word.charAt(0).toUpperCase() + word.slice(1) : '')).join(' ');
 }
 
-/** Map Firestore role id to a short UI label. */
+// Map Firestore role id to a short UI label.
 export function roleIdToDisplayLabel(role) {
     if (role == null || role === '') return '—';
     const r = String(role);

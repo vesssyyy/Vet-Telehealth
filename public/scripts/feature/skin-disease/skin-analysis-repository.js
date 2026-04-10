@@ -1,6 +1,4 @@
-/**
- * Firestore + Storage for saved skin health analyses (per user).
- */
+// Firestore + Storage for saved skin health analyses (per user).
 import { db, storage } from '../../core/firebase/firebase-config.js';
 import {
     collection,
@@ -20,17 +18,12 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from 'https://www.gsta
 export const SKIN_ANALYSES_COLLECTION = 'skinAnalyses';
 export const SKIN_ANALYSES_PAGE_SIZE = 50;
 
-/** @param {string} uid */
+// Firestore collection: users/{uid}/skinAnalyses.
 export function skinAnalysesCol(uid) {
     return collection(db, 'users', uid, SKIN_ANALYSES_COLLECTION);
 }
 
-/**
- * @param {string} uid
- * @param {Blob} blob
- * @param {string} [contentType]
- * @returns {Promise<{ imageUrl: string, imageStoragePath: string }>}
- */
+// Store analysis image in Firebase Storage; returns HTTPS URL and storage path.
 export async function uploadSkinAnalysisImage(uid, blob, contentType = 'image/jpeg') {
     const ct = contentType || blob.type || 'image/jpeg';
     const ext = /png/i.test(ct) ? 'png' : 'jpg';
@@ -41,11 +34,7 @@ export async function uploadSkinAnalysisImage(uid, blob, contentType = 'image/jp
     return { imageUrl, imageStoragePath: path };
 }
 
-/**
- * @param {string} uid
- * @param {object} fields
- * @returns {Promise<string>} new doc id
- */
+// Create Firestore skin analysis document; returns new document id.
 export async function saveSkinAnalysisRecord(uid, fields) {
     const docRef = await addDoc(skinAnalysesCol(uid), {
         ...fields,
@@ -55,11 +44,7 @@ export async function saveSkinAnalysisRecord(uid, fields) {
     return docRef.id;
 }
 
-/**
- * @param {string} uid
- * @param {(items: Array<{ id: string } & Record<string, unknown>) => void} callback
- * @returns {() => void} unsubscribe
- */
+// Realtime listener for recent analyses (sorted by savedAt); returns unsubscribe.
 export function subscribeSkinAnalyses(uid, callback, maxDocs = SKIN_ANALYSES_PAGE_SIZE) {
     const q = query(skinAnalysesCol(uid), orderBy('savedAt', 'desc'), limit(maxDocs));
     return onSnapshot(
@@ -73,10 +58,7 @@ export function subscribeSkinAnalyses(uid, callback, maxDocs = SKIN_ANALYSES_PAG
     );
 }
 
-/**
- * One-shot list for pickers (messages, booking).
- * @param {string} uid
- */
+// One-shot fetch for pickers (messages, booking flow).
 export async function listSkinAnalyses(uid, maxDocs = SKIN_ANALYSES_PAGE_SIZE) {
     const q = query(skinAnalysesCol(uid), orderBy('savedAt', 'desc'), limit(maxDocs));
     const snap = await getDocs(q);
@@ -85,7 +67,7 @@ export async function listSkinAnalyses(uid, maxDocs = SKIN_ANALYSES_PAGE_SIZE) {
     return items;
 }
 
-/** @param {string} url getDownloadURL-style HTTPS URL */
+// Extract Storage object path from a Firebase getDownloadURL-style HTTPS URL.
 function objectPathFromFirebaseDownloadUrl(url) {
     try {
         const pathname = new URL(url.trim()).pathname;
@@ -97,10 +79,7 @@ function objectPathFromFirebaseDownloadUrl(url) {
     }
 }
 
-/**
- * @param {string} uid
- * @param {{ id: string, imageStoragePath?: unknown, imageUrl?: unknown }} record
- */
+// Resolve Storage path for this user from record.path or from imageUrl under skin-analyses/{uid}/.
 function resolveSkinAnalysisObjectPath(uid, record) {
     const prefix = `skin-analyses/${uid}/`;
     const raw = typeof record.imageStoragePath === 'string' ? record.imageStoragePath.trim() : '';
@@ -111,11 +90,7 @@ function resolveSkinAnalysisObjectPath(uid, record) {
     return fromUrl.startsWith(prefix) ? fromUrl : '';
 }
 
-/**
- * Remove a saved analysis (Firestore doc + Storage image when path is under this user).
- * @param {string} uid
- * @param {{ id: string, imageStoragePath?: unknown, imageUrl?: unknown }} record
- */
+// Delete Firestore doc and Storage object when the path belongs to this user.
 export async function deleteSkinAnalysisRecord(uid, record) {
     const analysisId = record?.id;
     if (!analysisId) return;
@@ -130,7 +105,7 @@ export async function deleteSkinAnalysisRecord(uid, record) {
     await deleteDoc(doc(db, 'users', uid, SKIN_ANALYSES_COLLECTION, analysisId));
 }
 
-/** @param {import('https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js').Timestamp | Record<string, unknown>} t */
+// Convert Firestore Timestamp, seconds/nanoseconds map, or compatible value to epoch ms.
 export function savedAtToMs(t) {
     if (!t) return 0;
     if (typeof t.toMillis === 'function') return t.toMillis();
@@ -138,7 +113,6 @@ export function savedAtToMs(t) {
         try {
             return t.toDate().getTime();
         } catch {
-            /* ignore */
         }
     }
     const sec = t.seconds ?? t._seconds;
@@ -149,11 +123,7 @@ export function savedAtToMs(t) {
     return 0;
 }
 
-/**
- * Milliseconds when a skin analysis was saved (snapshot, appointment attachment, or Firestore doc).
- * @param {Record<string, unknown>} rec
- * @returns {number | null}
- */
+// Best-effort saved time in ms from snapshot fields, ISO string, or Firestore timestamps.
 export function skinAnalysisSavedAtToMs(rec) {
     if (!rec || typeof rec !== 'object') return null;
     const rawMs = rec.savedAtMs;
@@ -172,10 +142,7 @@ export function skinAnalysisSavedAtToMs(rec) {
     return m > 0 ? m : null;
 }
 
-/**
- * Serializable snapshot for messages / appointments (denormalized).
- * @param {Record<string, unknown>} rec — doc data + optional id
- */
+// Build a plain object safe to embed in messages or appointment attachments.
 export function skinAnalysisToShareSnapshot(rec) {
     const id = rec.id != null ? String(rec.id) : '';
     const savedMs = skinAnalysisSavedAtToMs(rec);
@@ -194,13 +161,7 @@ export function skinAnalysisToShareSnapshot(rec) {
     };
 }
 
-/**
- * When an appointment attachment is missing saved time fields, load the skin analysis history doc
- * (users/{ownerUid}/skinAnalyses/{savedRecordId}) and merge savedAtMs / savedAtIso.
- * Succeeds only if the current user may read that doc (typically the pet owner).
- * @param {Record<string, unknown>} snapshot
- * @param {string} ownerUid
- */
+// If attachment lacks saved time, read users/{ownerUid}/skinAnalyses/{savedRecordId} and merge timestamps.
 export async function mergeHistorySavedAtIntoAttachedSnapshot(snapshot, ownerUid) {
     if (!snapshot || typeof snapshot !== 'object') return snapshot;
     if (skinAnalysisSavedAtToMs(snapshot) != null) return snapshot;
@@ -224,9 +185,7 @@ export async function mergeHistorySavedAtIntoAttachedSnapshot(snapshot, ownerUid
     }
 }
 
-/**
- * @param {Record<string, unknown> | null | undefined} apt
- */
+// Fill missing savedAt on appointment.attachedSkinAnalysis from the owner’s skinAnalyses history doc.
 export async function enrichAppointmentAttachedSkinFromHistory(apt) {
     if (!apt?.attachedSkinAnalysis || typeof apt.attachedSkinAnalysis !== 'object') return apt;
     const ownerUid = String(apt.ownerId || apt.ownerID || '').trim();

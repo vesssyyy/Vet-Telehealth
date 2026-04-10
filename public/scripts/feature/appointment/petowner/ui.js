@@ -1,6 +1,4 @@
-/**
- * Televet Health - Pet Owner Appointment UI (lists, modals, booking form)
- */
+// Televet Health - Pet Owner Appointment UI (lists, modals, booking form)
 import {
     loadPets,
     loadVets,
@@ -28,6 +26,8 @@ import {
     isConsultationPdfAvailable,
     canRejoinVideoConsultation,
     isVideoJoinClosed,
+    getAppointmentSlotEndDate,
+    getAppointmentGraceEndDate,
 } from '../../video-consultation/utils/appointment-time.js';
 import { downloadConsultationReportForAppointment } from '../../consultation/consultation-pdf-download.js';
 import {
@@ -46,7 +46,7 @@ function speciesIcon(species, extraClass = '') {
     return isCat ? `<i class="fa-solid fa-cat${cls}" aria-hidden="true"></i>` : `<i class="fa fa-paw${cls}" aria-hidden="true"></i>`;
 }
 
-/** Populate pet dropdown (Switch Pet style): no placeholder, only pet names with icons */
+// Populate pet dropdown (Switch Pet style): no placeholder, only pet names with icons
 export function populatePetSelect(containerEl, pets) {
     if (!containerEl) return;
     const menu = containerEl.querySelector('.booking-pet-menu, [role="menu"]');
@@ -109,7 +109,7 @@ export function populatePetSelect(containerEl, pets) {
     }
 }
 
-/** Populate vet dropdown (Switch Pet style): no placeholder, only vet names with icon */
+// Populate vet dropdown (Switch Pet style): no placeholder, only vet names with icon
 export function populateVetSelect(containerEl, vets) {
     if (!containerEl) return;
     const menu = containerEl.querySelector('.booking-vet-menu, [role="menu"]');
@@ -186,8 +186,20 @@ export function populateVetSelect(containerEl, vets) {
 function renderAppointmentCard(apt, isHistory = false) {
     const isCat = (apt.petSpecies || '').toLowerCase() === 'cat';
     const statusRaw = (apt.status === 'confirmed' ? 'completed' : (apt.status || 'completed')).toLowerCase();
+    let displayStatusRaw = statusRaw;
+    if (isHistory && statusRaw !== 'completed' && statusRaw !== 'cancelled') {
+        const endAt = getAppointmentSlotEndDate(apt);
+        const graceEndAt = getAppointmentGraceEndDate(apt);
+        const nowMs = Date.now();
+        if (endAt && graceEndAt && nowMs >= endAt.getTime() && nowMs < graceEndAt.getTime()) {
+            displayStatusRaw = 'ending';
+        } else if (graceEndAt && nowMs >= graceEndAt.getTime()) {
+            // Past grace window: treat as completed for display even if the appointment doc hasn't synced status yet.
+            displayStatusRaw = 'completed';
+        }
+    }
     const statusChip = isHistory
-        ? `<span class="appointment-card-chip appointment-card-chip--${escapeHtml(statusRaw)}">${escapeHtml(statusRaw)}</span>`
+        ? `<span class="appointment-card-chip appointment-card-chip--${escapeHtml(displayStatusRaw)}">${escapeHtml(displayStatusRaw)}</span>`
         : '<span class="appointment-card-chip appointment-card-chip--upcoming">upcoming</span>';
     const variantClass = isHistory ? 'appointment-card--completed' : 'appointment-card--upcoming';
     const title = escapeHtml(apt.title?.trim() || 'Consultation');
@@ -238,7 +250,7 @@ function getAppointmentStartSortMs(apt) {
     return 0;
 }
 
-/** Today first, then later dates ascending; “No date” / “Other” last. */
+// Today first, then later dates ascending; “No date” / “Other” last.
 function sortDateHeadingKeysUpcoming(keys) {
     const today = getTodayDateString();
     return [...keys].sort((a, b) => {
@@ -251,7 +263,7 @@ function sortDateHeadingKeysUpcoming(keys) {
     });
 }
 
-/** Today first, then older dates descending; fallback bucket last. */
+// Today first, then older dates descending; fallback bucket last.
 function sortDateHeadingKeysPast(keys) {
     const today = getTodayDateString();
     return [...keys].sort((a, b) => {
@@ -292,7 +304,7 @@ function sortAppointmentsInGroup(apts, direction) {
     });
 }
 
-/** Render upcoming appointments into panel */
+// Render upcoming appointments into panel
 export function renderUpcomingPanel(panelEl, appointments) {
     if (!panelEl) return;
     const upcoming = (appointments || []).filter(isUpcoming);
@@ -319,7 +331,7 @@ export function renderUpcomingPanel(panelEl, appointments) {
         .join('');
 }
 
-/** Render completed / past appointments (not upcoming). */
+// Render completed / past appointments (not upcoming).
 export function renderCompletedPanel(panelEl, appointments) {
     if (!panelEl) return;
     const completed = (appointments || []).filter((a) => !isUpcoming(a));
@@ -349,7 +361,7 @@ export function renderCompletedPanel(panelEl, appointments) {
 /** @deprecated Use renderCompletedPanel */
 export const renderHistoryPanel = renderCompletedPanel;
 
-/** Single date-grouped list for the All tab (no Upcoming / Past section labels). */
+// Single date-grouped list for the All tab (no Upcoming / Past section labels).
 export function renderAllAppointmentsPanel(panelEl, appointments) {
     if (!panelEl) return;
     const all = appointments || [];
@@ -399,7 +411,7 @@ const fileListEl = $('booking-file-list');
 const uploadHint = $('booking-upload-hint');
 
 const MIN_MEDIA_FILES = 0;
-/** Files + optional skin analysis share one combined limit */
+// Files + optional skin analysis share one combined limit
 const MAX_BOOKING_ATTACHMENTS = 3;
 
 function bookingSkinSlotUsed() {
@@ -413,7 +425,7 @@ function maxBookingMediaFilesAllowed() {
 function totalBookingAttachments() {
     return bookingMediaFiles.length + bookingSkinSlotUsed();
 }
-/** Images, PDFs, and common video formats for vet review in appointment details. */
+// Images, PDFs, and common video formats for vet review in appointment details.
 function isAllowedBookingMediaFile(f) {
     if (!f) return false;
     const t = (f.type || '').toLowerCase();
@@ -427,7 +439,7 @@ const BOOKING_MEDIA_DB = 'televet_booking_media';
 const BOOKING_MEDIA_STORE = 'files';
 
 let cachedAvailability = { dates: [], slotsByDate: {} };
-/** Persisted list so "Add more" stacks files instead of replacing. */
+// Persisted list so "Add more" stacks files instead of replacing.
 let bookingMediaFiles = [];
 let bookingAttachedSkinSnapshot = null;
 let ignoreFileInputChange = false;
@@ -666,7 +678,7 @@ function removeFile(index) {
     updateFileList();
 }
 
-/** Save files to IndexedDB for retrieval on payment page. Returns the storage key. */
+// Save files to IndexedDB for retrieval on payment page. Returns the storage key.
 function saveBookingMediaToIndexedDB(files) {
     return new Promise((resolve, reject) => {
         if (!files?.length) { resolve(null); return; }
@@ -710,7 +722,7 @@ function formatTimeDisplay(timeVal, slotEnd, dateStr) {
     return timeDisplay;
 }
 
-/* Tabs */
+// Tabs
 function switchToTab(tabKey) {
     const tab = document.querySelector(`.appointments-tab[data-tab="${tabKey}"]`);
     if (!tab) return;
@@ -811,7 +823,7 @@ if (addMoreBtn && fileInput) {
     addMoreBtn.addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
 }
 
-/* Details modal */
+// Details modal
 const detailsOverlay = $('details-modal-overlay');
 const detailsModalEl = $('details-modal');
 const detailsClose = $('details-modal-close');
@@ -920,7 +932,7 @@ document.addEventListener('click', async (e) => {
                 vid.src = url;
                 const onThumbReady = () => {
                     vid.pause();
-                    try { vid.currentTime = 0; } catch (_) { /* ignore */ }
+                    try { vid.currentTime = 0; } catch (_) {}
                     vid.classList.add('is-loaded');
                 };
                 vid.addEventListener('loadeddata', onThumbReady, { once: true });
@@ -952,7 +964,12 @@ document.addEventListener('click', async (e) => {
     }
     const vetImg = $('details-vet-img');
     const vetFallback = $('details-vet-avatar-fallback');
-    if (vetImg) { vetImg.style.display = 'none'; vetImg.src = ''; vetImg.alt = apt.vetName ? formatDisplayName(apt.vetName) : 'Vet'; }
+    if (vetImg) {
+        vetImg.style.display = 'none';
+        vetImg.setAttribute('aria-hidden', 'true');
+        vetImg.src = '';
+        vetImg.alt = apt.vetName ? formatDisplayName(apt.vetName) : 'Vet';
+    }
     if (vetFallback) vetFallback.classList.add('visible');
     loadVetProfile(apt.vetId).then((vet) => {
         if (vet?.photoURL && vetImg) {
@@ -960,7 +977,13 @@ document.addEventListener('click', async (e) => {
             vetImg.style.transition = 'opacity 0.35s ease';
             vetImg.onload = () => {
                 requestAnimationFrame(() => { vetImg.style.opacity = '1'; });
+                vetImg.setAttribute('aria-hidden', 'false');
                 if (vetFallback) vetFallback.classList.remove('visible');
+            };
+            vetImg.onerror = () => {
+                vetImg.setAttribute('aria-hidden', 'true');
+                vetImg.style.display = 'none';
+                if (vetFallback) vetFallback.classList.add('visible');
             };
             vetImg.src = vet.photoURL;
             vetImg.style.display = '';
@@ -969,7 +992,12 @@ document.addEventListener('click', async (e) => {
     const petImg = $('details-pet-img');
     const petFallback = $('details-pet-avatar-fallback');
     const petAvatarWrap = $('details-pet-avatar-wrap');
-    if (petImg) { petImg.style.display = 'none'; petImg.src = ''; petImg.alt = apt.petName ? formatDisplayName(apt.petName) : 'Pet'; }
+    if (petImg) {
+        petImg.style.display = 'none';
+        petImg.setAttribute('aria-hidden', 'true');
+        petImg.src = '';
+        petImg.alt = apt.petName ? formatDisplayName(apt.petName) : 'Pet';
+    }
     if (petFallback) {
         petFallback.classList.add('visible');
         petFallback.innerHTML = (apt.petSpecies || '').toLowerCase() === 'cat' ? '<i class="fa-solid fa-cat" aria-hidden="true"></i>' : '<i class="fa fa-paw" aria-hidden="true"></i>';
@@ -993,7 +1021,13 @@ document.addEventListener('click', async (e) => {
                     petImg.style.transition = 'opacity 0.35s ease';
                     petImg.onload = () => {
                         requestAnimationFrame(() => { petImg.style.opacity = '1'; });
+                        petImg.setAttribute('aria-hidden', 'false');
                         if (petFallback) petFallback.classList.remove('visible');
+                    };
+                    petImg.onerror = () => {
+                        petImg.setAttribute('aria-hidden', 'true');
+                        petImg.style.display = 'none';
+                        if (petFallback) petFallback.classList.add('visible');
                     };
                     petImg.src = pet.imageUrl;
                     petImg.style.display = '';
@@ -1065,7 +1099,7 @@ detailsJoinBtn?.addEventListener('click', () => {
     window.location.href = `video-call.html?appointmentId=${currentDetailsApt.id}`;
 });
 
-/* Details media lightbox (click to enlarge, no new tab) */
+// Details media lightbox (click to enlarge, no new tab)
 function initDetailsMediaLightbox() {
     const lb = $('details-media-lightbox');
     const lbImg = lb?.querySelector('.details-media-lightbox-img');
@@ -1114,11 +1148,11 @@ function initDetailsMediaLightbox() {
                 lbVideo.removeAttribute('autoplay');
                 lbVideo.src = url;
                 lbVideo.classList.remove('is-hidden');
-                try { lbVideo.load(); } catch (_) { /* ignore */ }
+                try { lbVideo.load(); } catch (_) {}
                 lbVideo.pause();
                 lbVideo.addEventListener('loadedmetadata', () => {
                     lbVideo.pause();
-                    try { lbVideo.currentTime = 0; } catch (_) { /* ignore */ }
+                    try { lbVideo.currentTime = 0; } catch (_) {}
                 }, { once: true });
             }
         } else {
@@ -1183,7 +1217,7 @@ async function resolveUserForAppointments(userFromCallback) {
     return auth.currentUser;
 }
 
-/* Auth & subscriptions */
+// Auth & subscriptions
 onAuthStateChanged(auth, async (userFromCallback) => {
     if (typeof window._appointmentsUnsub === 'function') {
         window._appointmentsUnsub();
@@ -1223,7 +1257,7 @@ onAuthStateChanged(auth, async (userFromCallback) => {
     });
 });
 
-/** Last resort if Firestore and timers never complete (extreme throttling / broken transport). */
+// Last resort if Firestore and timers never complete (extreme throttling / broken transport).
 const APPOINTMENTS_LOADING_FALLBACK_MS = 25000;
 setTimeout(() => {
     if (!appointmentsLoading || appointmentsLoading.classList.contains('is-hidden')) return;
@@ -1236,7 +1270,7 @@ setTimeout(() => {
     }
 }, APPOINTMENTS_LOADING_FALLBACK_MS);
 
-/* Form submit */
+// Form submit
 form?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const petSelect = $('booking-pet');
@@ -1387,7 +1421,7 @@ form?.addEventListener('submit', async (e) => {
                                     snap = skinAnalysisToShareSnapshot(rec);
                                 }
                             } catch (_) {
-                                /* use list row snapshot */
+                                // use list row snapshot
                             }
                         }
                         bookingAttachedSkinSnapshot = snap;
