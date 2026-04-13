@@ -705,9 +705,16 @@ async function openDetailsModal(apt) {
             vetImg.style.transition = 'opacity 0.35s ease';
             vetImg.onload = () => {
                 requestAnimationFrame(() => { vetImg.style.opacity = '1'; });
+                vetImg.setAttribute('aria-hidden', 'false');
                 if (vetFallback) vetFallback.classList.remove('visible');
             };
+            vetImg.onerror = () => {
+                vetImg.setAttribute('aria-hidden', 'true');
+                vetImg.style.display = 'none';
+                if (vetFallback) vetFallback.classList.add('visible');
+            };
             vetImg.src = vet.photoURL;
+            vetImg.setAttribute('aria-hidden', 'false');
             vetImg.style.display = '';
         }
     });
@@ -741,9 +748,16 @@ async function openDetailsModal(apt) {
                 petImg.style.transition = 'opacity 0.35s ease';
                 petImg.onload = () => {
                     requestAnimationFrame(() => { petImg.style.opacity = '1'; });
+                    petImg.setAttribute('aria-hidden', 'false');
                     if (petFallback) petFallback.classList.remove('visible');
                 };
+                petImg.onerror = () => {
+                    petImg.setAttribute('aria-hidden', 'true');
+                    petImg.style.display = 'none';
+                    if (petFallback) petFallback.classList.add('visible');
+                };
                 petImg.src = pet.imageUrl;
+                petImg.setAttribute('aria-hidden', 'false');
                 petImg.style.display = '';
             }
         });

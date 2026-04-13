@@ -125,10 +125,21 @@ export function createViewRenderingApi(ctx) {
         const listEl = $('schedules-list');
         if (!wrap || !listEl) return;
 
+        const animateIn = (el) => {
+            if (!el) return;
+            if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                el.classList.remove('is-rendering');
+                return;
+            }
+            el.classList.add('is-rendering');
+            requestAnimationFrame(() => el.classList.remove('is-rendering'));
+        };
+
         const nonBlocked = (schedules || []).filter((s) => s.blocked !== true);
         if (!nonBlocked?.length) {
             wrap.classList.add('is-hidden');
             empty?.classList.remove('is-hidden');
+            animateIn(empty);
             const p = empty?.querySelector('p');
             const hint = empty?.querySelector('.schedules-view-empty-hint');
             if (p) p.textContent = 'No schedules to display';
@@ -137,6 +148,7 @@ export function createViewRenderingApi(ctx) {
         }
         wrap.classList.remove('is-hidden');
         empty?.classList.add('is-hidden');
+        animateIn(wrap);
 
         const nowMs = Date.now();
         const filter = slotFilter || 'all';
@@ -199,6 +211,7 @@ export function createViewRenderingApi(ctx) {
         if (!blocks) {
             wrap.classList.add('is-hidden');
             empty?.classList.remove('is-hidden');
+            animateIn(empty);
             const p = empty?.querySelector('p');
             const hint = empty?.querySelector('.schedules-view-empty-hint');
             if (p) p.textContent = filter === 'all' ? 'No slots to display' : 'No matching slots';
@@ -210,6 +223,7 @@ export function createViewRenderingApi(ctx) {
             wrap.classList.remove('is-hidden');
             empty?.classList.add('is-hidden');
             listEl.innerHTML = blocks;
+            animateIn(wrap);
         }
         $('schedules-expired-actions')?.classList.toggle('is-hidden', filter !== 'expired');
     }

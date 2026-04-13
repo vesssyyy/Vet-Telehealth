@@ -14,6 +14,45 @@
     --appointments-completed: #6b7280;
 }
 
+/* Full-area cat loader (match Messages page centering) */
+body.vet-appointments-page .main-content {
+    position: relative;
+}
+.appointments-page-bootstrap {
+    position: absolute;
+    top: var(--header-height, 64px);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 25;
+    background: var(--bg-light);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    text-align: center;
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.22s ease, visibility 0.22s ease;
+}
+.appointments-page-bootstrap.is-hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+.appointments-page-bootstrap-text {
+    margin: 20px 0 0;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-dark, #1B3C53);
+}
+
+/* Hide content during boot so empty-state text never flashes */
+body.appointments-loading .main-content > :not(.app-top-header):not(#appointments-page-bootstrap) {
+    visibility: hidden;
+}
+
 /* Section layout */
 body.vet-appointments-page .main-content {
     padding-left: 0;
@@ -98,7 +137,7 @@ body.vet-appointments-page .content-wrapper {
 .appointments-partition-vertical {
     display: block;
     width: 1px;
-    background: var(--border-color);
+    background: transparent;
     margin: 0 18px;
     border-radius: 999px;
 }
@@ -653,9 +692,32 @@ body.vet-appointments-page .appointments-blocked-section .appointments-section-d
     margin-top: 12px;
     padding-top: 12px;
 }
+.schedules-view-wrap.is-rendering {
+    opacity: 0;
+    transform: translateY(6px);
+}
+.schedules-view-wrap {
+    transition: opacity 0.22s ease, transform 0.22s ease;
+    will-change: opacity, transform;
+}
 .schedules-view-empty {
     margin-top: 12px;
     padding-top: 24px;
+}
+.schedules-view-empty.is-rendering {
+    opacity: 0;
+    transform: translateY(6px);
+}
+.schedules-view-empty {
+    transition: opacity 0.22s ease, transform 0.22s ease;
+    will-change: opacity, transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .schedules-view-wrap,
+    .schedules-view-empty {
+        transition: none !important;
+    }
 }
 .schedules-list {
     display: flex;

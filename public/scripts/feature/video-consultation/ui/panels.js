@@ -18,6 +18,18 @@ export function initVideoCallPanels(options = {}) {
     const detailsPanel = $('video-call-details-panel');
     const participantBtn = $('participant-btn');
 
+    function scrollConvoToBottom() {
+        const body = $('video-call-convo-body');
+        if (!body) return;
+        // Wait for layout/paint (panel just became visible, images may load).
+        requestAnimationFrame(() => {
+            body.scrollTop = body.scrollHeight;
+            requestAnimationFrame(() => {
+                body.scrollTop = body.scrollHeight;
+            });
+        });
+    }
+
     function setConvoPanel(open) {
         convoPanel?.classList.toggle('is-hidden', !open);
         container?.classList.toggle('convo-open', open);
@@ -25,6 +37,7 @@ export function initVideoCallPanels(options = {}) {
             notesPanel.classList.add('is-hidden');
             container?.classList.remove('notes-open');
         }
+        if (open) scrollConvoToBottom();
     }
     const closeConvoPanel = () => setConvoPanel(false);
     const toggleConvoPanel = () => setConvoPanel(convoPanel?.classList.contains('is-hidden'));

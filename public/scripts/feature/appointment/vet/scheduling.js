@@ -842,6 +842,17 @@ import {
 
     // === Event bindings ===
     document.addEventListener('DOMContentLoaded', () => {
+        const pageBootstrapEl = $('appointments-page-bootstrap');
+        const setPageBootstrap = (active) => {
+            if (!pageBootstrapEl) return;
+            pageBootstrapEl.classList.toggle('is-hidden', !active);
+            pageBootstrapEl.setAttribute('aria-hidden', active ? 'false' : 'true');
+            document.body.classList.toggle('appointments-loading', !!active);
+            if (active) pageBootstrapEl.setAttribute('aria-busy', 'true');
+            else pageBootstrapEl.removeAttribute('aria-busy');
+        };
+
+        setPageBootstrap(true);
         bindAvailabilityPanelsToggle();
 
         const setTemplateType = (type) => {
@@ -970,25 +981,30 @@ import {
         }
 
         async function initAppointments() {
-            await loadVetSettings();
-            updateMinAdvanceInputs();
-            updateConsultationPriceInputs();
-            updateCurrentAdvanceDisplay();
-            updateCurrentConsultationFeeDisplay();
-            loadTemplates();
-            await ensureSchedulesLoaded();
-            await markExpiredSlotsInFirebase();
-            loadBlockedDatesView();
-            const slotFilterParam = new URLSearchParams(window.location.search).get('slotFilter');
-            const slotFilterBtn = slotFilterParam
-                && document.querySelector(`.schedules-slot-btn[data-slot-filter="${CSS.escape(slotFilterParam)}"]`);
-            if (slotFilterBtn) slotFilterBtn.click();
-            else loadSchedulesView();
-            syncGridOptionVisibility();
+            try {
+                setPageBootstrap(true);
+                await loadVetSettings();
+                updateMinAdvanceInputs();
+                updateConsultationPriceInputs();
+                updateCurrentAdvanceDisplay();
+                updateCurrentConsultationFeeDisplay();
+                loadTemplates();
+                await ensureSchedulesLoaded();
+                await markExpiredSlotsInFirebase();
+                loadBlockedDatesView();
+                const slotFilterParam = new URLSearchParams(window.location.search).get('slotFilter');
+                const slotFilterBtn = slotFilterParam
+                    && document.querySelector(`.schedules-slot-btn[data-slot-filter="${CSS.escape(slotFilterParam)}"]`);
+                if (slotFilterBtn) slotFilterBtn.click();
+                else loadSchedulesView();
+                syncGridOptionVisibility();
 
-            document.addEventListener('visibilitychange', () => {
-                if (document.visibilityState === 'visible') refreshSchedulesWithCleanup();
-            });
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') refreshSchedulesWithCleanup();
+                });
+            } finally {
+                setPageBootstrap(false);
+            }
         }
 
         if (auth.currentUser) {

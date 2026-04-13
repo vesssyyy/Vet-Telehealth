@@ -157,7 +157,8 @@ body.video-call-fullscreen .video-call-container {
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-rows: 1fr auto;
+    /* minmax(0,1fr) prevents the chat column from stretching the row to full message height */
+    grid-template-rows: minmax(0, 1fr) auto;
     grid-template-columns: 1fr;
     padding: 0;
     margin: 12px;
@@ -199,15 +200,18 @@ body.video-call-fullscreen .video-call-controls {
     grid-column: 1 / -1;
 }
 
-/* Left: conversation panel (same convo as Messages page) */
+/* Left: conversation panel — same grid cell sizing as clinical notes (vet) */
 .video-call-convo-panel {
     grid-row: 1;
     grid-column: 1;
     width: 100%;
-    max-width: 320px;
-    min-width: 260px;
+    max-width: 340px;
+    min-width: 280px;
     min-height: 0;
-    max-height: 90vh;
+    height: 100%;
+    max-height: none;
+    align-self: stretch;
+    justify-self: stretch;
     display: flex;
     flex-direction: column;
     background: var(--primary-dark);
@@ -218,9 +222,18 @@ body.video-call-fullscreen .video-call-controls {
 }
 @media (min-width: 993px) {
     .video-call-convo-panel {
-        max-width: 360px;
-        min-width: 280px;
+        max-width: 400px;
+        min-width: 300px;
     }
+}
+
+/* Fill row 1 when open; min-height keeps grid from expanding to full chat height */
+body.video-call-fullscreen .video-call-container.convo-open .video-call-convo-panel,
+body.video-call-fullscreen .video-call-container.notes-open .video-call-notes-panel {
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    align-self: stretch;
 }
 .video-call-convo-panel.is-hidden {
     display: none !important;
@@ -234,7 +247,9 @@ body.video-call-fullscreen .video-call-controls {
     max-width: 340px;
     min-width: 280px;
     min-height: 0;
-    max-height: 90vh;
+    height: 100%;
+    max-height: none;
+    align-self: stretch;
     display: flex;
     flex-direction: column;
     background: var(--primary-dark);
@@ -445,9 +460,17 @@ body.video-call-fullscreen .video-call-controls {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    display: block;
 }
 .video-call-convo-avatar-img.is-hidden {
     display: none;
+}
+.video-call-convo-avatar-fallback.is-hidden {
+    display: none !important;
+}
+/* If an avatar image is shown, ensure fallback never peeks through */
+.video-call-convo-avatar:has(.video-call-convo-avatar-img:not(.is-hidden)) .video-call-convo-avatar-fallback {
+    display: none !important;
 }
 .video-call-convo-with-name {
     font-size: 0.875rem;
@@ -458,11 +481,9 @@ body.video-call-fullscreen .video-call-controls {
     white-space: nowrap;
 }
 .video-call-convo-body {
-    flex: 1;
+    flex: 1 1 0;
     min-height: 0;
-    height: 320px;
-    max-height: 50vh;
-    overflow-y: scroll;
+    overflow-y: auto;
     overflow-x: hidden;
     padding: 12px;
     display: flex;
@@ -528,8 +549,11 @@ body.video-call-fullscreen .video-call-controls {
     justify-content: center;
     color: #fff;
     font-size: 0.7rem;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.18);
 }
-.video-call-msg-avatar-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.video-call-msg-avatar:has(.video-call-msg-avatar-img) { background: transparent; }
+.video-call-msg-avatar-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
 .video-call-msg--sent .video-call-msg-avatar {
     background: rgba(56, 161, 105, 0.9);
 }
@@ -1276,15 +1300,18 @@ body.video-call-fullscreen .video-call-controls .participant-btn-mobile {
         margin: 10px;
         gap: 10px;
     }
-    body.video-call-fullscreen .video-call-container.convo-open {
+    body.video-call-fullscreen .video-call-container.convo-open,
+    body.video-call-fullscreen .video-call-container.notes-open {
         grid-template-columns: minmax(240px, 280px) 1fr;
     }
     .video-call-sidebar {
         width: min(240px, 26vw);
         min-width: 160px;
     }
-    .video-call-convo-panel {
+    .video-call-convo-panel,
+    .video-call-notes-panel {
         min-width: 240px;
+        max-width: 280px;
     }
     .video-call-convo-header,
     .video-call-convo-with {

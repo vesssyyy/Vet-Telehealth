@@ -46,6 +46,7 @@ import {
     addDoc,
     query,
     orderBy,
+    limit,
     onSnapshot,
     serverTimestamp,
     deleteField,
@@ -289,9 +290,19 @@ export function initVideoCallPage(options = {}) {
 
         if (currentConvId) {
             if (messagesUnsubscribe) messagesUnsubscribe();
+            const VC_CONVO_MESSAGE_LIMIT = 80;
             messagesUnsubscribe = onSnapshot(
-                query(collection(db, 'conversations', currentConvId, 'messages'), orderBy('sentAt', 'asc')),
-                snap => renderConvoMessages(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+                query(
+                    collection(db, 'conversations', currentConvId, 'messages'),
+                    orderBy('sentAt', 'desc'),
+                    limit(VC_CONVO_MESSAGE_LIMIT),
+                ),
+                snap => renderConvoMessages(
+                    snap.docs
+                        .slice()
+                        .reverse()
+                        .map(d => ({ id: d.id, ...d.data() }))
+                ),
                 err => console.warn('Video call messages listener:', err)
             );
         } else if (convoMessagesList) {

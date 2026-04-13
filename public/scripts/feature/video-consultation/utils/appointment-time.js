@@ -76,12 +76,6 @@ export function getAppointmentGraceEndDate(apt, graceMinutes = ENDING_GRACE_MINU
     return new Date(end.getTime() + ms);
 }
 
-function getVideoRoomParticipantsCount(videoCall) {
-    const p = videoCall?.participants;
-    if (!p || typeof p !== 'object') return 0;
-    return Object.keys(p).filter((k) => !!p[k]).length;
-}
-
 function getDateString(offsetDays = 0) {
     const d = new Date();
     if (offsetDays) d.setDate(d.getDate() + offsetDays);
@@ -124,14 +118,10 @@ export function isVideoJoinClosed(apt, videoCall) {
 export function canRejoinVideoConsultation(apt, videoCall) {
     if (isVideoJoinClosed(apt, videoCall)) return false;
     if (isAppointmentSlotNotYetStarted(apt)) return false;
-    const slotEndAt = getAppointmentSlotEndDate(apt);
     const graceEndAt = getAppointmentGraceEndDate(apt);
     const nowMs = Date.now();
+    // Rejoin allowed until slot end + grace; empty room must not block during that window.
     if (graceEndAt && nowMs >= graceEndAt.getTime()) return false;
-    if (slotEndAt && nowMs >= slotEndAt.getTime()) {
-        const count = getVideoRoomParticipantsCount(videoCall);
-        if (count <= 0) return false;
-    }
     return true;
 }
 

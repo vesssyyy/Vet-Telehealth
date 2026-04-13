@@ -10,14 +10,6 @@ import {
     isVideoSessionEnded,
 } from '../utils/appointment-time.js';
 
-function videoRoomStillOccupiedFromSnapshot(roomData) {
-    if (!roomData || typeof roomData !== 'object') return false;
-    if (String(roomData.status || '').toLowerCase() === 'ended') return false;
-    const p = roomData.participants;
-    if (!p || typeof p !== 'object') return false;
-    return Object.keys(p).some((k) => p[k]);
-}
-
 /**
  * Schedule-end completion controller.
  * Extracted from video-call core without changing behavior.
@@ -72,15 +64,9 @@ export function createScheduleEndController(options = {}) {
         // Do not auto-end until scheduled end + grace window.
         if (Date.now() < graceEndAt.getTime()) return false;
 
-        let roomSnap;
-        try {
-            roomSnap = await getDoc(videoCallRef);
-        } catch (e) {
-            console.warn('Schedule end: could not read video room', e);
-            return false;
-        }
-        const roomData = roomSnap.exists() ? roomSnap.data() : {};
-        if (videoRoomStillOccupiedFromSnapshot(roomData)) return false;
+        // Past grace: end the session even if participants are still in the room (both clients
+        // react to videoCall.status === 'ended'). Previously we waited for an empty room, so the
+        // grace timer never completed while the call was active.
 
         setSessionEndedHandled(true);
         clearScheduleEndWatchers();

@@ -153,13 +153,9 @@
             </div>
             <div class="dashboard-content is-loading" id="dashboard-content">
                 <section class="dashboard-card pet-profile-card">
-                    <div class="pet-empty-state">
-                        <div class="pet-empty-icon" aria-hidden="true"><i class="fa fa-paw"></i></div>
-                        <h2 class="pet-empty-title">You don't have any pets yet…</h2>
-                        <p class="pet-empty-desc">looks like it's a little too quiet here 😄 Add one now!</p>
-                        <button type="button" class="btn btn-primary btn-add-pet" aria-label="Add pet">
-                            <i class="fa fa-plus" aria-hidden="true"></i> Add Pet
-                        </button>
+                    <div class="pet-profile-loading" aria-live="polite" aria-busy="true">
+                        <div class="pet-profile-loading-spinner" aria-hidden="true"></div>
+                        <p class="pet-profile-loading-text">Loading your pets…</p>
                     </div>
                 </section>
                 <div class="dashboard-row dashboard-row-three">

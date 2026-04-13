@@ -36,6 +36,18 @@ const pathname = typeof window !== 'undefined' ? (window.location.pathname || ''
 const IS_PROFILE_PETS_PAGE = /petowner\/profile\.html$/i.test(pathname) || /\/profile\.html$/i.test(pathname);
 const IS_DASHBOARD_PAGE = /dashboard\.html$/i.test(pathname);
 
+function isPetOwnerProfilePath() {
+    const path = window.location.pathname || '';
+    return /petowner\/profile\.html$/i.test(path) || /\/profile\.html$/i.test(path);
+}
+
+function isPetOwnerDashboardPath() {
+    return /dashboard\.html$/i.test(window.location.pathname || '');
+}
+
+/** @type {Array<{ id: string } & Record<string, unknown>> | null} */
+let lastDashboardPetsSnapshot = null;
+
 let currentUserId = null;
 let currentPetId = null;
 let currentPet = null;
@@ -384,6 +396,29 @@ function init() {
         }
     });
 
+    window.addEventListener('spa:afternavigate', () => {
+        if (!isPetOwnerDashboardPath()) return;
+        if (lastDashboardPetsSnapshot == null) {
+            renderPetLoadingState();
+            return;
+        }
+        const pets = lastDashboardPetsSnapshot;
+        if (pets.length === 0) {
+            currentPetId = null;
+            currentPet = null;
+            renderEmptyState();
+        } else {
+            try {
+                const saved = localStorage.getItem(`${SELECTED_PET_STORAGE_KEY}:${currentUserId}`);
+                if (saved && pets.some((p) => p.id === saved)) currentPetId = saved;
+            } catch (_) {}
+            if (!currentPetId || !pets.some((p) => p.id === currentPetId)) currentPetId = pets[0].id;
+            currentPet = pets.find((p) => p.id === currentPetId) || pets[0];
+            renderPetProfile(pets);
+            window.dispatchEvent(new CustomEvent('petChanged', { detail: { petId: currentPetId } }));
+        }
+    });
+
     onAuthStateChanged(auth, (user) => {
         if (petsUnsubscribe) {
             petsUnsubscribe();
@@ -392,11 +427,14 @@ function init() {
         currentUserId = user?.uid || null;
         currentPetId = null;
         if (!user) {
+            lastDashboardPetsSnapshot = null;
             if (IS_DASHBOARD_PAGE) renderEmptyState();
             if (IS_PROFILE_PETS_PAGE) renderProfilePetsList([]);
             return;
         }
         firstPetsLoadDone = false;
+        lastDashboardPetsSnapshot = null;
+        if (isPetOwnerDashboardPath()) renderPetLoadingState();
         petsUnsubscribe = onSnapshot(
             petsRef(user.uid),
             (snapshot) => {
@@ -409,10 +447,14 @@ function init() {
                     const bt = b.createdAt?.toMillis?.() ?? b.createdAt?.getTime?.() ?? 0;
                     return bt - at;
                 });
-                if (IS_PROFILE_PETS_PAGE) {
+                lastDashboardPetsSnapshot = pets;
+                if (isPetOwnerProfilePath()) {
                     renderProfilePetsList(pets);
-                } else if (IS_DASHBOARD_PAGE) {
-                    if (pets.length === 0) {
+                } else if (isPetOwnerDashboardPath()) {
+                    const fromCache = snapshot.metadata?.fromCache === true;
+                    if (fromCache && pets.length === 0) {
+                        renderPetLoadingState();
+                    } else if (pets.length === 0) {
                         currentPetId = null;
                         currentPet = null;
                         renderEmptyState();
@@ -435,6 +477,7 @@ function init() {
             },
             (err) => {
                 console.error('Pet snapshot error:', err);
+                lastDashboardPetsSnapshot = [];
                 if (IS_DASHBOARD_PAGE) renderEmptyState();
                 if (IS_PROFILE_PETS_PAGE) renderProfilePetsList([]);
                 if (!firstPetsLoadDone) {
@@ -485,6 +528,17 @@ function renderProfilePetsList(pets) {
             if (pet) openManagePetModal(pet);
         });
     });
+}
+
+function renderPetLoadingState() {
+    const card = document.querySelector('.pet-profile-card');
+    if (!card) return;
+    document.getElementById('dashboard-content')?.classList.remove('has-no-pets');
+    card.innerHTML = `
+        <div class="pet-profile-loading" aria-live="polite" aria-busy="true">
+            <div class="pet-profile-loading-spinner" aria-hidden="true"></div>
+            <p class="pet-profile-loading-text">Loading your pets…</p>
+        </div>`;
 }
 
 function renderEmptyState() {
