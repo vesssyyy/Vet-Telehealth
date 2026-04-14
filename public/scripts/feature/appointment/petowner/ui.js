@@ -8,6 +8,7 @@ import {
     getVetOption,
     getAvailableDatesAndSlots,
     checkSlotAvailability,
+    createAppointment,
 } from './services.js';
 import {
     formatAppointmentDate,
@@ -396,6 +397,8 @@ const closeBtn = $('booking-modal-close');
 const cancelBtn = $('booking-cancel-btn');
 const form = $('booking-form');
 const confirmBtn = $('booking-confirm-btn');
+// TEST-ONLY (REMOVE AFTER QA): one-click booking without payment redirect
+const testBookBtn = $('booking-test-book-btn');
 const formError = $('booking-form-error');
 const appointmentsLoading = $('appointments-loading');
 const upcomingRoot = $('upcoming-appointments-root');
@@ -443,6 +446,10 @@ let cachedAvailability = { dates: [], slotsByDate: {} };
 let bookingMediaFiles = [];
 let bookingAttachedSkinSnapshot = null;
 let ignoreFileInputChange = false;
+
+// TEST-ONLY (REMOVE AFTER QA): cache lists for one-click booking
+let cachedPetsList = [];
+let cachedVetsList = [];
 
 function syncFileInputFromBookingMedia() {
     if (!fileInput) return;
@@ -614,6 +621,8 @@ function onDateChange() {
 function updateConfirmButtonState() {
     const petCount = window._bookingPetsCount ?? 0;
     if (confirmBtn) confirmBtn.disabled = petCount === 0 || totalBookingAttachments() > MAX_BOOKING_ATTACHMENTS;
+    // TEST-ONLY (REMOVE AFTER QA)
+    if (testBookBtn) testBookBtn.disabled = petCount === 0;
 }
 
 function resetBookingFormState() {
@@ -1242,6 +1251,8 @@ onAuthStateChanged(auth, async (userFromCallback) => {
     window._appointmentsUnsub = unsub;
 
     Promise.all([loadVets(), loadPets(user.uid)]).then(([vets, pets]) => {
+        cachedVetsList = Array.isArray(vets) ? vets : [];
+        cachedPetsList = Array.isArray(pets) ? pets : [];
         populateVetSelect($('booking-vet-dropdown'), vets);
         populatePetSelect($('booking-pet-dropdown'), pets);
         const petHint = $('booking-pet-hint');
@@ -1250,6 +1261,8 @@ onAuthStateChanged(auth, async (userFromCallback) => {
         updateConfirmButtonState();
     }).catch((err) => {
         console.error('Load vets/pets for appointment page:', err);
+        cachedVetsList = [];
+        cachedPetsList = [];
         populateVetSelect($('booking-vet-dropdown'), []);
         populatePetSelect($('booking-pet-dropdown'), []);
         window._bookingPetsCount = 0;
@@ -1269,6 +1282,86 @@ setTimeout(() => {
         renderAllAppointmentsPanel(allAppointmentsRoot, []);
     }
 }, APPOINTMENTS_LOADING_FALLBACK_MS);
+
+// TEST-ONLY (REMOVE AFTER QA): one click == booked, no payment redirect
+testBookBtn?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    const user = auth.currentUser;
+    if (!user) { showFormError('You must be signed in.'); return; }
+
+    try {
+        testBookBtn.disabled = true;
+        const labelEl = testBookBtn.querySelector('span');
+        if (labelEl) labelEl.textContent = 'Booking test...';
+
+        if (!validateAndHighlightFields()) { showFormError(''); return; }
+        clearFieldErrors();
+        showFormError('');
+
+        const petSelect = $('booking-pet');
+        const vetSelect = $('booking-vet');
+        const reasonEl = $('booking-reason');
+        const titleEl = $('booking-title');
+        const petId = petSelect?.value;
+        const petName = petSelect?.dataset?.petName || '';
+        const petSpecies = petSelect?.dataset?.species || '';
+        const vetId = vetSelect?.value;
+        const reason = reasonEl?.value?.trim();
+        const title = titleEl?.value?.trim();
+        const vetOpt = vetId ? getVetOption(vetId) : null;
+        const vetName = vetOpt?.name || vetSelect?.dataset?.vetName || '';
+        const clinicName = vetOpt?.clinic || vetSelect?.dataset?.clinic || '';
+        const dateStr = bookingDate?.value || '';
+        const timeVal = bookingTime?.value || '';
+        const timeOpt = bookingTime?.options?.[bookingTime.selectedIndex];
+        const slotEnd = timeOpt?.dataset?.slotEnd || null;
+        const timeDisplay = formatTimeDisplay(timeVal, slotEnd, dateStr);
+
+        if (vetId && dateStr && timeVal) {
+            const check = await checkSlotAvailability(vetId, dateStr, timeVal, user.uid);
+            if (!check.available) {
+                const msg = check.reason === 'owner_overlap'
+                    ? "You already have an appointment at this time. Please choose another slot."
+                    : "I'm sorry, this slot is no longer available. It's either deleted or already booked.";
+                showFormError(msg);
+                return;
+            }
+        }
+
+        // Use attachments exactly like the payment flow, but upload now (no redirect).
+        syncFileInputFromBookingMedia();
+        const mediaFiles = bookingMediaFiles.length ? bookingMediaFiles : (fileInput?.files ? Array.from(fileInput.files) : []);
+
+        await createAppointment({
+            title,
+            petId,
+            petName,
+            petSpecies: petSpecies || '',
+            vetId,
+            vetName,
+            clinicName,
+            reason,
+            dateStr,
+            timeDisplay,
+            slotStart: timeVal || null,
+            slotEnd: slotEnd || null,
+            mediaFiles,
+            ...(bookingAttachedSkinSnapshot ? { attachedSkinAnalysis: bookingAttachedSkinSnapshot } : {}),
+        });
+
+        closeModal();
+        resetBookingFormState();
+        showBookingAppToast('Test appointment booked (no payment).');
+    } catch (err) {
+        showFormError(err?.message || 'Test booking failed. Please try again.');
+    } finally {
+        if (testBookBtn) {
+            testBookBtn.disabled = (window._bookingPetsCount ?? 0) === 0;
+            const labelEl = testBookBtn.querySelector('span');
+            if (labelEl) labelEl.textContent = 'Book test (no payment)';
+        }
+    }
+});
 
 // Form submit
 form?.addEventListener('submit', async (e) => {

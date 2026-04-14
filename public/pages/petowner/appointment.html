@@ -182,6 +182,10 @@
                     </div>
                     <div class="booking-form-footer">
                         <button type="button" class="booking-btn booking-btn-cancel" id="booking-cancel-btn">Cancel</button>
+                        <!-- TEST-ONLY (REMOVE AFTER QA): one-click booking without payment redirect -->
+                        <button type="button" class="booking-btn booking-btn-confirm" id="booking-test-book-btn">
+                            <i class="fa fa-flask" aria-hidden="true"></i> <span>Book test (no payment)</span>
+                        </button>
                         <button type="submit" class="booking-btn booking-btn-confirm" id="booking-confirm-btn" disabled>
                             <i class="fa fa-check" aria-hidden="true"></i> <span class="booking-confirm-text">Confirm booking</span>
                         </button>

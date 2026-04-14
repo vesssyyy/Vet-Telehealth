@@ -138,5 +138,30 @@ service cloud.firestore {
       allow read, create, update: if request.auth != null;
       allow delete: if false;
     }
+
+    /**
+     * Appointment notifications (vet-facing unread badge + in-thread highlights).
+     *
+     * Document shape (minimal):
+     * - appointmentId, vetId, ownerId, createdAt, seenAt (null/unset until seen)
+     */
+    match /appointmentNotifications/{notifId} {
+      // Owner creates notification only for their own appointment.
+      allow create: if request.auth != null
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.appointmentId is string
+        && request.resource.data.vetId is string
+        && exists(/databases/$(database)/documents/appointments/$(request.resource.data.appointmentId))
+        && get(/databases/$(database)/documents/appointments/$(request.resource.data.appointmentId)).data.ownerId == request.auth.uid
+        && get(/databases/$(database)/documents/appointments/$(request.resource.data.appointmentId)).data.vetId == request.resource.data.vetId;
+
+      // Vet reads their notifications.
+      allow read: if request.auth != null && resource.data.vetId == request.auth.uid;
+
+      // Vet marks seen; keep update scoped to their own notifications.
+      allow update: if request.auth != null && resource.data.vetId == request.auth.uid;
+
+      allow delete: if false;
+    }
   }
 }

@@ -16,6 +16,7 @@ import { registerTemplateEvents, createTemplateApi } from './template.js';
 import { registerViewModeEvents, createViewRenderingApi } from './view-mode.js';
 import { registerModalEvents, createEditDayApi, createDetailsApi, createBookingSettingsApi } from './modals.js';
 import { registerBlockDatesEvents, createBlockDatesApi } from './block-dates.js';
+import { markAppointmentNotificationsSeen, subscribeVetAppointmentNotifications } from '../../../core/notifications/appointment-notifications.js';
 import {
     DEFAULT_CONSULTATION_PRICE_CENTAVOS_TEST,
     DEFAULT_CONSULTATION_PRICE_CENTAVOS_LIVE,
@@ -55,6 +56,9 @@ import {
     let blockCalendarMonth = null, blockSelectedDates = new Set(), blockPreviouslyBlocked = new Set();
     let editDayDateStr = null, editDaySlots = [];
     let currentDetailsApt = null;
+    /** @type {Map<string, number>} */
+    let unreadNotifByAppointmentId = new Map();
+    let notifUnsub = null;
     let viewRenderingApi = null;
     let templateApi = null;
     function invalidateSchedulesCache() { cachedSchedules = null; }
@@ -752,6 +756,9 @@ import {
     }
 
     function openSlotDetailsModal(appointmentId, slotDataFromRow) {
+        const aptId = String(appointmentId || '').trim();
+        // Mark as seen eagerly so badge updates immediately (details modal counts as "viewed").
+        if (aptId) markAppointmentNotificationsSeen(aptId).catch(() => {});
         return detailsApi.openSlotDetailsModal(appointmentId, slotDataFromRow);
     }
 
@@ -855,6 +862,29 @@ import {
         setPageBootstrap(true);
         bindAvailabilityPanelsToggle();
 
+        // Add unread badge container to Booked filter button (appointments notifications).
+        (function ensureBookedFilterBadge() {
+            const bookedBtn = document.getElementById('schedules-slot-booked');
+            if (!bookedBtn) return;
+            if (bookedBtn.querySelector('.slot-filter-notif-badge')) return;
+            const badge = document.createElement('span');
+            badge.className = 'slot-filter-notif-badge';
+            badge.setAttribute('aria-hidden', 'true');
+            bookedBtn.appendChild(badge);
+        })();
+
+        function setBookedFilterUnreadBadge(unreadCount) {
+            const bookedBtn = document.getElementById('schedules-slot-booked');
+            const badge = bookedBtn?.querySelector?.('.slot-filter-notif-badge');
+            if (!badge) return;
+            const n = Number(unreadCount);
+            const v = Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+            const text = v > 9 ? '9+' : (v > 0 ? String(v) : '');
+            badge.textContent = text;
+            badge.classList.toggle('is-visible', !!text);
+            badge.setAttribute('aria-hidden', text ? 'false' : 'true');
+        }
+
         const setTemplateType = (type) => {
             templateType = type;
             templateApi?.syncTemplateTypeUI();
@@ -949,6 +979,12 @@ import {
             getGridViewActive: () => gridViewActive,
             openSlotDetailsModal,
             openEditDayModal: (dateStr) => editDayApi.openEditDayModal(dateStr)
+            ,
+            getUnreadNotifCountForAppointment: (appointmentId) => {
+                const k = String(appointmentId || '').trim();
+                if (!k) return 0;
+                return unreadNotifByAppointmentId.get(k) || 0;
+            }
         });
 
         const { syncGridOptionVisibility } = registerViewModeEvents({
@@ -998,6 +1034,21 @@ import {
                 if (slotFilterBtn) slotFilterBtn.click();
                 else loadSchedulesView();
                 syncGridOptionVisibility();
+
+                // Realtime appointment notifications (unread badges inside slot threads + sidebar badge).
+                if (typeof notifUnsub === 'function') {
+                    notifUnsub();
+                    notifUnsub = null;
+                }
+                notifUnsub = subscribeVetAppointmentNotifications((state) => {
+                    unreadNotifByAppointmentId = state?.byAppointmentId instanceof Map
+                        ? state.byAppointmentId
+                        : new Map();
+                    setBookedFilterUnreadBadge(state?.unreadCount || 0);
+                    // Refresh current view so badges track filters (date/status) accurately.
+                    if (gridViewActive) loadWeeklyScheduleView();
+                    else loadSchedulesView();
+                });
 
                 document.addEventListener('visibilitychange', () => {
                     if (document.visibilityState === 'visible') refreshSchedulesWithCleanup();

@@ -380,7 +380,8 @@
     background: var(--bg-card, #fff); border-radius: clamp(10px, 2vw, 14px);
     box-shadow: 0 24px 64px rgba(0,0,0,.18), 0 0 1px rgba(0,0,0,.1);
     max-width: min(560px, calc(100vw - 24px)); width: 100%;
-    max-height: min(90vh, 100%); margin: auto;
+    /* Fit within visible area under the sticky header */
+    max-height: min(calc(var(--vh, 100vh) - var(--header-height, 70px) - 24px), 720px); margin: auto;
     display: flex; flex-direction: column; overflow: hidden;
 }
 .booking-modal-header {

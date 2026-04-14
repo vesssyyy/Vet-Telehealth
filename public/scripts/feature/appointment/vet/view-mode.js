@@ -116,7 +116,8 @@ export function createViewRenderingApi(ctx) {
         WEEK_START_HOUR, WEEK_END_HOUR, HOUR_HEIGHT, WEEKDAY_LABELS,
         slotEffectiveStatus, dedupeSlots, ensureSlotExpiry, isSlotExpired, getMinAdvanceMinutes,
         ensureSchedulesLoaded, enrichSchedulesWithAppointmentStatus, filterSchedules, getActiveSlotFilter,
-        toLocalDateString, getTodayDateString, getGridViewActive, openSlotDetailsModal, openEditDayModal
+        toLocalDateString, getTodayDateString, getGridViewActive, openSlotDetailsModal, openEditDayModal,
+        getUnreadNotifCountForAppointment
     } = ctx;
 
     function renderSchedulesView(schedules, slotFilter) {
@@ -159,6 +160,16 @@ export function createViewRenderingApi(ctx) {
             const hasAppointment = status === 'booked' || status === 'ongoing' || status === 'completed';
             if (hasAppointment) {
                 const aptId = (s.appointmentId || '').trim();
+                const unreadN = typeof getUnreadNotifCountForAppointment === 'function'
+                    ? (getUnreadNotifCountForAppointment(aptId) || 0)
+                    : 0;
+                const viewBtnUnreadClass = unreadN > 0 ? ' is-unread' : '';
+                const viewBtnAria = unreadN > 0 ? 'View appointment details (unread)' : 'View appointment details';
+                const itemUnreadClass = unreadN > 0 ? ' is-unread-thread' : '';
+                const showPerSlotBadge = filter === 'booked' && unreadN > 0;
+                const perSlotBadge = showPerSlotBadge
+                    ? `<span class="appointment-notif-badge" aria-label="${unreadN} unread appointment notification${unreadN === 1 ? '' : 's'}">${unreadN > 9 ? '9+' : unreadN}</span>`
+                    : '';
                 const timeRange = `${escapeHtml(formatTime12h(s.start))} – ${escapeHtml(formatTime12h(s.end))}`;
                 const oRaw = (s.ownerName || s.owner || '').trim().slice(0, 80);
                 const pRaw = (s.petName || s.pet || '').trim().slice(0, 80);
@@ -168,10 +179,11 @@ export function createViewRenderingApi(ctx) {
                 const ownerId = escapeHtml(String(s.ownerId || ''));
                 const petId = escapeHtml(String(s.petId || ''));
                 const vetId = escapeHtml(String(s.vetId || auth.currentUser?.uid || ''));
-                return `<div class="schedules-slot-item schedules-slot-item--booked${extraClass}" data-status="${status}" data-date="${escapeHtml(dateStr)}" data-start="${escapeHtml(s.start)}" data-appointment-id="${escapeHtml(aptId)}" data-owner-name="${ownerName}" data-owner-id="${ownerId}" data-pet-name="${petName}" data-pet-id="${petId}" data-vet-id="${vetId}" data-reason="${reason}" data-time-start="${escapeHtml(s.start || '')}" data-time-end="${escapeHtml(s.end || '')}" data-expired="${isExpired}">
+                return `<div class="schedules-slot-item schedules-slot-item--booked${extraClass}${itemUnreadClass}" data-status="${status}" data-date="${escapeHtml(dateStr)}" data-start="${escapeHtml(s.start)}" data-appointment-id="${escapeHtml(aptId)}" data-owner-name="${ownerName}" data-owner-id="${ownerId}" data-pet-name="${petName}" data-pet-id="${petId}" data-vet-id="${vetId}" data-reason="${reason}" data-time-start="${escapeHtml(s.start || '')}" data-time-end="${escapeHtml(s.end || '')}" data-expired="${isExpired}">
                     <span class="schedules-slot-indicator ${status}" aria-hidden="true"></span>
                     <span class="schedules-slot-time schedules-slot-time--left">${timeRange}</span>
-                    <button type="button" class="slot-details-view-btn" data-appointment-id="${escapeHtml(aptId)}" aria-label="View appointment details"><i class="fa fa-eye" aria-hidden="true"></i> View Details</button>
+                    ${perSlotBadge}
+                    <button type="button" class="slot-details-view-btn${viewBtnUnreadClass}" data-appointment-id="${escapeHtml(aptId)}" aria-label="${viewBtnAria}"><i class="fa fa-eye" aria-hidden="true"></i> View Details</button>
                 </div>`;
             }
             return `<div class="schedules-slot-item${extraClass}" data-status="${status}" data-date="${escapeHtml(dateStr)}" data-start="${escapeHtml(s.start)}" data-expired="${isExpired}"><span class="schedules-slot-indicator ${status}" aria-hidden="true"></span><span class="schedules-slot-time">${escapeHtml(formatTime12h(s.start))} – ${escapeHtml(formatTime12h(s.end))}</span></div>`;
@@ -382,6 +394,13 @@ export function createViewRenderingApi(ctx) {
             const hasAppointment = status === 'booked' || status === 'ongoing' || status === 'completed';
             if (hasAppointment) {
                 const aptId = (slot.appointmentId || '').trim();
+                const unreadN = typeof getUnreadNotifCountForAppointment === 'function'
+                    ? (getUnreadNotifCountForAppointment(aptId) || 0)
+                    : 0;
+                if (unreadN > 0) {
+                    eventEl.classList.add('has-unread-notif');
+                    eventEl.dataset.unreadNotif = String(unreadN);
+                }
                 eventEl.dataset.dateStr = dateStr;
                 eventEl.dataset.ownerId = slot.ownerId || '';
                 eventEl.dataset.petId = slot.petId || '';

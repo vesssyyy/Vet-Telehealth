@@ -3,6 +3,7 @@ import { getAppointmentSharedMediaKind } from '../../../core/app/appointment-med
 import { escapeHtml, formatDisplayName } from '../../../core/app/utils.js';
 import { buildDetailsAttachedSkinAnalysisHtml, wireDetailsAttachedSkinThumbnails } from '../shared/details-attached-skin-html.js';
 import { enrichAppointmentAttachedSkinFromHistory } from '../../skin-disease/skin-analysis-repository.js';
+import { markAppointmentNotificationsSeen } from '../../../core/notifications/appointment-notifications.js';
 
 export function registerModalEvents(ctx) {
     const {
@@ -155,7 +156,9 @@ export function registerModalEvents(ctx) {
                 timeStart: row.dataset.timeStart || '',
                 timeEnd: row.dataset.timeEnd || '',
             } : null;
-            detailsApi.openSlotDetailsModal((viewDetailsBtn.dataset.appointmentId || '').trim(), slotData);
+            const aptId = (viewDetailsBtn.dataset.appointmentId || '').trim();
+            if (aptId) markAppointmentNotificationsSeen(aptId).catch(() => {});
+            detailsApi.openSlotDetailsModal(aptId, slotData);
             return;
         }
         const editBtn = e.target.closest('.schedules-edit-day-btn');

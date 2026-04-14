@@ -70,11 +70,38 @@
             dot.setAttribute('aria-hidden', 'true');
             el.appendChild(dot);
         });
+        document.querySelectorAll('.nav-item[href="appointments.html"]').forEach(function (el) {
+            var badge = document.createElement('span');
+            badge.className = 'nav-unread-badge';
+            badge.setAttribute('aria-hidden', 'true');
+            el.appendChild(badge);
+        });
         document.querySelectorAll('.bottom-nav-item[href="messages.html"]').forEach(function (el) {
             var dot = document.createElement('span');
             dot.className = 'bottom-nav-unread-dot';
             dot.setAttribute('aria-hidden', 'true');
             el.appendChild(dot);
+        });
+
+        function setAppointmentsBadgeCount(unreadCount) {
+            var n = Number(unreadCount);
+            if (!Number.isFinite(n)) n = 0;
+            n = Math.max(0, Math.floor(n));
+            var text = n > 9 ? '9+' : (n > 0 ? String(n) : '');
+            document.querySelectorAll('.nav-item[href="appointments.html"] .nav-unread-badge').forEach(function (badge) {
+                badge.textContent = text;
+                badge.classList.toggle('is-visible', !!text);
+                badge.setAttribute('aria-hidden', text ? 'false' : 'true');
+            });
+        }
+
+        // Initial paint from persisted cache (module updates it in realtime).
+        try {
+            var cached = window.localStorage && window.localStorage.getItem('televet_appointments_unread');
+            if (cached != null) setAppointmentsBadgeCount(parseInt(cached, 10));
+        } catch (_) {}
+        window.addEventListener('telehealth:appointments:unread', function (e) {
+            setAppointmentsBadgeCount(e && e.detail ? e.detail.unreadCount : 0);
         });
     });
 

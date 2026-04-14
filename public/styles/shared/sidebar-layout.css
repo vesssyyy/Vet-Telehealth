@@ -187,6 +187,35 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
     transform: translateY(-50%) scale(1);
 }
 
+/* Unread count badge (sidebar Appointments link) — 1–9, then 9+ */
+.nav-unread-badge {
+    position: absolute;
+    top: 50%;
+    right: 14px;
+    transform: translateY(-50%) scale(0);
+    opacity: 0;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: #fff;
+    background: #dc2626;
+    border-radius: 11px;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    pointer-events: none;
+}
+.nav-unread-badge.is-visible {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+}
+
 /* Bottom navigation (mobile only) */
 .bottom-nav {
     display: none;
