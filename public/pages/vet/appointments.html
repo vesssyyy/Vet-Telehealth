@@ -275,7 +275,7 @@
                 <div id="template-modal-main-view" class="template-modal-main-view">
                 <div class="template-form-row">
                     <div class="template-form-group">
-                        <label for="template-name">Template name <span class="required">*</span></label>
+                        <label for="template-name">Template name: <span class="required">*</span></label>
                         <input type="text" id="template-name" placeholder="e.g. Regular Shift" maxlength="80" autocomplete="off">
                     </div>
                     <div class="template-form-group">
@@ -381,7 +381,7 @@
 
                     <p class="template-interval-warning" role="status">
                         <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
-                        All existing slots in this template section will be removed and replaced by the generated schedule.
+                        All existing slots in <span id="template-interval-warning-scope">this day</span> will be removed and replaced by the generated schedule.
                     </p>
 
                     <p class="template-error-msg is-hidden" id="template-interval-error" role="alert"></p>
