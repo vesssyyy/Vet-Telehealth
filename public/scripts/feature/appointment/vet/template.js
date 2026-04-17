@@ -205,6 +205,19 @@ export function createTemplateApi(ctx) {
         };
     }
 
+    function syncIntervalWarningScope(targetType, targetDay) {
+        const el = $('template-interval-warning-scope');
+        if (!el) return;
+        const type = String(targetType || '').toLowerCase();
+        if (type === 'day') {
+            el.textContent = 'this day';
+            return;
+        }
+        const key = String(targetDay || getSelectedDay() || '').toLowerCase();
+        const label = DAY_LABELS[key] || '—';
+        el.textContent = `this day: ${label}`;
+    }
+
     function clearIntervalError() {
         setErrorEl('template-interval-error', '', true);
     }
@@ -253,6 +266,7 @@ export function createTemplateApi(ctx) {
 
         els.panel.dataset.targetType = targetType === 'day' ? 'day' : 'week';
         els.panel.dataset.targetDay = getSelectedDay() || 'monday';
+        syncIntervalWarningScope(els.panel.dataset.targetType, els.panel.dataset.targetDay);
 
         // Prefill from current slots if present.
         const currentSlots = (targetType === 'day'
@@ -548,6 +562,11 @@ export function createTemplateApi(ctx) {
                 renderDaysList();
                 renderWeekSlots();
                 populateCopySourceSelect();
+                const panel = $('template-interval-panel');
+                if (panel && !panel.classList.contains('is-hidden') && (panel.dataset.targetType || 'week') === 'week') {
+                    panel.dataset.targetDay = getSelectedDay() || 'monday';
+                    syncIntervalWarningScope(panel.dataset.targetType, panel.dataset.targetDay);
+                }
             });
             list.appendChild(btn);
         });
