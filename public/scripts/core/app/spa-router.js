@@ -248,6 +248,10 @@
         if (_navigating) return;
         if (filename(url) === filename(window.location.href) && !opts.force) return;
 
+        // Explicit flag: page content is being injected via SPA router.
+        // Page-level scripts can use this to distinguish from a hard reload.
+        window.__spaInjectedNavigation = true;
+
         _navigating = true;
         if (_abortCtrl) try { _abortCtrl.abort(); } catch (_) {}
         _abortCtrl = new AbortController();
@@ -404,6 +408,7 @@
                     loadScripts(data.scripts, function () {
                         window.dispatchEvent(new CustomEvent('spa:afternavigate'));
                         _navigating = false;
+                        window.__spaInjectedNavigation = false;
                         hideProgress();
                     });
                 });
@@ -414,6 +419,7 @@
                     window.location.href = url;
                 }
                 _navigating = false;
+                window.__spaInjectedNavigation = false;
                 hideProgress();
             });
     }

@@ -14,7 +14,18 @@
     <link href="https://fonts.googleapis.com/css?family=Lalezar" rel="stylesheet">
     <style>body{visibility:hidden}</style>
 </head>
-<body class="vet-appointments-page">
+<body class="vet-appointments-page no-cat-on-load">
+    <script>
+        // Show the cat loader only on SPA navigations (injected page content).
+        // On full page load, keep the cat hidden (and label hidden via CSS).
+        (function () {
+            try {
+                if (window.__spaInjectedNavigation) {
+                    document.body.classList.remove('no-cat-on-load');
+                }
+            } catch (_) {}
+        })();
+    </script>
     <div class="sidebar-overlay"></div>
     <aside class="sidebar">
         <div class="sidebar-header">
@@ -261,9 +272,10 @@
                 <button type="button" class="template-modal-close" id="template-modal-close" aria-label="Close"><i class="fa fa-times" aria-hidden="true"></i></button>
             </div>
             <div class="template-modal-body">
+                <div id="template-modal-main-view" class="template-modal-main-view">
                 <div class="template-form-row">
                     <div class="template-form-group">
-                        <label for="template-name">Template name</label>
+                        <label for="template-name">Template name <span class="required">*</span></label>
                         <input type="text" id="template-name" placeholder="e.g. Regular Shift" maxlength="80" autocomplete="off">
                     </div>
                     <div class="template-form-group">
@@ -280,7 +292,7 @@
                         <div id="template-days-list"></div>
                     </div>
                     <div class="template-availability-panel">
-                        <p class="template-panel-hint">Add consultation time slots for the selected day.</p>
+                        <p class="template-panel-hint template-error-msg is-hidden" id="template-week-error-msg" role="alert"></p>
                         <div class="template-copy-row template-copy-unified">
                             <div class="template-copy-radio-wrap">
                                 <label class="template-copy-radio"><input type="radio" name="template-copy-source" value="day" checked> Day</label>
@@ -298,6 +310,7 @@
                             <button type="button" class="template-copy-btn" id="template-copy-week-btn"><i class="fa fa-copy" aria-hidden="true"></i> Copy</button>
                         </div>
                         <button type="button" class="template-add-slot-btn" id="template-add-slot-btn"><i class="fa fa-plus" aria-hidden="true"></i> Add time slot</button>
+                        <button type="button" class="template-add-slot-btn template-generate-interval-btn" id="template-generate-interval-btn" aria-label="Generate interval"><i class="fa fa-magic" aria-hidden="true"></i> Generate interval</button>
                         <div class="template-slots-header template-slot-row">
                             <div class="template-slot-time-wrap"><span>Start</span></div>
                             <div class="template-slot-time-wrap"><span>End</span></div>
@@ -308,7 +321,7 @@
                 </div>
                 <div id="template-day-section" class="template-day-layout is-hidden">
                     <div class="template-availability-panel">
-                        <p class="template-panel-hint">Add consultation time slots for this template.</p>
+                        <p class="template-panel-hint template-error-msg is-hidden" id="template-day-error-msg" role="alert"></p>
                         <div class="template-copy-row">
                             <label for="template-copy-from-trigger">Copy from template</label>
                             <div class="dropdown vet-template-copy-dropdown" id="template-copy-from-dropdown">
@@ -323,6 +336,7 @@
                             <button type="button" class="template-copy-btn" id="template-copy-from-template-btn"><i class="fa fa-copy" aria-hidden="true"></i> Copy</button>
                         </div>
                         <button type="button" class="template-add-slot-btn" id="template-day-add-slot-btn"><i class="fa fa-plus" aria-hidden="true"></i> Add time slot</button>
+                        <button type="button" class="template-add-slot-btn template-generate-interval-btn" id="template-day-generate-interval-btn" aria-label="Generate interval"><i class="fa fa-magic" aria-hidden="true"></i> Generate interval</button>
                         <div class="template-slots-header template-slot-row">
                             <div class="template-slot-time-wrap"><span>Start</span></div>
                             <div class="template-slot-time-wrap"><span>End</span></div>
@@ -331,9 +345,53 @@
                         <div class="template-slots-list" id="template-day-slots-list"></div>
                     </div>
                 </div>
-                <p class="template-error-msg is-hidden" id="template-error-msg" role="alert"></p>
+                </div>
+
+                <div id="template-interval-panel" class="template-interval-panel is-hidden" aria-hidden="true">
+                    <div class="template-form-row">
+                        <div class="template-form-group">
+                            <label for="template-interval-start">Time range start</label>
+                            <input type="time" id="template-interval-start" aria-label="Time range start">
+                        </div>
+                        <div class="template-form-group">
+                            <label for="template-interval-end">Time range end</label>
+                            <input type="time" id="template-interval-end" aria-label="Time range end">
+                        </div>
+                    </div>
+
+                    <div class="template-form-row">
+                        <div class="template-form-group">
+                            <label for="template-interval-minutes">Consultation interval (minutes)</label>
+                            <input type="number" id="template-interval-minutes" min="1" step="1" placeholder="e.g. 30" aria-label="Consultation interval minutes" autocomplete="off">
+                        </div>
+                        <div class="template-form-group">
+                            <label for="template-idle-minutes">Idle time between slots (minutes)</label>
+                            <input type="number" id="template-idle-minutes" min="0" step="1" placeholder="e.g. 15" aria-label="Idle time minutes" autocomplete="off">
+                        </div>
+                    </div>
+
+                    <div class="template-interval-skip-wrap">
+                        <div class="template-interval-skip-header">
+                            <h3 class="template-interval-skip-title">Skip time ranges (optional)</h3>
+                            <button type="button" class="template-copy-btn template-interval-add-skip-btn" id="template-interval-add-skip-btn"><i class="fa fa-plus" aria-hidden="true"></i> Add skip range</button>
+                        </div>
+                        <div class="template-interval-skip-list" id="template-interval-skip-list"></div>
+                        <p class="template-panel-hint template-interval-skip-hint">Any generated slot that overlaps a skip range will not be created.</p>
+                    </div>
+
+                    <p class="template-interval-warning" role="status">
+                        <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+                        All existing slots in this template section will be removed and replaced by the generated schedule.
+                    </p>
+
+                    <p class="template-error-msg is-hidden" id="template-interval-error" role="alert"></p>
+                </div>
             </div>
-            <div class="template-modal-footer"><button type="button" class="btn-cancel" id="template-cancel-btn">Cancel</button><button type="button" class="btn-save" id="template-save-btn">Save template</button></div>
+            <div class="template-modal-footer" id="template-modal-footer-main"><button type="button" class="btn-cancel" id="template-cancel-btn">Cancel</button><button type="button" class="btn-save" id="template-save-btn">Save template</button></div>
+            <div class="template-modal-footer template-modal-footer-interval is-hidden" id="template-modal-footer-interval" aria-hidden="true">
+                <button type="button" class="btn-cancel" id="template-interval-cancel-btn">Cancel</button>
+                <button type="button" class="btn-save" id="template-interval-generate-btn">Generate</button>
+            </div>
         </div>
     </div>
 
@@ -430,6 +488,26 @@
                 <p class="template-error-msg is-hidden" id="apply-error-msg" role="alert"></p>
             </div>
             <div class="template-modal-footer"><button type="button" class="btn-cancel" id="apply-cancel-btn">Cancel</button><button type="button" class="btn-save" id="apply-submit-btn">Apply</button></div>
+        </div>
+    </div>
+
+    <!-- Apply template preview/confirm modal -->
+    <div class="template-modal-overlay is-hidden" id="apply-preview-overlay" aria-hidden="true"></div>
+    <div class="template-modal is-hidden" id="apply-preview-modal" role="dialog" aria-labelledby="apply-preview-title" aria-modal="true">
+        <div class="template-modal-card">
+            <div class="template-modal-header">
+                <h2 class="template-modal-title" id="apply-preview-title">Confirm schedule changes</h2>
+                <button type="button" class="template-modal-close" id="apply-preview-close" aria-label="Close"><i class="fa fa-times" aria-hidden="true"></i></button>
+            </div>
+            <div class="template-modal-body">
+                <p class="apply-preview-kicker">These slots will be added to your schedules:</p>
+                <div class="apply-preview-list" id="apply-preview-list" aria-live="polite"></div>
+                <p class="template-error-msg is-hidden" id="apply-preview-error" role="alert"></p>
+            </div>
+            <div class="template-modal-footer">
+                <button type="button" class="btn-cancel" id="apply-preview-back-btn">Back</button>
+                <button type="button" class="btn-save" id="apply-preview-confirm-btn">Confirm</button>
+            </div>
         </div>
     </div>
 

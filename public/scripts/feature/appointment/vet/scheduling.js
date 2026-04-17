@@ -859,7 +859,9 @@ import {
             else pageBootstrapEl.removeAttribute('aria-busy');
         };
 
-        setPageBootstrap(true);
+        const skipFullPageBootstrap = document.body.classList.contains('no-cat-on-load');
+        if (!skipFullPageBootstrap) setPageBootstrap(true);
+        else setPageBootstrap(false);
         bindAvailabilityPanelsToggle();
 
         // Add unread badge container to Booked filter button (appointments notifications).
@@ -953,6 +955,12 @@ import {
         ];
         document.addEventListener('keydown', (e) => {
             if (e.key !== 'Escape') return;
+            const intervalPanel = $('template-interval-panel');
+            if (intervalPanel && !intervalPanel.classList.contains('is-hidden')) {
+                e.preventDefault();
+                templateApi.closeGenerateIntervalModal();
+                return;
+            }
             const pair = escapeModals.find(([id]) => !$(id)?.classList.contains('is-hidden'));
             if (pair) pair[1]();
         });
@@ -1018,7 +1026,7 @@ import {
 
         async function initAppointments() {
             try {
-                setPageBootstrap(true);
+                if (!skipFullPageBootstrap) setPageBootstrap(true);
                 await loadVetSettings();
                 updateMinAdvanceInputs();
                 updateConsultationPriceInputs();

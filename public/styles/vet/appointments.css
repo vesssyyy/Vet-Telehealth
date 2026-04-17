@@ -48,6 +48,12 @@ body.vet-appointments-page .main-content {
     color: var(--text-dark, #1B3C53);
 }
 
+/* Full page reload: hide cat + label (keep SPA navigation behavior). */
+body.no-cat-on-load #appointments-page-bootstrap .loader,
+body.no-cat-on-load #appointments-page-bootstrap .appointments-page-bootstrap-text {
+    display: none;
+}
+
 /* Hide content during boot so empty-state text never flashes */
 body.appointments-loading .main-content > :not(.app-top-header):not(#appointments-page-bootstrap) {
     visibility: hidden;
@@ -1093,6 +1099,66 @@ body.vet-appointments-page .appointments-blocked-section .appointments-section-d
     margin: 0 0 12px;
 }
 
+/* Apply preview (confirm) modal */
+.apply-preview-kicker {
+    font-size: 13px;
+    color: var(--text-light);
+    margin: 0 0 12px;
+    line-height: 1.5;
+}
+.apply-preview-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.apply-preview-day {
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-light);
+    padding: 12px 14px;
+}
+.apply-preview-date {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin: 0 0 2px;
+}
+.apply-preview-weekday {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary-color);
+    margin: 0 0 10px;
+}
+.apply-preview-slots {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.apply-preview-slot {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: #fff;
+    border: 1px solid rgba(44, 95, 125, 0.15);
+    color: var(--text-dark);
+    font-size: 13px;
+    font-weight: 600;
+    width: fit-content;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+.apply-preview-slot i {
+    color: var(--primary-color);
+}
+.apply-preview-note {
+    margin: 10px 0 0;
+    font-size: 12px;
+    color: var(--text-light);
+    line-height: 1.45;
+}
+
 /* Conflict modal (CASE 2) */
 .conflict-modal-message {
     font-size: 14px;
@@ -1491,7 +1557,7 @@ button.details-shared-video-link { padding: 0; }
     display: flex;
     flex-direction: column;
     gap: 20px;
-    max-height: 90vh;
+    max-height: 94vh;
     overflow: hidden;
 }
 .template-modal-header {
@@ -1523,6 +1589,7 @@ button.details-shared-video-link { padding: 0; }
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    padding-right: 6px;
 }
 .template-modal-footer {
     display: flex;
@@ -1571,6 +1638,7 @@ button.details-shared-video-link { padding: 0; }
     color: var(--text-dark);
     margin-bottom: 6px;
 }
+.template-form-group .required { color: #c53030; }
 .template-form-group input[type="text"] {
     width: 100%;
     padding: 10px 12px;
@@ -1747,8 +1815,18 @@ button.details-shared-video-link { padding: 0; }
     background: var(--primary-color);
     color: white;
 }
-.template-day-item input[type="checkbox"] { margin: 0; pointer-events: none; }
-.template-day-item.selected input { accent-color: white; }
+.template-day-item {
+    border: none;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+}
+.template-day-item:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
 
 /* Availability panel & copy/slot controls */
 .template-availability-panel {
@@ -1763,6 +1841,10 @@ button.details-shared-video-link { padding: 0; }
     font-size: 13px;
     color: var(--text-light);
     margin: 0 0 16px;
+}
+/* When we reuse the hint slot for validation errors, force error styling. */
+.template-availability-panel .template-panel-hint.template-error-msg {
+    color: #c53030;
 }
 .template-copy-row,
 .template-copy-row.template-copy-unified {
@@ -1881,10 +1963,140 @@ button.details-shared-video-link { padding: 0; }
     transition: background 0.2s;
 }
 .template-add-slot-btn { margin-bottom: 16px; }
+.template-generate-interval-btn {
+    margin-bottom: 16px;
+}
+.template-add-slot-btn + .template-generate-interval-btn {
+    margin-left: 10px;
+    margin-top: 0;
+}
+.template-day-layout .template-add-slot-btn + .template-generate-interval-btn,
+.template-week-layout .template-add-slot-btn + .template-generate-interval-btn {
+    margin-bottom: 16px;
+}
 .template-copy-btn:hover,
 .template-add-slot-btn:hover { background: rgba(44, 95, 125, 0.18); }
 
 .template-slots-list { display: flex; flex-direction: column; gap: 10px; }
+
+/* Generate interval (inside template modal) */
+.template-modal-main-view.is-hidden {
+    display: none !important;
+}
+.template-interval-panel.is-hidden {
+    display: none !important;
+}
+.template-interval-panel {
+    padding-top: 4px;
+}
+.template-interval-panel input[type="time"],
+.template-interval-panel input[type="number"] {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-dark);
+    background: var(--bg-white);
+}
+.template-interval-panel input[type="time"]:focus,
+.template-interval-panel input[type="number"]:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(44, 95, 125, 0.15);
+}
+.template-modal-footer-interval.is-hidden {
+    display: none !important;
+}
+.template-interval-skip-wrap {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border-color);
+}
+.template-interval-skip-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+.template-interval-skip-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-dark);
+}
+.template-interval-skip-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.template-interval-skip-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    border: 1px dashed var(--border-color);
+    border-radius: 10px;
+    background: rgba(44, 95, 125, 0.04);
+}
+.template-interval-skip-row .template-interval-skip-time {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.template-interval-skip-row label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dark);
+}
+.template-interval-skip-row input[type="time"] {
+    min-width: 150px;
+    width: 150px;
+}
+.template-interval-remove-skip-btn {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    border: 1px solid rgba(185, 28, 28, 0.35);
+    background: rgba(185, 28, 28, 0.08);
+    color: var(--appointments-block);
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+}
+.template-interval-remove-skip-btn:hover {
+    background: rgba(185, 28, 28, 0.14);
+    border-color: rgba(185, 28, 28, 0.55);
+}
+.template-interval-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 16px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(234, 179, 8, 0.45);
+    background: rgba(234, 179, 8, 0.12);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dark);
+    line-height: 1.45;
+}
+.template-interval-warning i {
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: #ca8a04;
+}
+.template-interval-skip-hint {
+    margin-top: 10px !important;
+}
 
 /* Slot rows */
 .template-slot-row {
@@ -1986,7 +2198,7 @@ button.details-shared-video-link { padding: 0; }
     margin: 0;
 }
 .template-view-slots li { padding: 2px 0; }
-.template-error-msg { font-size: 13px; color: var(--appointments-block); margin-top: 8px; }
+.template-error-msg { font-size: 13px; color: #c53030; margin-top: 8px; }
 
 /* Toast */
 .template-success-toast {
@@ -2206,7 +2418,7 @@ button.details-shared-video-link { padding: 0; }
     .schedules-slot-filter { justify-content: flex-start; }
     .template-week-layout { flex-direction: column; }
     .template-days-panel { width: 100%; }
-    .template-modal-card { max-height: 85vh; }
+    .template-modal-card { max-height: 88vh; }
     .details-media-lightbox {
         padding: 12px;
         padding-top: max(12px, env(safe-area-inset-top, 0px));

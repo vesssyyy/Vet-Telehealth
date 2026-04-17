@@ -9,7 +9,11 @@ export function registerTemplateEvents(ctx) {
     } = ctx;
 
     $('template-create-btn')?.addEventListener('click', () => templateApi.openModal());
-    $('template-modal-close')?.addEventListener('click', templateApi.closeModal);
+    $('template-modal-close')?.addEventListener('click', () => {
+        const panel = $('template-interval-panel');
+        if (panel && !panel.classList.contains('is-hidden')) templateApi.closeGenerateIntervalModal();
+        else templateApi.closeModal();
+    });
     $('template-cancel-btn')?.addEventListener('click', templateApi.closeModal);
     onOverlayClick('template-modal-overlay', templateApi.closeModal);
     $('template-save-btn')?.addEventListener('click', () => templateApi.validateAndSave(loadTemplates));
@@ -25,10 +29,16 @@ export function registerTemplateEvents(ctx) {
         templateApi.addSlotRow('template-slots-list', weekSlots[selectedDay], templateApi.renderWeekSlots);
     });
     $('template-day-add-slot-btn')?.addEventListener('click', () => templateApi.addSlotRow('template-day-slots-list', getDaySlots(), templateApi.renderDaySlots));
+    $('template-generate-interval-btn')?.addEventListener('click', () => templateApi.openGenerateIntervalModal('week'));
+    $('template-day-generate-interval-btn')?.addEventListener('click', () => templateApi.openGenerateIntervalModal('day'));
     $('template-copy-week-btn')?.addEventListener('click', templateApi.copyFromSourceWeek);
     $('template-copy-from-template-btn')?.addEventListener('click', templateApi.copyFromTemplate);
     document.querySelectorAll('input[name="template-copy-source"]').forEach((r) => r.addEventListener('change', templateApi.populateCopySourceSelect));
     templateApi.bindTemplateCopyDropdowns();
+
+    $('template-interval-cancel-btn')?.addEventListener('click', templateApi.closeGenerateIntervalModal);
+    $('template-interval-add-skip-btn')?.addEventListener('click', templateApi.addGenerateIntervalSkipRow);
+    $('template-interval-generate-btn')?.addEventListener('click', templateApi.generateIntervalSlots);
 
     $('template-action-close')?.addEventListener('click', templateApi.closeTemplateActionModal);
     onOverlayClick('template-action-overlay', templateApi.closeTemplateActionModal);
@@ -46,6 +56,11 @@ export function registerTemplateEvents(ctx) {
     $('apply-cancel-btn')?.addEventListener('click', templateApi.closeApplyModal);
     onOverlayClick('apply-modal-overlay', templateApi.closeApplyModal);
     $('apply-submit-btn')?.addEventListener('click', templateApi.doApplyTemplate);
+
+    $('apply-preview-close')?.addEventListener('click', templateApi.closeApplyPreviewModal);
+    $('apply-preview-back-btn')?.addEventListener('click', templateApi.closeApplyPreviewModal);
+    onOverlayClick('apply-preview-overlay', templateApi.closeApplyPreviewModal);
+    $('apply-preview-confirm-btn')?.addEventListener('click', templateApi.confirmApplyPreview);
 
     $('conflict-modal-close')?.addEventListener('click', () => templateApi.closeConflictModal(true));
     onOverlayClick('conflict-modal-overlay', () => templateApi.closeConflictModal(true));
@@ -70,8 +85,308 @@ export function createTemplateApi(ctx) {
         getCachedTemplates
     } = ctx;
 
+    // === Generate interval helpers ===
+    function parseTimeToMinutes(timeStr) {
+        if (!timeStr || typeof timeStr !== 'string') return null;
+        const [hRaw, mRaw] = timeStr.split(':');
+        const h = Number(hRaw);
+        const m = Number(mRaw);
+        if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+        if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+        return h * 60 + m;
+    }
+
+    function minutesToTimeStr(mins) {
+        const m = Math.max(0, Math.floor(mins));
+        const h = Math.floor(m / 60) % 24;
+        const mm = m % 60;
+        return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+    }
+
+    function rangesOverlap(a, b) {
+        return a.start < b.end && b.start < a.end;
+    }
+
+    function normalizeAndMergeRanges(ranges) {
+        const clean = (ranges || [])
+            .filter((r) => r && Number.isFinite(r.start) && Number.isFinite(r.end) && r.start < r.end)
+            .map((r) => ({ start: Math.floor(r.start), end: Math.floor(r.end) }))
+            .sort((x, y) => x.start - y.start);
+        if (!clean.length) return [];
+        const merged = [clean[0]];
+        for (let i = 1; i < clean.length; i++) {
+            const last = merged[merged.length - 1];
+            const cur = clean[i];
+            if (cur.start <= last.end) last.end = Math.max(last.end, cur.end);
+            else merged.push(cur);
+        }
+        return merged;
+    }
+
+    function firstOverlappingRange(ranges, target) {
+        for (const r of ranges || []) {
+            if (rangesOverlap(r, target)) return r;
+        }
+        return null;
+    }
+
+    function nextSkipEndForCandidate(skipRanges, candidate) {
+        let maxEnd = null;
+        for (const r of skipRanges || []) {
+            if (rangesOverlap(r, candidate)) {
+                maxEnd = maxEnd == null ? r.end : Math.max(maxEnd, r.end);
+            }
+        }
+        return maxEnd;
+    }
+
+    function generateSlotsFromInterval(rangeStartMin, rangeEndMin, intervalMin, idleMin, skipRanges) {
+        const skips = normalizeAndMergeRanges(skipRanges);
+        const slots = [];
+        let cur = rangeStartMin;
+        const step = intervalMin + idleMin;
+
+        while (cur + intervalMin <= rangeEndMin) {
+            // If current start is inside a skip range, jump to skip end.
+            const inside = firstOverlappingRange(skips, { start: cur, end: cur + 1 });
+            if (inside && cur < inside.end) {
+                cur = inside.end;
+                continue;
+            }
+
+            const end = cur + intervalMin;
+            if (end > rangeEndMin) break;
+
+            const candidate = { start: cur, end };
+            const skipEnd = nextSkipEndForCandidate(skips, candidate);
+            if (skipEnd != null) {
+                // Respect skip windows by jumping to the end of the overlapping skip range(s).
+                cur = Math.max(skipEnd, cur + step);
+                continue;
+            }
+
+            slots.push({ start: minutesToTimeStr(cur), end: minutesToTimeStr(end) });
+            cur = end + idleMin;
+            if (slots.length > 2000) break; // safety guard
+        }
+
+        // Ensure chronological unique + non-overlapping output (defensive)
+        const sorted = slots
+            .filter((s) => s.start && s.end && s.start < s.end)
+            .sort((a, b) => a.start.localeCompare(b.start));
+        const deduped = [];
+        const seen = new Set();
+        for (const s of sorted) {
+            const key = `${s.start}|${s.end}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            const prev = deduped[deduped.length - 1];
+            if (prev && s.start < prev.end) continue;
+            deduped.push(s);
+        }
+        return deduped;
+    }
+
     function initWeekSlots() {
         setWeekSlots({ monday: [], tuesday: [], wednesday: [], thursday: [], friday: [], saturday: [], sunday: [] });
+    }
+
+    // === Generate interval modal ===
+    function getIntervalEls() {
+        return {
+            panel: $('template-interval-panel'),
+            start: $('template-interval-start'),
+            end: $('template-interval-end'),
+            interval: $('template-interval-minutes'),
+            idle: $('template-idle-minutes'),
+            skipList: $('template-interval-skip-list'),
+            error: $('template-interval-error'),
+            generateBtn: $('template-interval-generate-btn'),
+        };
+    }
+
+    function clearIntervalError() {
+        setErrorEl('template-interval-error', '', true);
+    }
+
+    function showIntervalError(msg) {
+        setErrorEl('template-interval-error', msg, false);
+    }
+
+    function buildSkipRowDom(initial = {}) {
+        const row = document.createElement('div');
+        row.className = 'template-interval-skip-row';
+        row.innerHTML = `
+            <div class="template-interval-skip-time">
+                <label>Start <input type="time" class="template-interval-skip-start" aria-label="Skip range start"></label>
+                <label>End <input type="time" class="template-interval-skip-end" aria-label="Skip range end"></label>
+            </div>
+            <button type="button" class="template-interval-remove-skip-btn" aria-label="Remove skip range"><i class="fa fa-trash-o" aria-hidden="true"></i></button>
+        `;
+        const start = row.querySelector('.template-interval-skip-start');
+        const end = row.querySelector('.template-interval-skip-end');
+        if (start) start.value = initial.start || '';
+        if (end) end.value = initial.end || '';
+        row.querySelector('.template-interval-remove-skip-btn')?.addEventListener('click', () => row.remove());
+        return row;
+    }
+
+    function addGenerateIntervalSkipRow() {
+        const { skipList } = getIntervalEls();
+        if (!skipList) return;
+        skipList.appendChild(buildSkipRowDom());
+    }
+
+    function openGenerateIntervalModal(targetType) {
+        const els = getIntervalEls();
+        const modal = $('template-modal');
+        const mainView = $('template-modal-main-view');
+        const mainFooter = $('template-modal-footer-main');
+        const intervalFooter = $('template-modal-footer-interval');
+        const titleEl = $('template-modal-title');
+        if (!els.panel || !modal || !mainView) return;
+
+        if (titleEl) {
+            modal.dataset.titleBeforeInterval = titleEl.textContent || '';
+            titleEl.innerHTML = '<i class="fa fa-magic" aria-hidden="true"></i> Generate time slots';
+        }
+
+        els.panel.dataset.targetType = targetType === 'day' ? 'day' : 'week';
+        els.panel.dataset.targetDay = getSelectedDay() || 'monday';
+
+        // Prefill from current slots if present.
+        const currentSlots = (targetType === 'day'
+            ? (getDaySlots() || [])
+            : ((getWeekSlots()?.[getSelectedDay()] || [])));
+        const withTimes = currentSlots
+            .filter((s) => s && s.start && s.end && s.start < s.end)
+            .slice()
+            .sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+        if (els.start) els.start.value = withTimes[0]?.start || '';
+        if (els.end) els.end.value = withTimes[withTimes.length - 1]?.end || '';
+        // No predefined/default numeric values; user must input explicitly.
+        if (els.interval) els.interval.value = '';
+        if (els.idle) els.idle.value = '';
+        if (els.skipList) els.skipList.innerHTML = '';
+
+        clearIntervalError();
+        mainView.classList.add('is-hidden');
+        els.panel.classList.remove('is-hidden');
+        els.panel.setAttribute('aria-hidden', 'false');
+        mainFooter?.classList.add('is-hidden');
+        intervalFooter?.classList.remove('is-hidden');
+        intervalFooter?.setAttribute('aria-hidden', 'false');
+        setTimeout(() => els.start?.focus?.(), 80);
+    }
+
+    function closeGenerateIntervalModal() {
+        const els = getIntervalEls();
+        const modal = $('template-modal');
+        const mainView = $('template-modal-main-view');
+        const mainFooter = $('template-modal-footer-main');
+        const intervalFooter = $('template-modal-footer-interval');
+        const titleEl = $('template-modal-title');
+        const wasIntervalVisible = !!(els.panel && !els.panel.classList.contains('is-hidden'));
+        clearIntervalError();
+        if (els.panel) {
+            els.panel.classList.add('is-hidden');
+            els.panel.setAttribute('aria-hidden', 'true');
+        }
+        mainView?.classList.remove('is-hidden');
+        mainFooter?.classList.remove('is-hidden');
+        intervalFooter?.classList.add('is-hidden');
+        intervalFooter?.setAttribute('aria-hidden', 'true');
+        if (wasIntervalVisible && titleEl && modal?.dataset?.titleBeforeInterval != null) {
+            titleEl.textContent = modal.dataset.titleBeforeInterval;
+            delete modal.dataset.titleBeforeInterval;
+        }
+    }
+
+    function readSkipRangesMinutes() {
+        const { skipList } = getIntervalEls();
+        const ranges = [];
+        skipList?.querySelectorAll('.template-interval-skip-row').forEach((row) => {
+            const s = row.querySelector('.template-interval-skip-start')?.value || '';
+            const e = row.querySelector('.template-interval-skip-end')?.value || '';
+            if (!s && !e) return;
+            const sm = parseTimeToMinutes(s);
+            const em = parseTimeToMinutes(e);
+            ranges.push({ start: sm, end: em });
+        });
+        return ranges;
+    }
+
+    function generateIntervalSlots() {
+        const els = getIntervalEls();
+        const panel = els.panel;
+        if (!panel) return;
+
+        clearIntervalError();
+
+        const startStr = els.start?.value || '';
+        const endStr = els.end?.value || '';
+        const intervalMin = Number(els.interval?.value);
+        const idleMin = Number(els.idle?.value);
+        const rangeStartMin = parseTimeToMinutes(startStr);
+        const rangeEndMin = parseTimeToMinutes(endStr);
+
+        if (rangeStartMin == null || rangeEndMin == null) {
+            showIntervalError('Please select a valid start and end time.');
+            return;
+        }
+        if (rangeStartMin >= rangeEndMin) {
+            showIntervalError('Time range start must be before end.');
+            return;
+        }
+        if (!Number.isFinite(intervalMin) || intervalMin <= 0) {
+            showIntervalError('Consultation interval must be at least 1 minute.');
+            return;
+        }
+        if (!Number.isFinite(idleMin) || idleMin < 0) {
+            showIntervalError('Idle time must be 0 or more minutes.');
+            return;
+        }
+
+        const rawSkips = readSkipRangesMinutes();
+        for (const r of rawSkips) {
+            if (r.start == null || r.end == null) {
+                showIntervalError('Skip ranges must have valid start and end times.');
+                return;
+            }
+            if (r.start >= r.end) {
+                showIntervalError('Each skip range start must be before end.');
+                return;
+            }
+        }
+
+        const generated = generateSlotsFromInterval(
+            rangeStartMin,
+            rangeEndMin,
+            Math.floor(intervalMin),
+            Math.floor(idleMin),
+            rawSkips,
+        );
+        if (!generated.length) {
+            showIntervalError('No slots generated. Adjust the range/interval/skip settings.');
+            return;
+        }
+
+        const targetType = panel.dataset.targetType || 'week';
+        const targetDay = panel.dataset.targetDay || getSelectedDay() || 'monday';
+        const newSlots = generated.map((s) => ({ start: s.start, end: s.end }));
+
+        if (targetType === 'day') {
+            setDaySlots(newSlots);
+            renderDaySlots();
+        } else {
+            const weekSlots = getWeekSlots();
+            if (!weekSlots[targetDay]) weekSlots[targetDay] = [];
+            weekSlots[targetDay] = newSlots;
+            renderWeekSlots();
+        }
+
+        closeGenerateIntervalModal();
+        showToast(`Generated ${generated.length} slot(s).`);
     }
 
     function toggleWeekDaySections() {
@@ -194,8 +509,19 @@ export function createTemplateApi(ctx) {
         return { type: 'day', slots };
     }
 
-    const showTemplateError = (msg) => setErrorEl('template-error-msg', msg, false);
-    const hideTemplateError = () => setErrorEl('template-error-msg', '', true);
+    function showTemplateError(msg) {
+        const weekId = 'template-week-error-msg';
+        const dayId = 'template-day-error-msg';
+        const activeId = getTemplateType() === 'day' ? dayId : weekId;
+        const inactiveId = getTemplateType() === 'day' ? weekId : dayId;
+        setErrorEl(inactiveId, '', true);
+        setErrorEl(activeId, msg, false);
+    }
+
+    function hideTemplateError() {
+        setErrorEl('template-week-error-msg', '', true);
+        setErrorEl('template-day-error-msg', '', true);
+    }
 
     function showToast(message) {
         document.getElementById('template-success-toast')?.remove();
@@ -209,10 +535,13 @@ export function createTemplateApi(ctx) {
         if (!list) return;
         list.innerHTML = '';
         DAYS.forEach((day) => {
-            const label = document.createElement('label');
-            label.className = 'template-day-item' + (getSelectedDay() === day ? ' selected' : '');
-            label.innerHTML = `<input type="checkbox" ${getSelectedDay() === day ? 'checked' : ''} aria-label="${DAY_LABELS[day]}"><span>${DAY_LABELS[day]}</span>`;
-            label.addEventListener('click', (e) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'template-day-item' + (getSelectedDay() === day ? ' selected' : '');
+            btn.setAttribute('aria-label', DAY_LABELS[day]);
+            btn.setAttribute('aria-pressed', String(getSelectedDay() === day));
+            btn.innerHTML = `<span>${DAY_LABELS[day]}</span>`;
+            btn.addEventListener('click', (e) => {
                 e.preventDefault();
                 syncSlotsFromInputs();
                 setSelectedDay(day);
@@ -220,7 +549,7 @@ export function createTemplateApi(ctx) {
                 renderWeekSlots();
                 populateCopySourceSelect();
             });
-            list.appendChild(label);
+            list.appendChild(btn);
         });
     }
 
@@ -335,6 +664,7 @@ export function createTemplateApi(ctx) {
     }
 
     function openModal(template = null) {
+        closeGenerateIntervalModal();
         setEditingTemplateId(template?.id ?? null);
         const overlay = $('template-modal-overlay');
         const modal = $('template-modal');
@@ -371,7 +701,11 @@ export function createTemplateApi(ctx) {
         setTimeout(() => $('template-name')?.focus(), 100);
     }
 
-    function closeModal() { setEditingTemplateId(null); setModalVisible('template-modal-overlay', 'template-modal', false); }
+    function closeModal() {
+        closeGenerateIntervalModal();
+        setEditingTemplateId(null);
+        setModalVisible('template-modal-overlay', 'template-modal', false);
+    }
 
     function openViewModal(template) {
         const titleEl = $('template-view-title');
@@ -425,6 +759,179 @@ export function createTemplateApi(ctx) {
         setTimeout(() => $('apply-start-date')?.focus(), 100);
     }
     function closeApplyModal() { setModalVisible('apply-modal-overlay', 'apply-modal', false); }
+
+    function closeApplyPreviewModal() {
+        setModalVisible('apply-preview-overlay', 'apply-preview-modal', false);
+        setErrorEl('apply-preview-error', '', true);
+        // Return to apply modal so vet can adjust dates quickly.
+        setModalVisible('apply-modal-overlay', 'apply-modal', true);
+    }
+
+    function formatPreviewDate(dateStr) {
+        if (!dateStr) return '—';
+        return new Date(dateStr + 'T12:00:00').toLocaleDateString(undefined, {
+            month: 'long',
+            day: 'numeric',
+        });
+    }
+
+    function formatPreviewWeekday(dateStr) {
+        if (!dateStr) return '—';
+        return new Date(dateStr + 'T12:00:00').toLocaleDateString(undefined, {
+            weekday: 'long',
+        });
+    }
+
+    function renderApplyPreviewList(previewDays) {
+        const list = $('apply-preview-list');
+        if (!list) return;
+        list.innerHTML = '';
+        (previewDays || []).forEach((d) => {
+            const wrap = document.createElement('div');
+            wrap.className = 'apply-preview-day';
+            const slots = (d.slots || []);
+            const slotsHtml = slots
+                .map((s) => `<div class="apply-preview-slot"><i class="fa fa-clock-o" aria-hidden="true"></i> ${escapeHtml(formatTime12h(s.start))} – ${escapeHtml(formatTime12h(s.end))}</div>`)
+                .join('');
+            const note = d.mode === 'replace'
+                ? '<p class="apply-preview-note"><i class="fa fa-refresh" aria-hidden="true"></i> This day will be replaced.</p>'
+                : '';
+            wrap.innerHTML = `
+                <p class="apply-preview-date">${escapeHtml(formatPreviewDate(d.dateStr))}</p>
+                <p class="apply-preview-weekday">${escapeHtml(formatPreviewWeekday(d.dateStr))}</p>
+                <div class="apply-preview-slots">${slotsHtml || '<span class="apply-preview-note">No slots.</span>'}</div>
+                ${note}
+            `;
+            list.appendChild(wrap);
+        });
+    }
+
+    async function buildApplyPreview(template, startDate, endDate, options = {}) {
+        const user = auth.currentUser;
+        if (!user) throw new Error('Not signed in');
+        const start = parseLocalDate(startDate);
+        const end = parseLocalDate(endDate);
+        if (start > end) throw new Error('Start date must be before or equal to end date');
+
+        const overlaps = (a, b) => (a?.start || '') < (b?.end || '') && (b?.start || '') < (a?.end || '');
+
+        const today = getTodayDateString();
+        const replaceDates = new Set(options.replaceDates || []);
+        const skipDates = new Set(options.skipDates || []);
+        const minAdvance = getMinAdvanceMinutes();
+
+        const preview = [];
+        const current = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+        const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+
+        while (current <= endDay) {
+            const dateStr = toLocalDateString(current);
+            if (dateStr < today) { current.setDate(current.getDate() + 1); continue; }
+            if (skipDates.has(dateStr)) { current.setDate(current.getDate() + 1); continue; }
+
+            const existingDoc = await getDoc(scheduleDoc(user.uid, dateStr));
+            if (existingDoc.exists() && existingDoc.data().blocked === true) { current.setDate(current.getDate() + 1); continue; }
+
+            const newSlots = getSlotsForDateFromTemplate(template, current, minAdvance, true);
+            if (!newSlots.length) { current.setDate(current.getDate() + 1); continue; }
+
+            const existingSlots = (existingDoc.exists() ? (existingDoc.data().slots || []) : []).map((s) => ensureSlotExpiry(s, dateStr));
+            const conflict = getConflictCase(existingSlots, newSlots);
+
+            // NOTE: Case 3 (booked overlap) is handled before preview (we never show preview then).
+            let mode = 'add';
+            let addedSlots = [];
+            if (replaceDates.has(dateStr)) {
+                mode = 'replace';
+                addedSlots = newSlots;
+            } else if (conflict.case === 1 && existingSlots.length > 0) {
+                // Merge only adds non-overlapping template slots.
+                addedSlots = (newSlots || []).filter((n) => !(existingSlots || []).some((e) => overlaps(e, n)));
+            } else {
+                addedSlots = newSlots;
+            }
+
+            if (addedSlots.length) {
+                preview.push({
+                    dateStr,
+                    mode,
+                    slots: addedSlots
+                        .map((s) => ({ start: s.start, end: s.end }))
+                        .filter((s) => s.start && s.end && s.start < s.end)
+                        .sort((a, b) => (a.start || '').localeCompare(b.start || '')),
+                });
+            }
+
+            current.setDate(current.getDate() + 1);
+        }
+
+        return preview;
+    }
+
+    function openApplyPreviewModal(template, startVal, endVal, replaceDates, skipDates, previewDays) {
+        const overlay = $('apply-preview-overlay');
+        if (!overlay) return;
+        overlay.dataset.templateJson = JSON.stringify(template);
+        overlay.dataset.startVal = startVal;
+        overlay.dataset.endVal = endVal;
+        overlay.dataset.replaceDatesJson = JSON.stringify(replaceDates || []);
+        overlay.dataset.skipDatesJson = JSON.stringify(skipDates || []);
+        renderApplyPreviewList(previewDays || []);
+        setErrorEl('apply-preview-error', '', true);
+        setModalVisible('apply-modal-overlay', 'apply-modal', false);
+        setModalVisible('apply-preview-overlay', 'apply-preview-modal', true);
+        setTimeout(() => $('apply-preview-confirm-btn')?.focus?.(), 80);
+    }
+
+    async function openApplyPreviewForOptions(template, startVal, endVal, replaceDates, skipDates) {
+        const errEl = $('apply-error-msg');
+        try {
+            const preview = await buildApplyPreview(template, startVal, endVal, { replaceDates, skipDates });
+            if (!preview.length) {
+                if (errEl) {
+                    errEl.textContent = 'No available slots would be created for this date range (blocked dates and minimum advance may skip all slots).';
+                    errEl.classList.remove('is-hidden');
+                }
+                return;
+            }
+            openApplyPreviewModal(template, startVal, endVal, replaceDates, skipDates, preview);
+        } catch (e) {
+            if (errEl) {
+                errEl.textContent = e?.message || 'Failed to build preview.';
+                errEl.classList.remove('is-hidden');
+            }
+        }
+    }
+
+    function getApplyPreviewOverlayData() {
+        const o = $('apply-preview-overlay');
+        const { templateJson, startVal, endVal, replaceDatesJson, skipDatesJson } = o?.dataset || {};
+        if (!templateJson || !startVal || !endVal) return null;
+        return {
+            template: JSON.parse(templateJson),
+            startVal,
+            endVal,
+            replaceDates: replaceDatesJson ? JSON.parse(replaceDatesJson) : [],
+            skipDates: skipDatesJson ? JSON.parse(skipDatesJson) : [],
+        };
+    }
+
+    async function confirmApplyPreview() {
+        const d = getApplyPreviewOverlayData();
+        if (!d) return;
+        const confirmBtn = $('apply-preview-confirm-btn');
+        const backBtn = $('apply-preview-back-btn');
+        if (confirmBtn) confirmBtn.disabled = true;
+        if (backBtn) backBtn.disabled = true;
+        try {
+            // Close preview first so user sees immediate progress feedback/toast, and we avoid double-submit.
+            setModalVisible('apply-preview-overlay', 'apply-preview-modal', false);
+            await executeApplyWithOptions(d.template, d.startVal, d.endVal, d.replaceDates, d.skipDates);
+        } finally {
+            if (confirmBtn) confirmBtn.disabled = false;
+            if (backBtn) backBtn.disabled = false;
+        }
+    }
     function showConflictModal(analysis, template, startVal, endVal) {
         const count = analysis.case2.length;
         $('conflict-modal-message').textContent = count === 1
@@ -513,6 +1020,7 @@ export function createTemplateApi(ctx) {
             const count = await applyTemplateToDateRange(template, startVal, endVal, { replaceDates, skipDates });
             closeApplyModal();
             closeConflictModal();
+            setModalVisible('apply-preview-overlay', 'apply-preview-modal', false);
             showToast(`Template applied to ${count} day(s).`);
             refreshViews();
         } catch (e) {
@@ -547,12 +1055,8 @@ export function createTemplateApi(ctx) {
                 showConflictModal(analysis, template, startVal, endVal);
                 return;
             }
-            const count = await applyTemplateToDateRange(template, startVal, endVal);
-            closeApplyModal();
-            showToast(`Template applied to ${count} day(s).`);
-            invalidateSchedulesCache();
-            loadSchedulesView();
-            loadWeeklyScheduleView();
+            // No conflicts: show preview first, then apply on confirm.
+            await openApplyPreviewForOptions(template, startVal, endVal, [], []);
         } catch (e) {
             if (errEl) { errEl.textContent = e.message || 'Failed to apply template.'; errEl.classList.remove('is-hidden'); }
         } finally {
@@ -565,8 +1069,20 @@ export function createTemplateApi(ctx) {
         if (!templateJson || !startVal || !endVal || !case2Json) return null;
         return { template: JSON.parse(templateJson), startVal, endVal, case2: JSON.parse(case2Json) };
     }
-    function onConflictReplace() { const d = getConflictOverlayData(); if (!d) return; executeApplyWithOptions(d.template, d.startVal, d.endVal, d.case2, []); }
-    function onConflictCancel() { const d = getConflictOverlayData(); if (!d) return; executeApplyWithOptions(d.template, d.startVal, d.endVal, [], d.case2); }
+    async function onConflictReplace() {
+        const d = getConflictOverlayData();
+        if (!d) return;
+        // Replacement decision shown first; then preview + confirm.
+        setModalVisible('conflict-modal-overlay', 'conflict-modal', false);
+        await openApplyPreviewForOptions(d.template, d.startVal, d.endVal, d.case2, []);
+    }
+    async function onConflictCancel() {
+        const d = getConflictOverlayData();
+        if (!d) return;
+        // Skip conflicting days; then preview + confirm.
+        setModalVisible('conflict-modal-overlay', 'conflict-modal', false);
+        await openApplyPreviewForOptions(d.template, d.startVal, d.endVal, [], d.case2);
+    }
 
     function validateAndSave(loadTemplates) {
         const name = ($('template-name').value || '').trim();
@@ -579,6 +1095,9 @@ export function createTemplateApi(ctx) {
                 const result = validateSlots(slots, slots.length ? DAY_LABELS[day] : null);
                 if (!result.valid) { showTemplateError(result.message); return; }
             }
+            // Require at least one valid slot somewhere in the week.
+            const hasAnyValidSlot = DAYS.some((day) => (weekSlots[day] || []).some((s) => s.start && s.end && s.start < s.end));
+            if (!hasAnyValidSlot) { showTemplateError('Week template must have at least one time slot.'); return; }
         } else {
             const result = validateSlots(getDaySlots());
             if (!result.valid) { showTemplateError(result.message); return; }
@@ -615,9 +1134,11 @@ export function createTemplateApi(ctx) {
     return {
         initWeekSlots, openModal, closeModal, openViewModal, closeViewModal,
         openTemplateActionModal, closeTemplateActionModal, openApplyModal, closeApplyModal,
+        openApplyPreviewModal, closeApplyPreviewModal, confirmApplyPreview,
         showConflictModal, closeConflictModal, executeApplyWithOptions, doApplyTemplate, getConflictOverlayData, onConflictReplace, onConflictCancel,
         analyzeConflictForDateRange, applyTemplateToDateRange,
         createSlotRow, renderSlotsList, renderWeekSlots, renderDaySlots, addSlotRow,
+        openGenerateIntervalModal, closeGenerateIntervalModal, addGenerateIntervalSkipRow, generateIntervalSlots,
         toggleWeekDaySections, syncTemplateTypeUI, renderDaysList,
         populateCopySourceSelect, populateCopyFromTemplateSelect, bindTemplateCopyDropdowns,
         copyFromSourceWeek, copyFromTemplate, syncSlotsFromInputs, validateSlots, getSlotsForSave,
