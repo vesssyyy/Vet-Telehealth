@@ -717,13 +717,43 @@ export function createTemplateApi(ctx) {
         if (template.type === 'week' && template.days) {
             scheduleEl.innerHTML = DAYS.map((day) => {
                 const slots = template.days[day];
-                if (!slots?.length) return `<div class="template-view-day"><span class="template-view-day-name">${DAY_LABELS[day]}</span><p>Day off</p></div>`;
-                const list = slots.map((s) => `${escapeHtml(formatTime12h(s.start))} – ${escapeHtml(formatTime12h(s.end))}`).join('</li><li>');
-                return `<div class="template-view-day"><span class="template-view-day-name">${DAY_LABELS[day]}</span><ul class="template-view-slots"><li>${list}</li></ul></div>`;
+                if (!slots?.length) {
+                    return `
+                        <div class="template-view-day">
+                            <div class="template-view-day-header">
+                                <span class="template-view-day-name">${DAY_LABELS[day]}</span>
+                                <span class="template-view-day-badge">Day off</span>
+                            </div>
+                        </div>
+                    `;
+                }
+                const list = slots
+                    .map((s) => `
+                        <li class="template-view-slot">
+                            <i class="fa fa-clock-o" aria-hidden="true"></i>
+                            <span>${escapeHtml(formatTime12h(s.start))} – ${escapeHtml(formatTime12h(s.end))}</span>
+                        </li>
+                    `)
+                    .join('');
+                return `
+                    <div class="template-view-day">
+                        <div class="template-view-day-header">
+                            <span class="template-view-day-name">${DAY_LABELS[day]}</span>
+                        </div>
+                        <ul class="template-view-slots">${list}</ul>
+                    </div>
+                `;
             }).join('');
         } else if (template.type === 'day' && template.slots?.length) {
-            const list = template.slots.map((s) => `${escapeHtml(formatTime12h(s.start))} – ${escapeHtml(formatTime12h(s.end))}`).join('</li><li>');
-            scheduleEl.innerHTML = `<ul class="template-view-slots"><li>${list}</li></ul>`;
+            const list = template.slots
+                .map((s) => `
+                    <li class="template-view-slot">
+                        <i class="fa fa-clock-o" aria-hidden="true"></i>
+                        <span>${escapeHtml(formatTime12h(s.start))} – ${escapeHtml(formatTime12h(s.end))}</span>
+                    </li>
+                `)
+                .join('');
+            scheduleEl.innerHTML = `<ul class="template-view-slots">${list}</ul>`;
         } else {
             scheduleEl.innerHTML = '<p>No schedule</p>';
         }
