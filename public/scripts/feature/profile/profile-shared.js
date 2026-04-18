@@ -94,7 +94,7 @@ export function initProfile(config) {
         specializationView: 'profile-specialization-view', licenseView: 'profile-license-view',
         specialization: 'profile-specialization', license: 'profile-license',
         bioCount: 'bio-char-count', btnSave: 'btn-save-profile',
-        btnEditProfile: 'btn-edit-profile', btnCancelEdit: 'btn-cancel-edit',
+        btnEditProfile: 'btn-edit-profile', btnCancelEdit: 'btn-cancel-edit', btnCloseEdit: 'btn-close-edit-profile',
         btnChangePhoto: 'btn-change-photo', btnRemovePhoto: 'btn-remove-photo',
         btnUseEmailPhoto: 'btn-use-email-photo', photoInput: 'profile-photo-input',
         editModal: 'edit-profile-modal', formPassword: 'form-change-password',
@@ -394,6 +394,7 @@ export function initProfile(config) {
 
         D.btnEditProfile?.addEventListener('click', openEditModal);
         D.btnCancelEdit?.addEventListener('click', closeEditModal);
+        D.btnCloseEdit?.addEventListener('click', closeEditModal);
         D.btnSave?.addEventListener('click', saveProfile);
         D.btnChangePhoto?.addEventListener('click', () => D.photoInput?.click());
         D.btnRemovePhoto?.addEventListener('click', removePhoto);

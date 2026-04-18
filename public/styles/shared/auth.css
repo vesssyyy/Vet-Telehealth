@@ -184,3 +184,24 @@ body {
     .tab { font-size: 0.875rem; padding: 0.5rem 0.75rem; }
     .field-row { grid-template-columns: 1fr; }
 }
+
+/* iOS: keyboard shrinks the visual viewport; keep the form scrollable (global ios-keyboard-viewport skips locking html on .auth-page). */
+@supports (-webkit-touch-callout: none) {
+    @media (max-width: 768px) {
+        body.auth-page {
+            overflow: hidden;
+            min-height: 100vh;
+            min-height: 100dvh;
+        }
+        body.auth-page .page-wrap {
+            flex: 1 1 auto;
+            min-height: 0;
+            max-height: 100dvh;
+            align-items: flex-start;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior-y: contain;
+        }
+    }
+}

@@ -354,11 +354,11 @@
     </div>
     <div id="add-pet-overlay" class="add-pet-overlay" aria-hidden="true"></div>
     <aside id="add-pet-panel" class="add-pet-panel" role="dialog" aria-modal="true" aria-labelledby="add-pet-title" aria-hidden="true">
-        <div class="add-pet-panel-inner">
             <div class="add-pet-panel-header">
                 <h2 id="add-pet-title" class="add-pet-panel-title"><i class="fa fa-paw" aria-hidden="true"></i> Add Pet</h2>
                 <button type="button" id="add-pet-close" class="add-pet-close-btn" aria-label="Close panel"><i class="fa fa-times" aria-hidden="true"></i></button>
             </div>
+            <div class="add-pet-panel-scroll">
             <form id="add-pet-form" class="add-pet-form" novalidate>
                 <div class="add-pet-field add-pet-image-field add-pet-image-at-top">
                     <label>Pet Image</label>
@@ -422,7 +422,7 @@
                     <button type="submit" class="btn btn-primary"><i class="fa fa-check" aria-hidden="true"></i> Add Pet</button>
                 </div>
             </form>
-        </div>
+            </div>
     </aside>
 
     <script src="../../scripts/core/app/spa-router.js"></script>

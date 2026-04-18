@@ -2,11 +2,24 @@
 (function () {
     'use strict';
 
+    function syncDashboardHeaderClass() {
+        var main = document.querySelector('.main-content');
+        if (!main) return;
+        var hasDash = Boolean(document.querySelector('.dashboard-header'));
+        main.classList.toggle('has-dashboard-header', hasDash);
+        document.body.classList.toggle('has-dashboard-header', hasDash);
+    }
+
     function setVisualViewportHeight() {
-        var vh = (window.visualViewport && window.visualViewport.height > 0)
-            ? window.visualViewport.height
-            : window.innerHeight;
+        var vv = window.visualViewport;
+        var vh = (vv && vv.height > 0) ? vv.height : window.innerHeight;
         document.documentElement.style.setProperty('--vh', vh + 'px');
+        // iOS Safari can shift the visual viewport when the URL bar / keyboard animates.
+        // Expose offsets so fixed/sticky layouts can compensate if needed.
+        var top = (vv && typeof vv.offsetTop === 'number') ? vv.offsetTop : 0;
+        var left = (vv && typeof vv.offsetLeft === 'number') ? vv.offsetLeft : 0;
+        document.documentElement.style.setProperty('--vv-top', top + 'px');
+        document.documentElement.style.setProperty('--vv-left', left + 'px');
     }
 
     setVisualViewportHeight();
@@ -14,6 +27,7 @@
     window.addEventListener('orientationchange', setVisualViewportHeight);
     if (window.visualViewport) {
         window.visualViewport.addEventListener('resize', setVisualViewportHeight);
+        window.visualViewport.addEventListener('scroll', setVisualViewportHeight);
     }
     window.addEventListener('load', function () { setTimeout(setVisualViewportHeight, 100); });
 
@@ -26,6 +40,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', function () {
+        syncDashboardHeaderClass();
         var menuToggle = document.querySelector('.mobile-menu-toggle');
         var sidebar = document.querySelector('.sidebar');
         var overlay = document.querySelector('.sidebar-overlay');
@@ -119,14 +134,16 @@
             if (document.body.classList.contains('messages-page')) return false;
             if (document.body.classList.contains('payment-page')) return false;
             if (document.body.classList.contains('video-call-fullscreen')) return false;
-            if (document.querySelector('.dashboard-header')) return false;
+            if (document.body.classList.contains('has-dashboard-header') || document.querySelector('.dashboard-header')) return false;
             return true;
         }
         function applyScrollRootClass() {
             if (shouldUsePetownerScrollMode()) {
                 document.documentElement.classList.add('petowner-scroll-root');
+                document.body.classList.add('petowner-scroll-body');
             } else {
                 document.documentElement.classList.remove('petowner-scroll-root');
+                document.body.classList.remove('petowner-scroll-body');
                 document.body.classList.remove('petowner-keyboard-open');
             }
         }
@@ -137,10 +154,16 @@
             }
             var vv = window.visualViewport;
             if (!vv) return;
-            var keyboardLikelyOpen = vv.height > 0 && vv.height < window.innerHeight * 0.82;
+            // Use a px threshold; percentage thresholds vary across iOS devices / orientations.
+            var delta = window.innerHeight - vv.height;
+            var keyboardLikelyOpen = vv.height > 0 && delta > 140;
             document.body.classList.toggle('petowner-keyboard-open', keyboardLikelyOpen);
+            if (typeof window.__telehealthIOSViewportUpdate === 'function') {
+                window.__telehealthIOSViewportUpdate();
+            }
         }
         function onViewportChange() {
+            syncDashboardHeaderClass();
             applyScrollRootClass();
             syncPetownerKeyboardOpen();
         }
@@ -194,5 +217,19 @@
         else document.addEventListener('DOMContentLoaded', function () {
             obs.observe(document.body, { childList: true, subtree: true });
         });
+    })();
+
+    /** Load iOS keyboard / viewport fix (same origin as this script). Android: no-op inside. */
+    (function injectIosKeyboardViewport() {
+        try {
+            var sc = document.querySelector('script[src*="sidebar.js"]');
+            if (!sc || !sc.src) return;
+            var url = new URL(sc.src, window.location.href);
+            url.pathname = url.pathname.replace(/\/app\/sidebar\.js$/i, '/ui/ios-keyboard-viewport.js');
+            var x = document.createElement('script');
+            x.src = url.toString();
+            x.async = false;
+            document.head.appendChild(x);
+        } catch (e) { /* noop */ }
     })();
 })();

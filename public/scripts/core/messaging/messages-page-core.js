@@ -28,6 +28,32 @@ import {
 const $ = id => document.getElementById(id);
 const isMobileView = () => window.matchMedia('(max-width: 768px)').matches;
 
+/** iOS / iPadOS Safari (excludes Android). */
+function isIOSMobile() {
+    return typeof navigator !== 'undefined' &&
+        (/iP(ad|hone|od)/.test(navigator.userAgent || '') ||
+            (navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1));
+}
+
+/**
+ * Safari scrolls the window when focusing the compose field; our UI scrolls #messages-chat-body.
+ * That mismatch causes a recoil + blank gap until the user scrolls. Android unchanged.
+ */
+function stabilizeMessagesWindowScrollIOS() {
+    if (!isIOSMobile()) return;
+    try {
+        window.scrollTo(0, 0);
+        if (document.documentElement) document.documentElement.scrollTop = 0;
+        if (document.body) document.body.scrollTop = 0;
+    } catch (_) { /* noop */ }
+}
+
+function notifyGlobalIOSViewport() {
+    if (typeof window !== 'undefined' && typeof window.__telehealthIOSViewportUpdate === 'function') {
+        window.__telehealthIOSViewportUpdate();
+    }
+}
+
 // Live listener page size; older messages load when scrolling up.
 const MESSAGES_TAIL_PAGE_SIZE = 48;
 const MESSAGES_OLDER_PAGE_SIZE = 40;
@@ -784,18 +810,62 @@ export function createMessaging(config) {
         // Form
         refs.form?.addEventListener('submit', onFormSubmit);
 
+        // iOS Safari often does not shrink visualViewport enough when the keyboard opens, so
+        // body.messages-keyboard-open never applied — fixed .bottom-nav then stays visible but
+        // paints in the wrong place (above the URL bar). On iOS only, treat compose focus as
+        // keyboard-open; Android keeps viewport-only detection (unchanged behavior).
+        const syncMessagesKeyboardChrome = () => {
+            if (!isMobileView()) {
+                setKeyboardOpenClass(false);
+                notifyGlobalIOSViewport();
+                return;
+            }
+            const focusedCompose = document.body.classList.contains('messages-input-focused');
+            const vv = window.visualViewport;
+            let vvSuggestsKeyboard = false;
+            if (vv && vv.height > 0) {
+                if (isIOSMobile()) {
+                    const delta = window.innerHeight - vv.height;
+                    vvSuggestsKeyboard = delta > 100 || vv.height < window.innerHeight * 0.82;
+                } else {
+                    vvSuggestsKeyboard = vv.height < window.innerHeight * 0.82;
+                }
+            }
+            const keyboardOpen = isIOSMobile() ? (focusedCompose || vvSuggestsKeyboard) : vvSuggestsKeyboard;
+            setKeyboardOpenClass(keyboardOpen);
+            notifyGlobalIOSViewport();
+        };
+
         // Compose
         refs.composeInput?.addEventListener('input', resizeComposeInput);
         refs.composeInput?.addEventListener('paste', () => setTimeout(resizeComposeInput, 0));
         refs.composeInput?.addEventListener('focus', () => {
             if (!isMobileView()) return;
             document.body.classList.add('messages-input-focused');
-            scrollThreadToBottom({ force: true });
+            syncMessagesKeyboardChrome();
+            if (isIOSMobile()) {
+                stabilizeMessagesWindowScrollIOS();
+                requestAnimationFrame(() => {
+                    stabilizeMessagesWindowScrollIOS();
+                    requestAnimationFrame(() => {
+                        stabilizeMessagesWindowScrollIOS();
+                        scrollThreadToBottom({ force: true });
+                    });
+                });
+                setTimeout(() => {
+                    stabilizeMessagesWindowScrollIOS();
+                    scrollThreadToBottom({ force: true });
+                }, 120);
+                setTimeout(stabilizeMessagesWindowScrollIOS, 280);
+            } else {
+                scrollThreadToBottom({ force: true });
+            }
         });
         // Defer layout collapse on blur so Send’s first tap is not lost when the keyboard reflows the bar.
         refs.composeInput?.addEventListener('blur', () => {
             if (!isMobileView()) {
                 document.body.classList.remove('messages-input-focused');
+                syncMessagesKeyboardChrome();
                 return;
             }
             requestAnimationFrame(() => {
@@ -804,6 +874,7 @@ export function createMessaging(config) {
                     const ae = document.activeElement;
                     if (wrap && ae && wrap.contains(ae)) return;
                     document.body.classList.remove('messages-input-focused');
+                    syncMessagesKeyboardChrome();
                 });
             });
         });
@@ -818,12 +889,18 @@ export function createMessaging(config) {
 
             const vvMaybePinThread = () => {
                 if (!isMobileView()) return;
-                const vv = window.visualViewport;
-                const keyboardOpen = Boolean(vv && vv.height > 0 && vv.height < window.innerHeight * 0.82);
-                setKeyboardOpenClass(keyboardOpen);
+                if (isIOSMobile()) stabilizeMessagesWindowScrollIOS();
+                syncMessagesKeyboardChrome();
                 const focused = document.body.classList.contains('messages-input-focused');
                 if (focused || wasNearBottomBeforeResize) {
-                    scrollThreadToBottom({ force: true });
+                    if (isIOSMobile()) {
+                        requestAnimationFrame(() => {
+                            stabilizeMessagesWindowScrollIOS();
+                            scrollThreadToBottom({ force: true });
+                        });
+                    } else {
+                        scrollThreadToBottom({ force: true });
+                    }
                 }
             };
 
@@ -855,6 +932,7 @@ export function createMessaging(config) {
             if (document.hidden) {
                 document.body.classList.remove('messages-input-focused');
                 document.body.classList.remove('messages-keyboard-open');
+                notifyGlobalIOSViewport();
             }
         });
 

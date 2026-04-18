@@ -1,0 +1,12 @@
+/*
+ * iOS Safari zooms the page when focusing inputs whose computed font-size is below ~16px.
+ * Apply a minimum 16px to text-entry controls on typical touch viewports.
+ * Excludes controls where 16px would be wrong (checkbox, radio, file, etc.).
+ */
+@media (max-width: 1024px) {
+    textarea,
+    select,
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]) {
+        font-size: 16px !important;
+    }
+}

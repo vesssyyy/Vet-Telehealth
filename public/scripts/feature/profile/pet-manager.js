@@ -190,6 +190,8 @@ function setPanelOpen(open) {
     overlay?.classList[method]('is-open');
     overlay?.setAttribute('aria-hidden', !open);
     panel?.setAttribute('aria-hidden', !open);
+    document.body.classList.toggle('add-pet-panel-open', open);
+    document.documentElement.classList.toggle('add-pet-panel-open', open);
     document.body.style.overflow = open ? 'hidden' : '';
 }
 function clearPendingPetPhoto() {

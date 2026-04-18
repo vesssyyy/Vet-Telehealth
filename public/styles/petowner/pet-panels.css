@@ -35,6 +35,7 @@
 .add-pet-overlay {
     position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); z-index: 1100;
     opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease;
+    overscroll-behavior: none;
 }
 .add-pet-overlay.is-open { opacity: 1; visibility: visible; }
 
@@ -126,14 +127,41 @@
 }
 
 .add-pet-panel {
-    position: fixed; top: 0; right: 0; width: 100%; max-width: 420px; height: var(--vh, 100vh);
-    background: var(--bg-white); box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
-    z-index: 1200; transform: translateX(100%);
-    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1); overflow-y: auto;
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 100%;
+    max-width: 420px;
+    height: var(--vh, 100vh);
+    max-height: var(--vh, 100vh);
+    background: var(--bg-white);
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
+    z-index: 1200;
+    transform: translateX(100%);
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 .add-pet-panel.is-open { transform: translateX(0); }
-.add-pet-panel-inner { padding: 25px 28px 40px; min-height: 100%; }
-.add-pet-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+/* Scroll only inside the form area (Android keyboard: avoid chaining scroll to page / bottom nav) */
+.add-pet-panel-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding: 0 28px 40px;
+}
+.add-pet-panel-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 25px 28px 0;
+    margin-bottom: 28px;
+}
 .add-pet-panel-title { font-size: 22px; font-weight: 600; color: var(--text-dark); margin: 0; display: flex; align-items: center; gap: 10px; }
 .add-pet-panel-title i { color: var(--primary-color); }
 .add-pet-close-btn {
@@ -417,6 +445,25 @@
 @media (max-width: 480px) {
     .add-pet-panel { max-width: 100%; }
     .add-pet-row { grid-template-columns: 1fr; }
+}
+
+/* Lock document behind add/edit pet panel (Android + keyboard: stop scroll chaining to page / bottom nav) */
+html.add-pet-panel-open {
+    height: 100%;
+    overflow: hidden;
+}
+body.add-pet-panel-open {
+    overflow: hidden !important;
+}
+@media (max-width: 768px) {
+    body.add-pet-panel-open .main-content .content-wrapper {
+        overflow: hidden !important;
+        overscroll-behavior: none;
+    }
+    body.add-pet-panel-open .main-content.has-dashboard-header {
+        overflow: hidden !important;
+        max-height: var(--vh, 100vh);
+    }
 }
 
 /* Profile — pet list */

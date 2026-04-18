@@ -9,16 +9,20 @@
         height: 100%;
         overflow: hidden;
     }
-    body:not(.messages-page):not(.payment-page):not(:has(.dashboard-header)):not(.video-call-fullscreen) {
+    body.petowner-scroll-body:not(.messages-page):not(.payment-page):not(.has-dashboard-header):not(.video-call-fullscreen) {
         height: 100%;
         max-height: 100%;
         overflow: hidden;
+        /* Prevent iOS "blank rubber-band scroll" outside the internal scroller. */
+        position: fixed;
+        width: 100%;
+        inset: 0;
     }
-    body:not(.messages-page):not(.payment-page):not(:has(.dashboard-header)):not(.video-call-fullscreen) .main-content .content-wrapper {
+    body.petowner-scroll-body:not(.messages-page):not(.payment-page):not(.has-dashboard-header):not(.video-call-fullscreen) .main-content .content-wrapper {
         min-height: 0 !important;
         overscroll-behavior-y: contain;
     }
-    body.petowner-keyboard-open:not(.messages-page):not(.payment-page) .main-content:not(:has(.dashboard-header)) {
+    body.petowner-keyboard-open:not(.messages-page):not(.payment-page):not(.has-dashboard-header) .main-content {
         height: calc(var(--vh, 100vh) - env(safe-area-inset-bottom, 0));
         max-height: calc(var(--vh, 100vh) - env(safe-area-inset-bottom, 0));
     }
@@ -28,7 +32,7 @@
         transform: translateY(110%);
         transition: transform 0.2s ease, opacity 0.2s ease;
     }
-    body.petowner-keyboard-open:not(.messages-page):not(.payment-page) .main-content:not(:has(.dashboard-header)) .content-wrapper {
+    body.petowner-keyboard-open:not(.messages-page):not(.payment-page):not(.has-dashboard-header) .main-content .content-wrapper {
         padding-bottom: max(12px, env(safe-area-inset-bottom, 0));
     }
 }

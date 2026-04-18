@@ -710,12 +710,18 @@ function initPaymentMobileKeyboardLayout() {
     function syncKeyboardClass() {
         if (mq && !mq.matches) {
             document.body.classList.remove('payment-keyboard-open');
+            if (typeof window.__telehealthIOSViewportUpdate === 'function') {
+                window.__telehealthIOSViewportUpdate();
+            }
             return;
         }
         var vv = window.visualViewport;
         if (!vv) return;
         var open = vv.height > 0 && vv.height < window.innerHeight * 0.82;
         document.body.classList.toggle('payment-keyboard-open', open);
+        if (typeof window.__telehealthIOSViewportUpdate === 'function') {
+            window.__telehealthIOSViewportUpdate();
+        }
     }
     if (window.visualViewport) {
         window.visualViewport.addEventListener('resize', syncKeyboardClass);

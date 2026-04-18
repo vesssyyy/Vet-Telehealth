@@ -1,3 +1,6 @@
+@import url('./ios-form-no-zoom.css');
+@import url('./ios-keyboard-viewport.css');
+
 /* ~75% visual scale on desktop; matches mobile breakpoint in shared layouts (768px).
    Root zoom shrinks layout vs the real viewport — compensate vh-based lengths so the shell
    still fills the window (avoids white band under sidebar/main). */

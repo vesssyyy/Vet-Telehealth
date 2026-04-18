@@ -1,0 +1,17 @@
+/*
+ * iOS: Safari scrolls the layout viewport when the keyboard opens; JS toggles
+ * html.ios-keyboard-viewport-active (see scripts/core/ui/ios-keyboard-viewport.js).
+ * Android: class is never set — these rules never apply.
+ */
+@supports (-webkit-touch-callout: none) {
+    @media (max-width: 768px) {
+        html.ios-keyboard-viewport-active {
+            overflow: hidden;
+            height: 100%;
+        }
+        /* Reduce stray gap between page content and keyboard when the URL bar / vv shifts */
+        html.ios-keyboard-viewport-active body:not(.video-call-fullscreen) {
+            min-height: 0;
+        }
+    }
+}

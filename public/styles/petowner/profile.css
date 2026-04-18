@@ -1,3 +1,45 @@
 /* Pet Owner profile — delegates to shared profile styles */
 @import '../shared/profile.css';
 @import './pet-panels.css';
+
+/* Edit Profile — mobile full-screen sheet + header X (align with add/edit pet panel) */
+@media (max-width: 768px) {
+    #edit-profile-modal.modal-overlay {
+        padding: 0;
+        align-items: stretch;
+        justify-content: stretch;
+    }
+    #edit-profile-modal .modal-content.modal-edit-profile {
+        max-width: none;
+        width: 100%;
+        min-height: var(--vh, 100vh);
+        min-height: 100dvh;
+        border-radius: 0;
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+        overflow: hidden;
+        box-shadow: none;
+    }
+    #edit-profile-modal .edit-profile-modal-header {
+        flex-shrink: 0;
+        margin-bottom: 0;
+        padding: 20px 20px 16px;
+        border-bottom: 1px solid #e8ecf1;
+    }
+    #edit-profile-modal .modal-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        margin-bottom: 0;
+        padding: 20px 20px 24px;
+    }
+    #edit-profile-modal .modal-actions {
+        flex-shrink: 0;
+        margin: 0;
+        padding: 16px 20px calc(18px + env(safe-area-inset-bottom, 0));
+        border-top: 1px solid #e8ecf1;
+        background: #fff;
+    }
+}
