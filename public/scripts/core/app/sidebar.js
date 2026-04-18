@@ -105,6 +105,59 @@
         });
     });
 
+    var petownerMobileKbInitDone = false;
+    /** Pet owner pages with bottom nav: bounded scroll + keyboard layout (excludes messages, payment, dashboard, video call). */
+    function initPetownerMobileKeyboardChrome() {
+        if (petownerMobileKbInitDone) return;
+        petownerMobileKbInitDone = true;
+        function mq768() {
+            return window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+        }
+        function shouldUsePetownerScrollMode() {
+            if (!mq768()) return false;
+            if (!document.querySelector('.bottom-nav')) return false;
+            if (document.body.classList.contains('messages-page')) return false;
+            if (document.body.classList.contains('payment-page')) return false;
+            if (document.body.classList.contains('video-call-fullscreen')) return false;
+            if (document.querySelector('.dashboard-header')) return false;
+            return true;
+        }
+        function applyScrollRootClass() {
+            if (shouldUsePetownerScrollMode()) {
+                document.documentElement.classList.add('petowner-scroll-root');
+            } else {
+                document.documentElement.classList.remove('petowner-scroll-root');
+                document.body.classList.remove('petowner-keyboard-open');
+            }
+        }
+        function syncPetownerKeyboardOpen() {
+            if (!shouldUsePetownerScrollMode()) {
+                document.body.classList.remove('petowner-keyboard-open');
+                return;
+            }
+            var vv = window.visualViewport;
+            if (!vv) return;
+            var keyboardLikelyOpen = vv.height > 0 && vv.height < window.innerHeight * 0.82;
+            document.body.classList.toggle('petowner-keyboard-open', keyboardLikelyOpen);
+        }
+        function onViewportChange() {
+            applyScrollRootClass();
+            syncPetownerKeyboardOpen();
+        }
+        applyScrollRootClass();
+        window.addEventListener('resize', onViewportChange);
+        document.addEventListener('visibilitychange', function () {
+            if (document.hidden) document.body.classList.remove('petowner-keyboard-open');
+        });
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', syncPetownerKeyboardOpen);
+            window.visualViewport.addEventListener('scroll', syncPetownerKeyboardOpen);
+        }
+        syncPetownerKeyboardOpen();
+    }
+    document.addEventListener('DOMContentLoaded', initPetownerMobileKeyboardChrome);
+    if (document.readyState !== 'loading') initPetownerMobileKeyboardChrome();
+
     // Fade in dynamically inserted images on load; skip if already decoded (e.g. from cache).
     (function () {
         var DUR = '0.35s';

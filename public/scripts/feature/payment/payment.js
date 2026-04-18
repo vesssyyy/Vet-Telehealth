@@ -700,3 +700,37 @@ if (params.get('booking') === '1') {
     if (placeholderText) placeholderText.textContent = 'Open this page from the booking flow (Appointments -> book -> pay) to see your summary and pay.';
 }
 
+/** Mobile: sync keyboard / visual viewport so scroll stays bounded and bottom nav does not create blank gaps. */
+function initPaymentMobileKeyboardLayout() {
+    if (typeof document === 'undefined') return;
+    if (!document.body.classList.contains('payment-page')) return;
+    document.documentElement.classList.add('payment-page-root');
+
+    var mq = typeof window.matchMedia === 'function' ? window.matchMedia('(max-width: 768px)') : null;
+    function syncKeyboardClass() {
+        if (mq && !mq.matches) {
+            document.body.classList.remove('payment-keyboard-open');
+            return;
+        }
+        var vv = window.visualViewport;
+        if (!vv) return;
+        var open = vv.height > 0 && vv.height < window.innerHeight * 0.82;
+        document.body.classList.toggle('payment-keyboard-open', open);
+    }
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', syncKeyboardClass);
+        window.visualViewport.addEventListener('scroll', syncKeyboardClass);
+    }
+    window.addEventListener('resize', syncKeyboardClass);
+    document.addEventListener('visibilitychange', function () {
+        if (document.hidden) document.body.classList.remove('payment-keyboard-open');
+    });
+    syncKeyboardClass();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPaymentMobileKeyboardLayout);
+} else {
+    initPaymentMobileKeyboardLayout();
+}
+

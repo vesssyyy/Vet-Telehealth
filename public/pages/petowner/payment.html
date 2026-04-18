@@ -315,6 +315,35 @@
         }
         .payment-policy-notice strong { font-weight: 700; }
 
+        /* Mobile: avoid extra blank scroll + rubber-band past bottom nav when keyboard is open */
+        body.payment-page {
+            overflow-x: hidden;
+        }
+        @media (max-width: 768px) {
+            html.payment-page-root,
+            body.payment-page {
+                height: 100%;
+                max-height: 100%;
+                overflow: hidden;
+            }
+            .content-wrapper.payment-page {
+                min-height: 0 !important;
+                overscroll-behavior-y: contain;
+            }
+            .payment-page-inner {
+                min-height: 0;
+            }
+            body.payment-keyboard-open .main-content {
+                height: calc(var(--vh, 100vh) - env(safe-area-inset-bottom, 0));
+                max-height: calc(var(--vh, 100vh) - env(safe-area-inset-bottom, 0));
+            }
+            body.payment-keyboard-open .bottom-nav {
+                opacity: 0;
+                pointer-events: none;
+                transform: translateY(110%);
+                transition: transform 0.2s ease, opacity 0.2s ease;
+            }
+        }
         @media (max-width: 768px) {
             .content-wrapper.payment-page {
                 padding: 10px 10px max(20px, calc(12px + env(safe-area-inset-bottom, 0)));
@@ -372,6 +401,10 @@
                 margin-top: 8px;
             }
             .payment-qr-panel { padding: 12px; margin-top: 12px; }
+            /* After base mobile padding above — tighter bottom when keyboard is open (avoids gap above keyboard) */
+            body.payment-keyboard-open .content-wrapper.payment-page {
+                padding-bottom: max(12px, env(safe-area-inset-bottom, 0));
+            }
         }
         @media (max-width: 380px) {
             .content-wrapper.payment-page { padding-left: 8px; padding-right: 8px; }
@@ -414,7 +447,7 @@
         }
     </style>
 </head>
-<body>
+<body class="payment-page">
     <div class="sidebar-overlay"></div>
 
     <aside class="sidebar">

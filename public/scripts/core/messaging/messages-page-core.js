@@ -33,6 +33,31 @@ const MESSAGES_TAIL_PAGE_SIZE = 48;
 const MESSAGES_OLDER_PAGE_SIZE = 40;
 const MESSAGES_SCROLL_LOAD_THRESHOLD_PX = 100;
 
+function getThreadBodyEl() {
+    return document.getElementById('messages-chat-body');
+}
+
+function isThreadNearBottom(body, thresholdPx = 64) {
+    if (!body) return true;
+    const distance = body.scrollHeight - body.scrollTop - body.clientHeight;
+    return distance <= thresholdPx;
+}
+
+function scrollThreadToBottom({ force = false } = {}) {
+    const body = getThreadBodyEl();
+    if (!body) return;
+    if (!force && !isThreadNearBottom(body)) return;
+    requestAnimationFrame(() => {
+        const b = getThreadBodyEl();
+        if (!b) return;
+        b.scrollTop = b.scrollHeight;
+    });
+}
+
+function setKeyboardOpenClass(isOpen) {
+    document.body.classList.toggle('messages-keyboard-open', Boolean(isOpen));
+}
+
 // Shared messages UI factory for pet owner and vet messaging pages.
 export function createMessaging(config) {
     const {
@@ -542,12 +567,14 @@ export function createMessaging(config) {
         const cn = snapshot?.conditionName || '';
         if (nameEl) nameEl.textContent = (sn || cn) ? `Analysis: ${sn || cn}` : 'Skin analysis';
         prev?.classList.remove('is-hidden');
+        scrollThreadToBottom({ force: true });
     }
 
     // Navigation
     function goBackToList() {
         refs.composeInput?.blur();
         document.body.classList.remove('messages-input-focused');
+        document.body.classList.remove('messages-keyboard-open');
         if (state.incomingDeliveredTimer) {
             clearTimeout(state.incomingDeliveredTimer);
             state.incomingDeliveredTimer = null;
@@ -760,7 +787,11 @@ export function createMessaging(config) {
         // Compose
         refs.composeInput?.addEventListener('input', resizeComposeInput);
         refs.composeInput?.addEventListener('paste', () => setTimeout(resizeComposeInput, 0));
-        refs.composeInput?.addEventListener('focus', () => { if (isMobileView()) document.body.classList.add('messages-input-focused'); });
+        refs.composeInput?.addEventListener('focus', () => {
+            if (!isMobileView()) return;
+            document.body.classList.add('messages-input-focused');
+            scrollThreadToBottom({ force: true });
+        });
         // Defer layout collapse on blur so Send’s first tap is not lost when the keyboard reflows the bar.
         refs.composeInput?.addEventListener('blur', () => {
             if (!isMobileView()) {
@@ -778,6 +809,24 @@ export function createMessaging(config) {
         });
         if (window.visualViewport) {
             let vvTimer = null;
+            let wasNearBottomBeforeResize = true;
+
+            const vvRememberNearBottom = () => {
+                const body = getThreadBodyEl();
+                wasNearBottomBeforeResize = isThreadNearBottom(body, 80);
+            };
+
+            const vvMaybePinThread = () => {
+                if (!isMobileView()) return;
+                const vv = window.visualViewport;
+                const keyboardOpen = Boolean(vv && vv.height > 0 && vv.height < window.innerHeight * 0.82);
+                setKeyboardOpenClass(keyboardOpen);
+                const focused = document.body.classList.contains('messages-input-focused');
+                if (focused || wasNearBottomBeforeResize) {
+                    scrollThreadToBottom({ force: true });
+                }
+            };
+
             const vvCollapseIfKeyboardClosed = () => {
                 if (!isMobileView() || !window.visualViewport) return;
                 if (window.visualViewport.height <= window.innerHeight * 0.75) return;
@@ -793,11 +842,20 @@ export function createMessaging(config) {
                     if (ci && document.activeElement === ci) ci.blur();
                 }, 180);
             };
+            window.visualViewport.addEventListener('resize', vvRememberNearBottom);
+            window.visualViewport.addEventListener('scroll', vvRememberNearBottom);
             window.visualViewport.addEventListener('resize', vvCollapseIfKeyboardClosed);
             window.visualViewport.addEventListener('scroll', vvCollapseIfKeyboardClosed);
+            window.visualViewport.addEventListener('resize', vvMaybePinThread);
+            window.visualViewport.addEventListener('scroll', vvMaybePinThread);
+            // Initial evaluation (e.g. returning from history/back).
+            vvMaybePinThread();
         }
         document.addEventListener('visibilitychange', () => {
-            if (document.hidden) document.body.classList.remove('messages-input-focused');
+            if (document.hidden) {
+                document.body.classList.remove('messages-input-focused');
+                document.body.classList.remove('messages-keyboard-open');
+            }
         });
 
         // Emoji
@@ -815,6 +873,9 @@ export function createMessaging(config) {
 
         // Attachment
         refs.attachBtn?.addEventListener('click', () => refs.attachInput?.click());
+        refs.attachInput?.addEventListener('change', () => {
+            scrollThreadToBottom({ force: true });
+        });
 
         // Mobile send: pointer handlers avoid blur reflow losing the tap and keep the keyboard open on the textarea.
         if (refs.sendBtn) {
@@ -884,6 +945,8 @@ export function createMessaging(config) {
                 if (!skinOverlay || !listEl) return;
                 skinOverlay.classList.add('is-open');
                 skinOverlay.setAttribute('aria-hidden', 'false');
+                // Ensure nav state is correct while overlay is open.
+                document.body.classList.remove('messages-keyboard-open');
                 listEl.innerHTML = '<li class="messages-skin-analysis-loading">Loading saved analyses…</li>';
                 emptyEl?.classList.add('is-hidden');
                 try {
@@ -918,6 +981,7 @@ export function createMessaging(config) {
                                 setPendingSkinAnalysis(skinAnalysisToShareSnapshot({ ...row, id: row.id }));
                                 skinOverlay.classList.remove('is-open');
                                 skinOverlay.setAttribute('aria-hidden', 'true');
+                                scrollThreadToBottom({ force: true });
                             });
                             listEl.appendChild(li);
                         });
@@ -930,11 +994,13 @@ export function createMessaging(config) {
             skinOverlay?.querySelector('.messages-skin-analysis-close')?.addEventListener('click', () => {
                 skinOverlay.classList.remove('is-open');
                 skinOverlay.setAttribute('aria-hidden', 'true');
+                setKeyboardOpenClass(false);
             });
             skinOverlay?.addEventListener('click', (e) => {
                 if (e.target === skinOverlay) {
                     skinOverlay.classList.remove('is-open');
                     skinOverlay.setAttribute('aria-hidden', 'true');
+                    setKeyboardOpenClass(false);
                 }
             });
         }

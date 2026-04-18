@@ -12,6 +12,11 @@
     box-sizing: border-box;
 }
 
+/* Prevent rubber-band overscroll turning into “blank space” */
+.messages-chat-body {
+    overscroll-behavior-y: contain;
+}
+
 /* Full-area cat loader until first Firestore snapshot resolves (empty vs has conversations) */
 .messages-page-bootstrap {
     position: absolute;
@@ -353,7 +358,7 @@
 }
 .messages-conv-title .conv-pet,
 .messages-conv-title .conv-vet { color: var(--text-dark); }
-.messages-conv-title .conv-plus { color: var(--text-light); font-weight: 400; margin: 0 4px; }
+.messages-conv-title .conv-and { color: var(--text-light); font-weight: 400; margin: 0 4px; }
 .messages-conv-preview {
     font-size: 13px;
     color: var(--text-light);
@@ -1516,9 +1521,16 @@
         max-height: calc(var(--vh, 100vh) - var(--bottom-nav-height) - env(safe-area-inset-bottom, 0));
         padding-bottom: 0;
     }
-    body.messages-input-focused .messages-main {
+    body.messages-keyboard-open .messages-main {
         height: calc(var(--vh, 100vh) - env(safe-area-inset-bottom, 0));
         max-height: calc(var(--vh, 100vh) - env(safe-area-inset-bottom, 0));
+    }
+    /* Keyboard open: bottom nav must not cover the compose bar. */
+    body.messages-keyboard-open .bottom-nav {
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(110%);
+        transition: transform 0.2s ease, opacity 0.2s ease;
     }
     .messages-page-header { display: none; }
     .messages-empty-single-panel { bottom: 0; padding: 0; align-items: stretch; justify-content: stretch; }

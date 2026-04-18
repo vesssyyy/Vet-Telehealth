@@ -92,9 +92,9 @@ export function initPetownerMessagingPage() {
             <div class="messages-conv-avatar">${avatarInner}</div>
             <div class="messages-conv-body">
                 <div class="messages-conv-title">
-                    <span class="conv-pet">${escapeHtml(conv.petName ? formatDisplayName(conv.petName) : '')}</span>
-                    <span class="conv-plus"> + </span>
                     <span class="conv-vet">${escapeHtml(withDr(conv.vetName || ''))}</span>
+                    <span class="conv-and"> & </span>
+                    <span class="conv-pet">${escapeHtml(conv.petName ? formatDisplayName(conv.petName) : '')}</span>
                 </div>
                 <div class="messages-conv-preview">${escapeHtml(conv.lastMessage || 'No messages yet')}</div>
                 <div class="messages-conv-footer">
