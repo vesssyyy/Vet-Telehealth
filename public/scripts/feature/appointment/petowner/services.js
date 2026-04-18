@@ -36,7 +36,6 @@ import {
     serverTimestamp,
     runTransaction,
 } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
-import { createAppointmentNotification } from '../../../core/notifications/appointment-notifications.js';
 import {
     ref as storageRef,
     uploadBytesResumable,
@@ -407,6 +406,8 @@ export async function createAppointment(data) {
         paymentIntentId: data?.paymentIntentId || null,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
+        /** Vet-facing new-booking badge; cleared when the vet acknowledges (appointment-notifications.js). */
+        vetBookingAlertUnread: true,
         ...(attachedSkinAnalysis ? { attachedSkinAnalysis } : {}),
     };
 
@@ -485,20 +486,6 @@ export async function createAppointment(data) {
             }
         }
 
-        // Create vet notification for this booking.
-        try {
-            await createAppointmentNotification({
-                appointmentId,
-                vetId,
-                ownerId: user.uid,
-                dateStr: dateStr || getTodayDateString(),
-                slotStart: slotStart || null,
-                slotEnd: slotEndVal || null,
-            });
-        } catch (e) {
-            console.warn('Create appointment notification failed:', e);
-        }
-
         return { id: appointmentId, ...appointmentData };
     }
 
@@ -518,20 +505,6 @@ export async function createAppointment(data) {
             console.error('Appointment media upload failed:', err);
             throw new Error('Your appointment was booked but uploading photos failed. You can send them in the chat. ' + (err.message || ''));
         }
-    }
-
-    // Create vet notification for this booking.
-    try {
-        await createAppointmentNotification({
-            appointmentId,
-            vetId,
-            ownerId: user.uid,
-            dateStr: dateStr || getTodayDateString(),
-            slotStart: slotStart || null,
-            slotEnd: slotEnd || null,
-        });
-    } catch (e) {
-        console.warn('Create appointment notification failed:', e);
     }
 
     return { id: appointmentId, ...appointmentData };

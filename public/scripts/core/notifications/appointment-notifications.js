@@ -1,10 +1,9 @@
 import { auth, db } from '../firebase/firebase-config.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js';
 import {
-    addDoc,
     collection,
     doc,
-    getDocs,
+    getDoc,
     onSnapshot,
     query,
     serverTimestamp,
@@ -12,7 +11,8 @@ import {
     where,
 } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js';
 
-const NOTIFICATIONS_COLLECTION = 'appointmentNotifications';
+/** @see firestore.rules — vet booking alert lives on the appointment doc. */
+const APPOINTMENTS_COLLECTION = 'appointments';
 
 function safeInt(n, fallback = 0) {
     const x = Number(n);
@@ -37,16 +37,14 @@ function emitUnreadCount(unreadCount) {
     } catch (_) {}
 }
 
-function docsToState(docs) {
+function appointmentDocsToUnreadState(docs) {
     const byAppointmentId = new Map();
     let unreadCount = 0;
     for (const d of docs) {
         const data = d?.data ? d.data() : (d || {});
-        const appointmentId = String(data.appointmentId || '').trim();
+        const appointmentId = d?.id ? String(d.id).trim() : '';
         if (!appointmentId) continue;
-        // Treat missing `seenAt` as unread for backward compatibility.
-        const isUnread = (data.seenAt == null);
-        if (!isUnread) continue;
+        if (data.vetBookingAlertUnread !== true) continue;
         unreadCount++;
         byAppointmentId.set(appointmentId, (byAppointmentId.get(appointmentId) || 0) + 1);
     }
@@ -57,7 +55,7 @@ function docsToState(docs) {
 }
 
 /**
- * Subscribe to unread appointment notifications for the signed-in vet.
+ * Subscribe to unread vet booking alerts (stored on appointment documents).
  * Emits window event `telehealth:appointments:unread` and stores local cache in localStorage.
  *
  * @param {(state: { unreadCount: number, byAppointmentId: Map<string, number> }) => void} [onChange]
@@ -82,12 +80,11 @@ export function subscribeVetAppointmentNotifications(onChange) {
             return;
         }
         if (typeof unsub === 'function') unsub();
-        // IMPORTANT: avoid composite index requirements by only filtering by vetId in Firestore,
-        // then deriving unread state client-side via `seenAt == null`.
-        const q = query(collection(db, NOTIFICATIONS_COLLECTION), where('vetId', '==', user.uid));
+        // Single-field query (no composite index); derive unread via vetBookingAlertUnread on each doc.
+        const q = query(collection(db, APPOINTMENTS_COLLECTION), where('vetId', '==', user.uid));
         unsub = onSnapshot(q, (snap) => {
             if (!active) return;
-            const state = docsToState(snap.docs || []);
+            const state = appointmentDocsToUnreadState(snap.docs || []);
             emitUnreadCount(state.unreadCount);
             onChange?.(state);
         }, () => {
@@ -105,7 +102,7 @@ export function subscribeVetAppointmentNotifications(onChange) {
 }
 
 /**
- * Mark all unread notifications for an appointment as seen for current vet.
+ * Mark the vet booking alert as seen for this appointment (current vet only).
  * @param {string} appointmentId
  */
 export async function markAppointmentNotificationsSeen(appointmentId) {
@@ -113,53 +110,19 @@ export async function markAppointmentNotificationsSeen(appointmentId) {
     const aptId = String(appointmentId || '').trim();
     if (!user?.uid || !aptId) return;
 
-    // Avoid composite indexes: read all notifications for this appointment + vet, then filter locally.
-    const q = query(
-        collection(db, NOTIFICATIONS_COLLECTION),
-        where('vetId', '==', user.uid),
-        where('appointmentId', '==', aptId),
-    );
+    const aptRef = doc(db, APPOINTMENTS_COLLECTION, aptId);
+    const snap = await getDoc(aptRef);
+    if (!snap.exists()) return;
+    const data = snap.data();
+    if (String(data?.vetId || '') !== user.uid) return;
+    if (data?.vetBookingAlertUnread !== true) return;
 
-    const snap = await getDocs(q);
-    if (snap.empty) return;
-
-    await Promise.all(
-        snap.docs
-            .filter((d) => (d.data()?.seenAt == null))
-            .map((d) => updateDoc(doc(db, NOTIFICATIONS_COLLECTION, d.id), {
-                seenAt: serverTimestamp(),
-                seenBy: user.uid,
-                updatedAt: serverTimestamp(),
-            })),
-    );
-}
-
-/**
- * Create an appointment notification (typically called after creating the appointment doc).
- * This is kept here for reuse, but the booking flow currently calls it from appointment services.
- */
-export async function createAppointmentNotification(payload) {
-    const user = auth.currentUser;
-    if (!user?.uid) throw new Error('Not signed in.');
-    const p = payload || {};
-    const appointmentId = String(p.appointmentId || '').trim();
-    const vetId = String(p.vetId || '').trim();
-    const ownerId = String(p.ownerId || '').trim();
-    if (!appointmentId || !vetId || !ownerId) throw new Error('Missing notification fields.');
-    await addDoc(collection(db, NOTIFICATIONS_COLLECTION), {
-        type: 'appointment_booked',
-        appointmentId,
-        vetId,
-        ownerId,
-        dateStr: String(p.dateStr || '').trim() || null,
-        slotStart: String(p.slotStart || '').trim() || null,
-        slotEnd: String(p.slotEnd || '').trim() || null,
-        createdAt: serverTimestamp(),
+    await updateDoc(aptRef, {
+        vetBookingAlertUnread: false,
+        vetBookingAlertSeenAt: serverTimestamp(),
+        vetBookingAlertSeenBy: user.uid,
         updatedAt: serverTimestamp(),
-        seenAt: null,
-        seenBy: null,
     });
 }
 
 export { formatBadgeCount };
-

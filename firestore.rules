@@ -45,14 +45,27 @@ service cloud.firestore {
     }
 
     match /appointments/{appointmentId} {
+      // Pet owner must flag an unread vet booking alert on create; only the vet may clear it (see update rules).
       allow create: if request.auth != null
-        && request.resource.data.ownerId == request.auth.uid;
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.vetBookingAlertUnread == true;
+
       allow read: if request.auth != null
         && (resource.data.ownerId == request.auth.uid
             || resource.data.vetId == request.auth.uid);
+
+      // Owners may update appointments but cannot spoof/clear vet booking alert fields.
       allow update: if request.auth != null
-        && (resource.data.ownerId == request.auth.uid
-            || resource.data.vetId == request.auth.uid);
+        && resource.data.ownerId == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'vetBookingAlertUnread',
+          'vetBookingAlertSeenAt',
+          'vetBookingAlertSeenBy',
+        ]);
+
+      allow update: if request.auth != null
+        && resource.data.vetId == request.auth.uid;
+
       allow delete: if false;
     }
 
@@ -139,29 +152,5 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    /**
-     * Appointment notifications (vet-facing unread badge + in-thread highlights).
-     *
-     * Document shape (minimal):
-     * - appointmentId, vetId, ownerId, createdAt, seenAt (null/unset until seen)
-     */
-    match /appointmentNotifications/{notifId} {
-      // Owner creates notification only for their own appointment.
-      allow create: if request.auth != null
-        && request.resource.data.ownerId == request.auth.uid
-        && request.resource.data.appointmentId is string
-        && request.resource.data.vetId is string
-        && exists(/databases/$(database)/documents/appointments/$(request.resource.data.appointmentId))
-        && get(/databases/$(database)/documents/appointments/$(request.resource.data.appointmentId)).data.ownerId == request.auth.uid
-        && get(/databases/$(database)/documents/appointments/$(request.resource.data.appointmentId)).data.vetId == request.resource.data.vetId;
-
-      // Vet reads their notifications.
-      allow read: if request.auth != null && resource.data.vetId == request.auth.uid;
-
-      // Vet marks seen; keep update scoped to their own notifications.
-      allow update: if request.auth != null && resource.data.vetId == request.auth.uid;
-
-      allow delete: if false;
-    }
   }
 }
