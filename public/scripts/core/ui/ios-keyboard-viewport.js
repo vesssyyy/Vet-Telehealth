@@ -6,6 +6,18 @@
 (function () {
     'use strict';
 
+    function setVisualViewportVars() {
+        try {
+            var vv = window.visualViewport;
+            var h = (vv && vv.height > 0) ? vv.height : window.innerHeight;
+            document.documentElement.style.setProperty('--vh', h + 'px');
+            var top = (vv && typeof vv.offsetTop === 'number') ? vv.offsetTop : 0;
+            var left = (vv && typeof vv.offsetLeft === 'number') ? vv.offsetLeft : 0;
+            document.documentElement.style.setProperty('--vv-top', top + 'px');
+            document.documentElement.style.setProperty('--vv-left', left + 'px');
+        } catch (_) { /* noop */ }
+    }
+
     function isIOS() {
         return typeof navigator !== 'undefined' &&
             (/iP(ad|hone|od)/.test(navigator.userAgent || '') ||
@@ -70,6 +82,7 @@
     }
 
     function onViewportEvent() {
+        setVisualViewportVars();
         if (!isIOS() || !isMobileLayout()) return;
         if (isAuthPage()) {
             updateHtmlLock();
@@ -109,6 +122,7 @@
     }
 
     window.addEventListener('resize', function () {
+        setVisualViewportVars();
         if (!isIOS()) {
             document.documentElement.classList.remove('ios-keyboard-viewport-active');
             return;
@@ -127,8 +141,12 @@
     });
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function () { updateHtmlLock(); });
+        document.addEventListener('DOMContentLoaded', function () {
+            setVisualViewportVars();
+            updateHtmlLock();
+        });
     } else {
+        setVisualViewportVars();
         updateHtmlLock();
     }
 })();

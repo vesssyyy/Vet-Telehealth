@@ -19,8 +19,8 @@
 html { font-size: 16px; -webkit-font-smoothing: antialiased; }
 body {
     margin: 0;
-    min-height: 100vh;
     min-height: 100dvh;
+    min-height: var(--vh, 100dvh);
     display: flex;
     flex-direction: column;
     font-family: 'DM Sans', system-ui, sans-serif;
@@ -190,13 +190,13 @@ body {
     @media (max-width: 768px) {
         body.auth-page {
             overflow: hidden;
-            min-height: 100vh;
             min-height: 100dvh;
+            min-height: var(--vh, 100dvh);
         }
         body.auth-page .page-wrap {
             flex: 1 1 auto;
             min-height: 0;
-            max-height: 100dvh;
+            max-height: var(--vh, 100dvh);
             align-items: flex-start;
             overflow-y: auto;
             overflow-x: hidden;
