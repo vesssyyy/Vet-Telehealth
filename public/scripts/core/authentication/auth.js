@@ -58,6 +58,24 @@ import { appAlert, appAlertError } from '../ui/app-dialog.js';
         signupStepActivate: $('signup-step-activate'), forgotPasswordSection: $('forgot-password-section')
     };
 
+    const SIGNUP_FIELD_IDS = ['signup_fname', 'signup_lname', 'signup_pass', 'signup_confirm', 'signup_email'];
+
+    const clearFieldError = (fieldId) => {
+        const input = $(fieldId);
+        const err = $(`err-${fieldId}`);
+        if (err) err.textContent = '';
+        if (input) input.classList.remove('is-invalid');
+    };
+
+    const setFieldError = (fieldId, message) => {
+        const input = $(fieldId);
+        const err = $(`err-${fieldId}`);
+        if (err) err.textContent = message || '';
+        if (input) input.classList.add('is-invalid');
+    };
+
+    const clearAllSignupErrors = () => SIGNUP_FIELD_IDS.forEach(clearFieldError);
+
     const withButtonState = async (btn, loadingText, callback) => {
         const original = btn.innerHTML;
         btn.disabled = true;
@@ -161,16 +179,23 @@ import { appAlert, appAlertError } from '../ui/app-dialog.js';
         } else {
             DOM.signupStepForm.classList.remove('hidden');
             DOM.signupStepActivate?.classList.add('hidden');
-            ['signup_fname', 'signup_lname', 'signup_pass', 'signup_confirm', 'signup_email'].forEach(id => $(id).value = '');
+            SIGNUP_FIELD_IDS.forEach(id => $(id).value = '');
+            clearAllSignupErrors();
         }
     };
 
     const createAccount = async () => {
+        clearAllSignupErrors();
         const [fname, lname, pass, confirm, email] = ['signup_fname', 'signup_lname', 'signup_pass', 'signup_confirm', 'signup_email'].map(id => $(id).value.trim());
-        if (!fname || !lname) { await appAlertError('Please enter your full name.'); return; }
-        if (!pass || pass.length < 6) { await appAlertError('Password must be at least 6 characters.'); return; }
-        if (pass !== confirm) { await appAlertError('Passwords do not match.'); return; }
-        if (!email) { await appAlertError('Please enter your email.'); return; }
+        let hasError = false;
+        if (!fname) { setFieldError('signup_fname', 'First name is required.'); hasError = true; }
+        if (!lname) { setFieldError('signup_lname', 'Last name is required.'); hasError = true; }
+        if (!pass) { setFieldError('signup_pass', 'Password is required.'); hasError = true; }
+        else if (pass.length < 6) { setFieldError('signup_pass', 'Password must be at least 6 characters.'); hasError = true; }
+        if (!confirm) { setFieldError('signup_confirm', 'Please confirm your password.'); hasError = true; }
+        else if (pass && pass !== confirm) { setFieldError('signup_confirm', 'Passwords do not match.'); hasError = true; }
+        if (!email) { setFieldError('signup_email', 'Email is required.'); hasError = true; }
+        if (hasError) return;
 
         await withButtonState($('btn-create-account'), 'Creating Account...', async () => {
             sessionStorage.setItem('telehealthSignupPending', 'true');
@@ -190,7 +215,16 @@ import { appAlert, appAlertError } from '../ui/app-dialog.js';
                 await auth.signOut();
             } catch (error) {
                 console.error('Sign-up error:', error);
-                await appAlertError(authErrorMessage(error) || 'Sign-up failed. Please try again.');
+                const msg = authErrorMessage(error) || 'Sign-up failed. Please try again.';
+                if (error?.code === 'auth/email-already-in-use') {
+                    setFieldError('signup_email', msg);
+                } else if (error?.code === 'auth/invalid-email') {
+                    setFieldError('signup_email', msg);
+                } else if (error?.code === 'auth/weak-password') {
+                    setFieldError('signup_pass', msg);
+                } else {
+                    setFieldError('signup_email', msg);
+                }
                 if (auth.currentUser) await auth.signOut();
             } finally {
                 sessionStorage.removeItem('telehealthSignupPending');
@@ -265,6 +299,9 @@ import { appAlert, appAlertError } from '../ui/app-dialog.js';
         DOM.tabSignup.addEventListener('click', () => showTab('signup'));
         DOM.formLogin?.addEventListener('submit', handleLogin);
         $('btn-create-account')?.addEventListener('click', createAccount);
+        SIGNUP_FIELD_IDS.forEach((id) => {
+            $(id)?.addEventListener('input', () => clearFieldError(id));
+        });
         $('btn-back-email')?.addEventListener('click', () => { DOM.signupStepActivate.classList.add('hidden'); DOM.signupStepForm.classList.remove('hidden'); });
         $('btn-google-login')?.addEventListener('click', e => handleGoogleSignIn(e.target));
         $('btn-google-signup')?.addEventListener('click', e => handleGoogleSignIn(e.target));

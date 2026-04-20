@@ -61,12 +61,27 @@
                         </button>
                         <div class="divider"><span>OR</span></div>
                         <div class="field-row">
-                            <div class="field"><input type="text" id="signup_fname" placeholder="First name" autocomplete="given-name"></div>
-                            <div class="field"><input type="text" id="signup_lname" placeholder="Last name" autocomplete="family-name"></div>
+                            <div class="field">
+                                <input type="text" id="signup_fname" placeholder="First name" autocomplete="given-name">
+                                <div class="field-error" id="err-signup_fname" aria-live="polite"></div>
+                            </div>
+                            <div class="field">
+                                <input type="text" id="signup_lname" placeholder="Last name" autocomplete="family-name">
+                                <div class="field-error" id="err-signup_lname" aria-live="polite"></div>
+                            </div>
                         </div>
-                        <div class="field"><input type="password" id="signup_pass" placeholder="Password" autocomplete="new-password"></div>
-                        <div class="field"><input type="password" id="signup_confirm" placeholder="Confirm Password" autocomplete="new-password"></div>
-                        <div class="field"><input type="email" id="signup_email" placeholder="Email" autocomplete="email"></div>
+                        <div class="field">
+                            <input type="password" id="signup_pass" placeholder="Password" autocomplete="new-password">
+                            <div class="field-error" id="err-signup_pass" aria-live="polite"></div>
+                        </div>
+                        <div class="field">
+                            <input type="password" id="signup_confirm" placeholder="Confirm Password" autocomplete="new-password">
+                            <div class="field-error" id="err-signup_confirm" aria-live="polite"></div>
+                        </div>
+                        <div class="field">
+                            <input type="email" id="signup_email" placeholder="Email" autocomplete="email">
+                            <div class="field-error" id="err-signup_email" aria-live="polite"></div>
+                        </div>
                         <button type="button" class="btn-primary" id="btn-create-account">Create Account</button>
                     </div>
                     <div class="step hidden" id="signup-step-activate">
