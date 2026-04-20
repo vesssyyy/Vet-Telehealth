@@ -388,6 +388,44 @@ export function renderAllAppointmentsPanel(panelEl, appointments) {
         .join('');
 }
 
+function getSelectedPetIdForFilter() {
+    const v = appointmentsPetFilter?.value ?? '';
+    return v ? String(v) : '';
+}
+
+function filterAppointmentsBySelectedPet(appointments) {
+    const petId = getSelectedPetIdForFilter();
+    if (!petId) return appointments || [];
+    return (appointments || []).filter((a) => String(a.petId || '') === petId);
+}
+
+function renderAllPanelsWithCurrentFilter(appointments) {
+    const filtered = filterAppointmentsBySelectedPet(appointments);
+    renderUpcomingPanel(upcomingRoot, filtered);
+    renderCompletedPanel(completedRoot, filtered);
+    renderAllAppointmentsPanel(allAppointmentsRoot, filtered);
+}
+
+function populateAppointmentsPetFilter(pets) {
+    if (!appointmentsPetFilter) return;
+    const list = Array.isArray(pets) ? pets : [];
+    const prev = appointmentsPetFilter.value || '';
+    const options = ['<option value="">All pets</option>']
+        .concat(
+            list.map((p) => {
+                const name = p?.name ? formatDisplayName(p.name) : 'Unnamed pet';
+                return `<option value="${escapeHtml(String(p.id || ''))}">${escapeHtml(name)}</option>`;
+            }),
+        )
+        .join('');
+    appointmentsPetFilter.innerHTML = options;
+    appointmentsPetFilter.disabled = list.length === 0;
+    appointmentsPetFilter.value = prev;
+    if (appointmentsPetFilter.value !== prev) {
+        appointmentsPetFilter.value = '';
+    }
+}
+
 
 const $ = (id) => document.getElementById(id);
 const overlay = $('booking-modal-overlay');
@@ -409,6 +447,7 @@ const uploadZone = $('booking-upload-zone');
 const fileInput = $('booking-media');
 const fileListEl = $('booking-file-list');
 const uploadHint = $('booking-upload-hint');
+const appointmentsPetFilter = $('appointments-pet-filter');
 
 const MIN_MEDIA_FILES = 0;
 // Files + optional skin analysis share one combined limit
@@ -772,6 +811,10 @@ document.addEventListener('keydown', (e) => {
 
 if (bookingVetDropdown) window._onVetChange = onVetChange;
 bookingDate?.addEventListener('change', onDateChange);
+appointmentsPetFilter?.addEventListener('change', () => {
+    const appointments = window._appointmentsCache || [];
+    renderAllPanelsWithCurrentFilter(appointments);
+});
 
 const onFieldInteraction = (e) => e.target?.closest('.booking-form-group')?.classList.remove('has-error');
 form?.querySelectorAll('#booking-title, #booking-pet-dropdown, #booking-vet-dropdown, #booking-reason, #booking-date, #booking-time').forEach((el) => {
@@ -1226,17 +1269,13 @@ onAuthStateChanged(auth, async (userFromCallback) => {
     const user = await resolveUserForAppointments(userFromCallback);
     if (!user) {
         hideAppointmentsLoading();
-        renderUpcomingPanel(upcomingRoot, []);
-        renderCompletedPanel(completedRoot, []);
-        renderAllAppointmentsPanel(allAppointmentsRoot, []);
+        renderAllPanelsWithCurrentFilter([]);
         return;
     }
     const callback = (appointments) => {
         window._appointmentsCache = appointments;
         hideAppointmentsLoading();
-        renderUpcomingPanel(upcomingRoot, appointments);
-        renderCompletedPanel(completedRoot, appointments);
-        renderAllAppointmentsPanel(allAppointmentsRoot, appointments);
+        renderAllPanelsWithCurrentFilter(appointments);
     };
     const unsub = subscribeAppointments(user.uid, callback);
     window._appointmentsUnsub = unsub;
@@ -1244,6 +1283,7 @@ onAuthStateChanged(auth, async (userFromCallback) => {
     Promise.all([loadVets(), loadPets(user.uid)]).then(([vets, pets]) => {
         populateVetSelect($('booking-vet-dropdown'), vets);
         populatePetSelect($('booking-pet-dropdown'), pets);
+        populateAppointmentsPetFilter(pets);
         const petHint = $('booking-pet-hint');
         if (petHint) petHint.classList.toggle('is-hidden', pets.length > 0);
         window._bookingPetsCount = pets.length;
@@ -1252,6 +1292,7 @@ onAuthStateChanged(auth, async (userFromCallback) => {
         console.error('Load vets/pets for appointment page:', err);
         populateVetSelect($('booking-vet-dropdown'), []);
         populatePetSelect($('booking-pet-dropdown'), []);
+        populateAppointmentsPetFilter([]);
         window._bookingPetsCount = 0;
         updateConfirmButtonState();
     });
@@ -1264,9 +1305,7 @@ setTimeout(() => {
     console.warn('Appointments: loading UI fallback - hiding spinner.');
     hideAppointmentsLoading();
     if (!window._appointmentsCache) {
-        renderUpcomingPanel(upcomingRoot, []);
-        renderCompletedPanel(completedRoot, []);
-        renderAllAppointmentsPanel(allAppointmentsRoot, []);
+        renderAllPanelsWithCurrentFilter([]);
     }
 }, APPOINTMENTS_LOADING_FALLBACK_MS);
 

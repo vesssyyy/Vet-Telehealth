@@ -24,7 +24,7 @@ export async function downloadConsultationReportForAppointment(appointmentId, bu
         if (!buttonEl) return;
         buttonEl.disabled = busy;
         if (busy) {
-            buttonEl.innerHTML = '<i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Generating…';
+            buttonEl.innerHTML = '<i class="fa fa-spinner fa-spin" aria-hidden="true"></i>';
         } else if (prevHtml != null) {
             buttonEl.innerHTML = prevHtml;
         }

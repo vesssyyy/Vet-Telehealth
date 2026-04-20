@@ -8,7 +8,9 @@ import { markAppointmentNotificationsSeen } from '../../../core/notifications/ap
 export function registerModalEvents(ctx) {
     const {
         $, onOverlayClick, detailsApi, editDayApi, currentDetailsAptRef,
-        downloadConsultationReportForAppointment, editDaySlotsRef
+        downloadConsultationReportForAppointment, editDaySlotsRef,
+        auth, db, collection, query, where, getDocs,
+        formatDisplayDate, formatTime12h,
     } = ctx;
 
     $('details-modal-close')?.addEventListener('click', detailsApi.closeSlotDetailsModal);
@@ -39,6 +41,206 @@ export function registerModalEvents(ctx) {
         if (!currentDetailsApt || $('details-join-btn')?.disabled) return;
         window.location.href = `video-call.html?appointmentId=${currentDetailsApt.id}`;
     });
+
+    // Past records modal
+    (function initPastRecordsModal() {
+        const overlayId = 'past-records-overlay';
+        const modalId = 'past-records-modal';
+        const overlayEl = () => $(overlayId);
+        const modalEl = () => $(modalId);
+
+        const setPastRecordsVisible = (visible) => {
+            const overlay = overlayEl();
+            const modal = modalEl();
+            const hidden = !visible;
+            if (!visible && overlay && document.activeElement && overlay.contains(document.activeElement)) {
+                document.activeElement.blur();
+            }
+            if (overlay) {
+                overlay.classList.toggle('is-hidden', hidden);
+                overlay.setAttribute('aria-hidden', String(hidden));
+            }
+            if (modal) {
+                modal.classList.toggle('is-hidden', hidden);
+                modal.setAttribute('aria-hidden', String(hidden));
+                if (visible) modal.focus();
+            }
+            document.body.style.overflow = visible ? 'hidden' : (detailsApi.detailsOverlay()?.classList.contains('is-open') ? 'hidden' : '');
+        };
+
+        const close = () => setPastRecordsVisible(false);
+
+        $('past-records-close')?.addEventListener('click', close);
+        onOverlayClick(overlayId, close);
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !modalEl()?.classList.contains('is-hidden')) {
+                close();
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        }, true);
+
+        function appointmentCreatedAtFieldToMs(c) {
+            if (c == null) return 0;
+            if (typeof c === 'object' && typeof c.toMillis === 'function') {
+                const ms = c.toMillis();
+                return Number.isFinite(ms) ? ms : 0;
+            }
+            if (c instanceof Date && Number.isFinite(c.getTime())) return c.getTime();
+            if (typeof c === 'number' && Number.isFinite(c)) return c;
+            if (typeof c === 'object' && c !== null) {
+                const sec = c.seconds ?? c._seconds;
+                if (sec != null && Number.isFinite(Number(sec))) {
+                    const ns = Number(c.nanoseconds ?? c._nanoseconds ?? 0);
+                    return Number(sec) * 1000 + Math.floor(ns / 1e6);
+                }
+            }
+            return 0;
+        }
+
+        function isCompletedAppointment(apt) {
+            const st = String(apt?.status || '').toLowerCase();
+            return st === 'completed';
+        }
+
+        function timeDisplayForRow(apt) {
+            const dateStr = String(apt?.dateStr || apt?.date || '').trim();
+            const timeDisplay = String(apt?.timeDisplay || '').trim();
+            if (timeDisplay) {
+                // `timeDisplay` often already contains a human-friendly date+time string
+                // (e.g. "Apr 13, 2026 at 5:35 PM - 5:45 PM"). Avoid duplicating date labels.
+                return timeDisplay.replace(/\s*[–—]\s*/g, ' - ');
+            }
+            if (apt?.slotStart && apt?.slotEnd) {
+                const datePart = dateStr
+                    ? new Date(dateStr + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+                    : '';
+                return [datePart, `at ${formatTime12h(apt.slotStart)} - ${formatTime12h(apt.slotEnd)}`].filter(Boolean).join(' ');
+            }
+            if (apt?.slotStart) {
+                const datePart = dateStr
+                    ? new Date(dateStr + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+                    : '';
+                return [datePart, `at ${formatTime12h(apt.slotStart)}`].filter(Boolean).join(' ');
+            }
+            return dateStr ? formatDisplayDate(dateStr) : '—';
+        }
+
+        async function loadAndRender() {
+            const subtitleEl = $('past-records-subtitle');
+            const emptyEl = $('past-records-empty');
+            const tbody = $('past-records-table-body');
+            const tableWrap = $('past-records-table-wrap');
+            const btn = $('details-past-records-btn');
+            if (tbody) tbody.innerHTML = '';
+            if (emptyEl) emptyEl.classList.add('is-hidden');
+            if (tableWrap) tableWrap.classList.remove('is-hidden');
+
+            const prevBtnHtml = btn?.innerHTML;
+            const setBtnBusy = (busy) => {
+                if (!btn) return;
+                btn.disabled = busy;
+                if (busy) btn.innerHTML = '<i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Loading…';
+                else if (prevBtnHtml != null) btn.innerHTML = prevBtnHtml;
+            };
+
+            try {
+                setBtnBusy(true);
+                if (subtitleEl) subtitleEl.textContent = 'Loading…';
+                const current = currentDetailsAptRef?.() || null;
+                const ownerId = String(current?.ownerId || current?.ownerID || '').trim();
+                const petId = String(current?.petId || current?.petID || '').trim();
+                const petName = String(current?.petName || '').trim();
+                const currentAppointmentId = String(current?.id || '').trim();
+
+                if (subtitleEl) subtitleEl.textContent = petName ? `Pet: ${formatDisplayName(petName)}` : 'Pet: —';
+                if (!ownerId || !petId) {
+                    if (emptyEl) emptyEl.classList.remove('is-hidden');
+                    if (tableWrap) tableWrap.classList.add('is-hidden');
+                    return;
+                }
+
+                if (!auth?.currentUser) {
+                    if (emptyEl) emptyEl.classList.remove('is-hidden');
+                    if (tableWrap) tableWrap.classList.add('is-hidden');
+                    return;
+                }
+
+                // IMPORTANT: query must only target docs vets are allowed to read.
+                // If we query all owner appointments, Firestore will reject the query because it could include non-completed docs.
+                const q = query(
+                    collection(db, 'appointments'),
+                    where('ownerId', '==', ownerId),
+                    where('status', '==', 'completed'),
+                );
+                const snap = await getDocs(q);
+                const appts = snap.docs
+                    .map((d) => ({ id: d.id, ...d.data() }))
+                    .filter((a) => String(a.petId || a.petID || '').trim() === petId)
+                    .filter((a) => String(a.id || '').trim() !== currentAppointmentId);
+
+                appts.sort((a, b) => {
+                    const aMs = appointmentCreatedAtFieldToMs(a.createdAt);
+                    const bMs = appointmentCreatedAtFieldToMs(b.createdAt);
+                    if (aMs !== bMs) return (bMs || 0) - (aMs || 0);
+                    const ad = String(a.dateStr || a.date || '');
+                    const bd = String(b.dateStr || b.date || '');
+                    if (ad !== bd) return bd.localeCompare(ad);
+                    const at = String(a.slotStart || '');
+                    const bt = String(b.slotStart || '');
+                    return bt.localeCompare(at);
+                });
+
+                if (!tbody) return;
+                if (!appts.length) {
+                    if (emptyEl) emptyEl.classList.remove('is-hidden');
+                    if (tableWrap) tableWrap.classList.add('is-hidden');
+                    return;
+                }
+
+                appts.forEach((apt) => {
+                    const tr = document.createElement('tr');
+                    const title = String((apt.title || '').trim() || (apt.reason || '').trim() || 'Consultation');
+                    const vet = String((apt.vetName || apt.vet || '').trim() || '—');
+                    const dt = timeDisplayForRow(apt);
+
+                    const downloadBtn = document.createElement('button');
+                    downloadBtn.type = 'button';
+                    downloadBtn.className = 'past-records-download-btn';
+                    downloadBtn.setAttribute('aria-label', 'Download consultation PDF');
+                    downloadBtn.innerHTML = '<i class="fa fa-arrow-down" aria-hidden="true"></i>';
+                    downloadBtn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (!apt.id) return;
+                        downloadConsultationReportForAppointment(apt.id, downloadBtn);
+                    });
+
+                    tr.innerHTML = `
+                        <td class="past-records-td-title">${escapeHtml(title)}</td>
+                        <td class="past-records-td-vet">${escapeHtml(vet)}</td>
+                        <td class="past-records-td-datetime">${escapeHtml(dt)}</td>
+                    `;
+                    const tdDl = document.createElement('td');
+                    tdDl.className = 'past-records-td-download';
+                    tdDl.appendChild(downloadBtn);
+                    tr.appendChild(tdDl);
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                console.error('Past records load failed:', err);
+                if (subtitleEl) subtitleEl.textContent = 'Past records';
+                await appAlertError('Could not load past records. Please try again.');
+            } finally {
+                setBtnBusy(false);
+            }
+        }
+
+        $('details-past-records-btn')?.addEventListener('click', async () => {
+            setPastRecordsVisible(true);
+            await loadAndRender();
+        });
+    })();
 
     // Details media lightbox (click to enlarge, no new tab)
     (function initDetailsMediaLightbox() {

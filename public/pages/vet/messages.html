@@ -239,9 +239,45 @@
         <div class="messages-profile-modal" role="dialog" aria-modal="true" aria-labelledby="messages-profile-title">
             <div class="messages-profile-modal-head">
                 <h2 id="messages-profile-title" class="messages-profile-title">Profile</h2>
+                <button type="button" class="messages-profile-records-btn is-hidden" id="messages-profile-records-btn" aria-label="View past medical records">
+                    <i class="fa fa-history" aria-hidden="true"></i> Records
+                </button>
                 <button type="button" class="messages-profile-close" id="messages-profile-close" aria-label="Close"><i class="fa fa-times" aria-hidden="true"></i></button>
             </div>
             <div class="messages-profile-body" id="messages-profile-body"></div>
+        </div>
+    </div>
+
+    <!-- Past medical records modal (shared feature) -->
+    <div class="past-records-overlay is-hidden" id="past-records-overlay" aria-hidden="true">
+        <div class="past-records-modal is-hidden" id="past-records-modal" role="dialog" aria-labelledby="past-records-title" aria-modal="true" tabindex="-1">
+            <div class="past-records-card">
+                <div class="past-records-header">
+                    <h2 class="past-records-title" id="past-records-title"><i class="fa fa-history" aria-hidden="true"></i> Past Medical Records</h2>
+                    <button type="button" class="past-records-close" id="past-records-close" aria-label="Close"><i class="fa fa-times" aria-hidden="true"></i></button>
+                </div>
+                <div class="past-records-body">
+                    <div class="past-records-subtitle" id="past-records-subtitle" aria-live="polite">—</div>
+                    <div class="past-records-empty is-hidden" id="past-records-empty" role="status">
+                        <i class="fa fa-folder-open-o" aria-hidden="true"></i>
+                        <p>No past records found</p>
+                        <span class="past-records-empty-hint">Completed consultations for this pet will appear here.</span>
+                    </div>
+                    <div class="past-records-table-wrap" id="past-records-table-wrap">
+                        <table class="past-records-table" aria-label="Past consultation records">
+                            <thead>
+                                <tr>
+                                    <th>Appointment Title</th>
+                                    <th>Vet</th>
+                                    <th>Date and time</th>
+                                    <th class="past-records-th-download" aria-label="Download"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="past-records-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 

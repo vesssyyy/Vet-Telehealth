@@ -66,9 +66,18 @@
                         <button type="button" class="appointments-tab" role="tab" aria-selected="false" data-tab="completed">Completed</button>
                         <button type="button" class="appointments-tab" role="tab" aria-selected="false" data-tab="all">All</button>
                     </div>
-                    <button type="button" class="appointments-book-btn" id="book-appointment-btn" aria-label="Book new online consultation">
-                        <i class="fa fa-plus" aria-hidden="true"></i> Book consultation
-                    </button>
+                    <div class="appointments-actions">
+                        <div class="appointments-pet-filter-wrap">
+                            <i class="fa fa-paw appointments-pet-filter-icon" aria-hidden="true"></i>
+                            <label class="appointments-pet-filter-label" for="appointments-pet-filter">Pet</label>
+                            <select id="appointments-pet-filter" class="appointments-pet-filter" aria-label="Filter appointments by pet">
+                                <option value="">All pets</option>
+                            </select>
+                        </div>
+                        <button type="button" class="appointments-book-btn" id="book-appointment-btn" aria-label="Book new online consultation">
+                            <i class="fa fa-plus" aria-hidden="true"></i> Book consultation
+                        </button>
+                    </div>
                 </div>
                 <div class="appointments-list" id="appointments-list">
                     <div class="appointments-loading" id="appointments-loading" aria-hidden="false">

@@ -65,6 +65,59 @@
 .appointments-book-btn i { font-size: clamp(12px, 2vw, 14px); }
 .appointments-toolbar .appointments-book-btn { flex-shrink: 0; }
 
+.appointments-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.appointments-pet-filter-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    min-height: 44px;
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: var(--apt-radius);
+    box-shadow: var(--apt-shadow);
+}
+
+.appointments-pet-filter-icon {
+    color: var(--primary-color, #2c5f7d);
+    font-size: 14px;
+    opacity: 0.9;
+    flex-shrink: 0;
+}
+
+.appointments-pet-filter-label {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--text-light, #718096);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.appointments-pet-filter {
+    font: inherit;
+    border: none;
+    background: transparent;
+    color: var(--text-dark, #2d3748);
+    font-weight: 600;
+    min-width: 160px;
+    outline: none;
+    cursor: pointer;
+}
+
+.appointments-pet-filter:disabled {
+    color: var(--text-light, #718096);
+    cursor: not-allowed;
+}
+
 /* Loading */
 .appointments-loading {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -1149,6 +1202,32 @@ button.details-shared-video-link { padding: 0; }
         width: 100%;
         justify-content: center;
         order: 0;
+    }
+
+    .appointments-actions {
+        width: 100%;
+        flex-direction: row;
+        align-items: center;
+        flex-wrap: nowrap;
+        order: 0;
+    }
+
+    .appointments-pet-filter-wrap {
+        width: auto;
+        flex: 1 1 0;
+        justify-content: flex-start;
+        box-sizing: border-box;
+    }
+
+    .appointments-pet-filter {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .appointments-actions .appointments-book-btn {
+        width: auto;
+        flex: 1 1 0;
+        justify-content: center;
     }
     .appointments-tab { flex-shrink: 0; padding: 10px 16px; font-size: 14px; }
     .appointment-card {

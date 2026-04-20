@@ -1006,9 +1006,17 @@ function initVetAppointmentDetailsModal() {
         onOverlayClick,
         detailsApi,
         editDayApi: noopEditDayApi,
+        auth,
+        db,
+        collection,
+        query,
+        where,
+        getDocs,
         currentDetailsAptRef: () => currentDetailsApt,
         downloadConsultationReportForAppointment,
         editDaySlotsRef: () => [],
+        formatDisplayDate: formatDisplayDateForDetails,
+        formatTime12h,
     });
 
     return detailsApi;

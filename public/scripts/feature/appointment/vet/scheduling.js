@@ -973,6 +973,8 @@ import {
         });
         registerModalEvents({
             $, onOverlayClick, detailsApi, editDayApi,
+            auth, db, collection, query, where, getDocs,
+            formatDisplayDate, formatTime12h,
             currentDetailsAptRef: () => currentDetailsApt,
             downloadConsultationReportForAppointment, editDaySlotsRef: () => editDaySlots
         });

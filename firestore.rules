@@ -51,8 +51,11 @@ service cloud.firestore {
         && request.resource.data.vetBookingAlertUnread == true;
 
       allow read: if request.auth != null
-        && (resource.data.ownerId == request.auth.uid
-            || resource.data.vetId == request.auth.uid);
+        && (
+          resource.data.ownerId == request.auth.uid
+          || resource.data.vetId == request.auth.uid
+          || (isVet() && resource.data.status == 'completed')
+        );
 
       // Owners may update appointments but cannot spoof/clear vet booking alert fields.
       allow update: if request.auth != null

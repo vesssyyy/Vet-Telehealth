@@ -15,6 +15,7 @@ import {
     getPetProfileTitle,
 } from './messages-profile-modal.js';
 import { setHeaderChipAvatar, setPetHeaderChipAvatar } from './messages-chat-header-avatars.js';
+import { downloadConsultationReportForAppointment } from '../consultation/consultation-pdf-download.js';
 
 const $ = id => document.getElementById(id);
 
@@ -112,6 +113,138 @@ export function initVetMessagingPage() {
     } = shared;
 
     const profileModal = wireMessagesProfileModal();
+    let petProfileCtx = { ownerId: '', petId: '', petName: '' };
+
+    (function initPastRecordsModal() {
+        const overlayId = 'past-records-overlay';
+        const modalId = 'past-records-modal';
+        const overlayEl = () => $(overlayId);
+        const modalEl = () => $(modalId);
+
+        const setPastRecordsVisible = (visible) => {
+            const overlay = overlayEl();
+            const modal = modalEl();
+            const hidden = !visible;
+            if (overlay) {
+                overlay.classList.toggle('is-hidden', hidden);
+                overlay.setAttribute('aria-hidden', String(hidden));
+            }
+            if (modal) {
+                modal.classList.toggle('is-hidden', hidden);
+                modal.setAttribute('aria-hidden', String(hidden));
+                if (visible) modal.focus();
+            }
+            document.body.style.overflow = visible ? 'hidden' : '';
+        };
+
+        const close = () => setPastRecordsVisible(false);
+        $('past-records-close')?.addEventListener('click', close);
+        overlayEl()?.addEventListener('click', (e) => { if (e.target?.id === overlayId) close(); });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !modalEl()?.classList.contains('is-hidden')) {
+                close();
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        }, true);
+
+        function timeDisplayForRow(apt) {
+            const timeDisplay = String(apt?.timeDisplay || '').trim();
+            if (timeDisplay) return timeDisplay.replace(/\s*[–—]\s*/g, ' - ');
+            const dateStr = String(apt?.dateStr || apt?.date || '').trim();
+            const datePart = dateStr
+                ? new Date(dateStr + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+                : '';
+            if (apt?.slotStart && apt?.slotEnd) {
+                return [datePart, `at ${formatTime12h(apt.slotStart)} - ${formatTime12h(apt.slotEnd)}`].filter(Boolean).join(' ');
+            }
+            if (apt?.slotStart) return [datePart, `at ${formatTime12h(apt.slotStart)}`].filter(Boolean).join(' ');
+            return datePart || '—';
+        }
+
+        async function loadAndRenderPastRecords() {
+            const subtitleEl = $('past-records-subtitle');
+            const emptyEl = $('past-records-empty');
+            const tbody = $('past-records-table-body');
+            const tableWrap = $('past-records-table-wrap');
+
+            if (tbody) tbody.innerHTML = '';
+            if (emptyEl) emptyEl.classList.add('is-hidden');
+            if (tableWrap) tableWrap.classList.remove('is-hidden');
+
+            try {
+                const ownerId = String(petProfileCtx.ownerId || '').trim();
+                const petId = String(petProfileCtx.petId || '').trim();
+                const petName = String(petProfileCtx.petName || '').trim();
+                if (subtitleEl) subtitleEl.textContent = petName ? `Pet: ${formatDisplayName(petName)}` : 'Pet: —';
+
+                if (!ownerId || !petId) {
+                    if (emptyEl) emptyEl.classList.remove('is-hidden');
+                    if (tableWrap) tableWrap.classList.add('is-hidden');
+                    return;
+                }
+
+                const q = query(
+                    collection(db, 'appointments'),
+                    where('ownerId', '==', ownerId),
+                    where('status', '==', 'completed'),
+                );
+                const snap = await getDocs(q);
+                const appts = snap.docs
+                    .map((d) => ({ id: d.id, ...d.data() }))
+                    .filter((a) => String(a.petId || a.petID || '').trim() === petId);
+
+                appts.sort((a, b) => timestampToMs(b.createdAt) - timestampToMs(a.createdAt));
+
+                if (!tbody) return;
+                if (!appts.length) {
+                    if (emptyEl) emptyEl.classList.remove('is-hidden');
+                    if (tableWrap) tableWrap.classList.add('is-hidden');
+                    return;
+                }
+
+                appts.forEach((apt) => {
+                    const tr = document.createElement('tr');
+                    const title = String((apt.title || '').trim() || (apt.reason || '').trim() || 'Consultation');
+                    const vet = String((apt.vetName || apt.vet || '').trim() || '—');
+                    const dt = timeDisplayForRow(apt);
+
+                    const downloadBtn = document.createElement('button');
+                    downloadBtn.type = 'button';
+                    downloadBtn.className = 'past-records-download-btn';
+                    downloadBtn.setAttribute('aria-label', 'Download consultation PDF');
+                    downloadBtn.innerHTML = '<i class="fa fa-arrow-down" aria-hidden="true"></i>';
+                    downloadBtn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (!apt.id) return;
+                        downloadConsultationReportForAppointment(apt.id, downloadBtn);
+                    });
+
+                    tr.innerHTML = `
+                        <td class="past-records-td-title">${escapeHtml(title)}</td>
+                        <td class="past-records-td-vet">${escapeHtml(vet)}</td>
+                        <td class="past-records-td-datetime">${escapeHtml(dt)}</td>
+                    `;
+                    const tdDl = document.createElement('td');
+                    tdDl.className = 'past-records-td-download';
+                    tdDl.appendChild(downloadBtn);
+                    tr.appendChild(tdDl);
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                console.error('Past records load failed:', err);
+                if (subtitleEl) subtitleEl.textContent = 'Past Medical Records';
+                if (emptyEl) emptyEl.classList.remove('is-hidden');
+                if (tableWrap) tableWrap.classList.add('is-hidden');
+            }
+        }
+
+        $('messages-profile-records-btn')?.addEventListener('click', async () => {
+            setPastRecordsVisible(true);
+            await loadAndRenderPastRecords();
+        });
+    })();
 
     async function ensureOwnerNames(convs) {
         const toFetch = convs.filter(c => !c.ownerName && c.ownerId);
@@ -466,6 +599,9 @@ export function initVetMessagingPage() {
         if (!conv?.ownerId || !conv?.petId) return;
         const pet = await fetchPetProfile(conv.ownerId, conv.petId);
         profileModal.open(getPetProfileTitle(pet, conv.petName), buildPetProfileRows(pet || {}));
+        petProfileCtx = { ownerId: conv.ownerId, petId: conv.petId, petName: conv.petName || pet?.name || '' };
+        const btn = $('messages-profile-records-btn');
+        btn?.classList.remove('is-hidden');
     });
 
     window.__telehealthMessagesTeardown = () => {

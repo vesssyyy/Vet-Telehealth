@@ -584,7 +584,12 @@
                         <span class="details-pet-avatar-fallback" id="details-pet-avatar-fallback" aria-hidden="true"><i class="fa fa-paw" aria-hidden="true"></i></span>
                     </div>
                     <div class="details-pet-info">
-                        <h3 class="details-pet-name" id="details-pet-name">â€”</h3>
+                        <button type="button" class="details-pet-action-btn details-pet-action-btn--small" id="details-past-records-btn" aria-label="View past records">
+                            <i class="fa fa-history" aria-hidden="true"></i> Records
+                        </button>
+                        <div class="details-pet-top-row">
+                            <h3 class="details-pet-name" id="details-pet-name">â€”</h3>
+                        </div>
                         <div class="details-pet-meta">
                             <span class="details-pet-meta-item"><i class="fa fa-birthday-cake" aria-hidden="true"></i> <span id="details-pet-age">â€”</span></span>
                             <span class="details-pet-meta-item"><i class="fa fa-balance-scale" aria-hidden="true"></i> <span id="details-pet-weight">â€”</span></span>
@@ -630,6 +635,39 @@
                 <button type="button" class="details-message-btn details-download-pdf-btn" id="details-download-pdf-btn"><i class="fa fa-file-pdf-o" aria-hidden="true"></i> Download consultation PDF</button>
                 <button type="button" class="details-message-btn" id="details-message-btn"><i class="fa fa-comment" aria-hidden="true"></i> Message</button>
                 <button type="button" class="details-join-btn" id="details-join-btn"><i class="fa fa-video-camera" aria-hidden="true"></i> Join Video Call</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Past records modal -->
+    <div class="past-records-overlay is-hidden" id="past-records-overlay" aria-hidden="true">
+        <div class="past-records-modal is-hidden" id="past-records-modal" role="dialog" aria-labelledby="past-records-title" aria-modal="true" tabindex="-1">
+            <div class="past-records-card">
+                <div class="past-records-header">
+                    <h2 class="past-records-title" id="past-records-title"><i class="fa fa-history" aria-hidden="true"></i> Past Medical Records</h2>
+                    <button type="button" class="past-records-close" id="past-records-close" aria-label="Close"><i class="fa fa-times" aria-hidden="true"></i></button>
+                </div>
+                <div class="past-records-body">
+                    <div class="past-records-subtitle" id="past-records-subtitle" aria-live="polite">—</div>
+                    <div class="past-records-empty is-hidden" id="past-records-empty" role="status">
+                        <i class="fa fa-folder-open-o" aria-hidden="true"></i>
+                        <p>No past records found</p>
+                        <span class="past-records-empty-hint">Completed consultations for this pet will appear here.</span>
+                    </div>
+                    <div class="past-records-table-wrap" id="past-records-table-wrap">
+                        <table class="past-records-table" aria-label="Past consultation records">
+                            <thead>
+                                <tr>
+                                    <th>Appointment Title</th>
+                                    <th>Vet</th>
+                                    <th>Date and time</th>
+                                    <th class="past-records-th-download" aria-label="Download"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="past-records-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
