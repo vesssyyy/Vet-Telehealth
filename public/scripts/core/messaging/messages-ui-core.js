@@ -2,6 +2,18 @@
 import { escapeHtml, timestampToMs } from '../app/utils.js';
 import { appAlertError } from '../ui/app-dialog.js';
 import { downloadMessageAttachmentFile } from './attachments.js';
+import { skinAnalysisSavedAtToMs } from '../../feature/skin-disease/skin-analysis-repository.js';
+
+function formatSkinShareDateTime(ms) {
+    try {
+        return new Date(ms).toLocaleString(undefined, {
+            dateStyle: 'medium',
+            timeStyle: 'short',
+        });
+    } catch {
+        return '';
+    }
+}
 
 // Timestamp formatting
 export function formatBubbleTimestamp(ts) {
@@ -148,32 +160,42 @@ export function createEmojiPicker({ emojiBtn, input, resizeInput }) {
     return { toggle, close, getOrCreateElement: () => pickerEl };
 }
 
-// HTML block for a skin analysis shared inside a message bubble.
+// HTML block for a skin analysis shared inside a message bubble (layout matches appointment details attached skin).
 export function renderSkinAnalysisShare(share) {
     if (!share || typeof share !== 'object') return '';
     const url = escapeHtml(String(share.imageUrl || ''));
-    const savedNameRaw = String(share.savedName || '').trim();
-    const condition = escapeHtml(String(share.conditionName || 'Skin analysis'));
-    const titleLine = savedNameRaw
-        ? `<strong class="message-skin-analysis-saved-name">${escapeHtml(savedNameRaw)}</strong><span class="message-skin-analysis-condition-sub">Suggested match: ${condition}</span>`
-        : `<strong class="message-skin-analysis-condition">${condition}</strong>`;
     const conf = typeof share.confidence === 'number' && !Number.isNaN(share.confidence) ? share.confidence : 0;
+    const confPct = Math.round(conf * 100);
+    const condRaw = String(share.conditionName || '').trim();
+    const condDisplay = escapeHtml(condRaw || 'Skin analysis');
     const notesRaw = String(share.notes || '').trim();
     const pet = String(share.petType || '').trim();
-    const petLine = pet
-        ? `<span class="message-skin-analysis-pet">${escapeHtml(pet === 'dog' ? 'Dog' : pet === 'cat' ? 'Cat' : pet)}</span>`
-        : '';
+    const petLabel = pet === 'dog' ? 'Dog' : pet === 'cat' ? 'Cat' : pet;
+    const historyMs = skinAnalysisSavedAtToMs(share);
+    const historyDateTimeStr = historyMs != null ? formatSkinShareDateTime(historyMs) : '';
     const notesHtml = notesRaw
-        ? `<p class="message-skin-analysis-notes">${escapeHtml(notesRaw)}</p>`
+        ? `<p class="details-attached-skin-notes">${escapeHtml(notesRaw)}</p>`
+        : '';
+    const petHtml = petLabel
+        ? `<span class="details-attached-skin-pet">${escapeHtml(petLabel)}</span>`
+        : '';
+    const imgBlock = url
+        ? `<button type="button" class="details-attached-skin-img-btn message-skin-analysis-img-btn" data-skin-full-image-url="${url}" aria-label="View image larger"><img src="${url}" alt="" class="details-attached-skin-thumb message-skin-analysis-img" loading="lazy" width="120" height="120"></button>`
         : '';
     return `<div class="message-skin-analysis-card" role="group" aria-label="Shared skin analysis">
-        <div class="message-skin-analysis-header"><i class="fa fa-stethoscope" aria-hidden="true"></i><span>Skin analysis</span></div>
-        ${url ? `<button type="button" class="message-skin-analysis-img-btn" aria-label="View image larger"><img src="${url}" alt="" class="message-skin-analysis-img" loading="lazy" width="120" height="120"></button>` : ''}
-        <div class="message-skin-analysis-body">
-            ${titleLine}
-            <span class="message-skin-analysis-conf">${(conf * 100).toFixed(1)}% confidence</span>
-            ${petLine}
-            ${notesHtml}
+        <div class="message-skin-analysis-header"><i class="fa fa-stethoscope" aria-hidden="true"></i><span>Skin health analysis</span></div>
+        <div class="details-attached-skin-card">
+            ${imgBlock}
+            <div class="details-attached-skin-body">
+                <div class="details-attached-skin-match-block">
+                    <span class="details-attached-skin-kicker">Suggested match</span>
+                    <strong class="details-attached-skin-title">${condDisplay}</strong>
+                </div>
+                <span class="details-attached-skin-confidence">${confPct}% Confidence</span>
+                ${historyDateTimeStr ? `<span class="details-attached-skin-saved-at">${escapeHtml(historyDateTimeStr)}</span>` : ''}
+                ${petHtml}
+                ${notesHtml}
+            </div>
         </div>
     </div>`;
 }
@@ -184,7 +206,10 @@ export function wireMessageAttachmentThumbnails(rootEl) {
     rootEl.querySelectorAll('.message-skin-analysis-img').forEach((img) => {
         const wrap = img.closest('.message-skin-analysis-card');
         if (!wrap) return;
-        const reveal = () => wrap.classList.add('message-skin-analysis--loaded');
+        const reveal = () => {
+            wrap.classList.add('message-skin-analysis--loaded');
+            img.classList.add('is-loaded');
+        };
         img.addEventListener('load', reveal);
         img.addEventListener('error', reveal);
         if (img.complete) reveal();
